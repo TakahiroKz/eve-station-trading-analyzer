@@ -269,3 +269,36 @@ def test_prune_old_snapshots_keeps_recent_rows_and_reports_deleted_count(tmp_pat
 
     assert deleted == 2
     assert remaining == 2
+
+
+def test_prune_old_snapshots_deletes_in_batches_smaller_than_the_backlog(tmp_path):
+    from storage.db import prune_old_snapshots
+
+    path = str(tmp_path / "prune_batches.db")
+    init_db(path)
+    conn = get_connection(path)
+    for type_id in range(1, 8):
+        conn.execute("INSERT INTO item_type (type_id, name) VALUES (?, ?)", (type_id, f"item{type_id}"))
+        for days_ago in (0, 20, 30):
+            conn.execute(
+                "INSERT INTO market_snapshot (type_id, captured_at, best_buy, best_sell, buy_volume, "
+                "sell_volume, buy_order_count, sell_order_count) "
+                f"VALUES ({type_id}, datetime('now', '-{days_ago} days'), 1, 2, 1, 1, 1, 1)",
+            )
+    conn.commit()
+
+    deleted = prune_old_snapshots(conn, keep_days=7, batch_size=3)  # 14 filas viejas, lotes de 3
+    remaining = conn.execute("SELECT COUNT(*) FROM market_snapshot").fetchone()[0]
+    conn.close()
+
+    assert deleted == 14
+    assert remaining == 7
+
+
+def test_init_db_enables_wal_mode(tmp_path):
+    path = str(tmp_path / "wal.db")
+    init_db(path)
+    conn = get_connection(path)
+    mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
+    conn.close()
+    assert mode == "wal"
