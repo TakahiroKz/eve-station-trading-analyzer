@@ -453,7 +453,19 @@ regla del NSG de Oracle para el 8001 sigue sin sacarse (D9 ya cerrado igual, por
 `docker-compose.yml` dejó de publicar el puerto — la regla del NSG hoy no tiene nada
 detrás a lo que conectarse).
 
-### T15. Internacionalización: selector de idioma + detección automática (pendiente)
+### T15. ~~Internacionalización: selector de idioma + detección automática~~ (hecho)
+
+**Implementado (2026-11-03):** `src/i18n/{en,es,de,fr,it}.ts` con `en.ts` como fuente de
+verdad (los demás están tipados contra él: una clave faltante no compila), `I18nProvider`
++ `useI18n()`, selector de idioma en la navbar, prioridad `?lang=xx` > `localStorage` >
+`navigator.languages` > **inglés** (default). Formatos de número/hora vía `Intl` con el
+locale elegido. `index.html` queda en inglés con `hreflang` y se actualizan `<html lang>`,
+título y metadatos al cambiar de idioma.
+- Los textos que vienen del backend (etiquetas de spread/liquidez, recomendación, motivo
+  de clasificación, nombres de ajustes) se traducen en el frontend reconociendo las
+  frases conocidas; lo no reconocido se muestra tal cual. Las **descripciones** de los
+  ajustes (`description`) siguen llegando en español.
+- Pendiente: un idioma por URL real (`/en/`, `/de/`…) y páginas públicas por ítem para SEO.
 Pedido del usuario (2026-11-03): que la web esté disponible en **español, inglés,
 alemán, francés e italiano**, con dos mecanismos combinados: (a) detección automática
 al primer ingreso a partir de `navigator.language` (con español como fallback), y (b)
