@@ -49,9 +49,13 @@
     </script>
   </head>
   <body>
-    <!-- Static content inside #root: seen by crawlers (including AI ones) that do not run
-         JavaScript. React replaces it as soon as the app mounts. English, the default. -->
-    <div id="root">
+    <div id="root"></div>
+    <!-- Static content for crawlers (including AI ones) that do not run JavaScript. It lives in
+         <noscript> on purpose: in a normal browser it is never rendered, so there is no flash
+         of unstyled text before the app loads. ASSUMPTION, not verified: that crawlers read
+         <noscript> content; Google renders JavaScript and sees the mounted app instead. English,
+         the default; the app itself translates at runtime. -->
+    <noscript>
       <h1>EveMarket Screener — station trading in EVE Online</h1>
       <p>
         Free screener that ranks the items of The Forge (Jita) market by ROI, spread, daily
@@ -81,8 +85,8 @@
         Independent site, not affiliated with CCP Games. EVE Online is a trademark of CCP hf.
         Informational tool, not investment advice.
       </p>
-      <noscript>Enable JavaScript to use the interactive Screener.</noscript>
-    </div>
+      <p>Enable JavaScript to use the interactive Screener.</p>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
