@@ -117,6 +117,14 @@ def init_db(db_path: str) -> None:
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     conn = get_connection(db_path)
     try:
+        # WAL: los lectores (la API) no se bloquean mientras un motor escribe -- en el modo
+        # por defecto un commit grande del motor de mercado dejaba a la API con "database is
+        # locked" (500). Es persistente en el archivo; si otro proceso tiene la base
+        # abierta no se puede cambiar de modo y simplemente se reintenta en la próxima corrida.
+        conn.execute("PRAGMA journal_mode = WAL")
+    except sqlite3.OperationalError:
+        pass
+    try:
         _migrate_schema(conn)
         conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
         _migrate_classification_settings(conn)
@@ -187,21 +195,27 @@ def upsert_market_snapshot(conn: sqlite3.Connection, type_id: int, captured_at: 
     )
 
 
-def prune_old_snapshots(conn: sqlite3.Connection, keep_days: int) -> int:
+def prune_old_snapshots(conn: sqlite3.Connection, keep_days: int, batch_size: int = 20000) -> int:
     """Borra snapshots de órdenes más viejos que `keep_days` días (solo el último de
     cada ítem alimenta al screening y a la API; el resto es historial que crecía sin
-    límite -- 1,3 GB en la VM de 1 GB de RAM). Borra por lote (un captured_at por
-    commit) para no mantener un lock de escritura largo sobre la SQLite compartida.
+    límite -- 1,3 GB en la VM de 1 GB de RAM). Borra por lotes de `batch_size` filas, un
+    commit por lote, para no mantener un lock de escritura largo sobre la SQLite
+    compartida con la API (un único DELETE gigante, o uno por captured_at -- que no está
+    al frente de la PK (type_id, captured_at) y recorre toda la tabla cada vez, no el
+    índice -- dejó la API tirando "database is locked" en producción).
     No hace VACUUM: las páginas liberadas se reutilizan. Devuelve las filas borradas."""
     cutoff = (datetime.now(timezone.utc) - timedelta(days=keep_days)).isoformat()
-    stamps = [r[0] for r in conn.execute(
-        "SELECT DISTINCT captured_at FROM market_snapshot WHERE captured_at < ?", (cutoff,)
-    ).fetchall()]
     deleted = 0
-    for stamp in stamps:
-        deleted += conn.execute("DELETE FROM market_snapshot WHERE captured_at = ?", (stamp,)).rowcount
+    while True:
+        count = conn.execute(
+            "DELETE FROM market_snapshot WHERE rowid IN "
+            "(SELECT rowid FROM market_snapshot WHERE captured_at < ? LIMIT ?)",
+            (cutoff, batch_size),
+        ).rowcount
         conn.commit()
-    return deleted
+        if count <= 0:
+            return deleted
+        deleted += count
 
 
 def get_item_status(conn: sqlite3.Connection, type_id: int) -> sqlite3.Row | None:
