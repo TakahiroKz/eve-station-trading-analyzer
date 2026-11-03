@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/sukunaryomendev/evemarket-analyzer-trading-tool
+  IMAGE: ghcr.io/takahirokz/eve-station-trading-analyzer
 
 jobs:
   build-and-push:
