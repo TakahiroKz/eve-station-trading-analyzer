@@ -232,7 +232,7 @@ clase de superficie que el pedido original de login pedía evitar — para un pr
 personal de un solo usuario. Aceptado como riesgo residual, no requiere volver a
 preguntar salvo que cambie el contexto (ej. más de un usuario con acceso).
 
-### D17. Regla del NSG de Oracle para el puerto 8001 sigue sin sacarse — **Baja**
+### D17. ~~Regla del NSG de Oracle para el puerto 8001 sigue sin sacarse~~ (hecho) — **Baja**
 Al cerrar D9 (T14) se sacó la regla de iptables en la VM y se cambió
 `docker-compose.yml` para publicar el 8001 solo en loopback — verificado que el
 puerto ya no responde externamente. Pero la regla de ingress del **NSG/Security List
@@ -244,6 +244,11 @@ firewall abierta sin ninguna razón, y si en el futuro algo volviera a publicar 
 puerto por error (ej. un cambio accidental en `docker-compose.yml`), el NSG dejaría
 de ser la segunda barrera que debería ser. Cierre simple: Oracle Cloud Console → la
 instancia → su VCN → Security List/NSG → sacar la regla de ingress para TCP 8001.
+
+**Resuelto el 2026-11-03** con el CLI de OCI: se borraron las reglas de ingress TCP
+8001 desde 0.0.0.0/0 de los dos NSG `evemarketanalyzer-NSGNSG` (la Security List por
+defecto de la VCN ya no la tenía). Verificado: `https://evemarket-analyzer.online`
+responde 200 y `http://<IP-de-la-VM>:8001` ya no responde.
 
 ### D18. `DeprecationWarning` de pandas en `demand.py`/`rotation.py`/`volatility.py`/`volume.py` — **Baja**
 Las cuatro comparten el patrón `history.groupby("type_id", group_keys=False).apply(lambda g: g.tail(window_days))`,
