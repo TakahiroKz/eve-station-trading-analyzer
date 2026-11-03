@@ -20,6 +20,7 @@ from fastapi.staticfiles import StaticFiles
 
 from backend.api.deps import ITEM_JOIN, ITEM_SELECT_COLS, _db
 from backend.api.private import router as private_router
+from backend.api.seo import docs_kwargs, install_seo_middleware
 from backend.api.schemas import (
     CategoryOut,
     HistoryPointOut,
@@ -36,7 +37,8 @@ from ingestion.schedule import get_next_run_times
 
 load_dotenv()
 
-app = FastAPI(title="EveMarket Screener API", version="1.0.0")
+app = FastAPI(title="EveMarket Screener API", version="1.0.0", **docs_kwargs())
+install_seo_middleware(app)
 
 app.add_middleware(
     CORSMiddleware,
