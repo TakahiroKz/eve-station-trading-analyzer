@@ -1,0 +1,67 @@
+"""Endurecimiento de SEO a nivel de aplicación (Fase 0 de SEO_PLAN.md): redirecciones
+canónicas, cabeceras de caché y de indexación, y la documentación interactiva apagada.
+
+Cloudflare termina el TLS y entrega las requests por el túnel con `X-Forwarded-Proto`; el
+token de la API de Cloudflare de este proyecto no puede cambiar ajustes de zona, así que
+las redirecciones se resuelven acá en vez de con "Always Use HTTPS" / una Redirect Rule.
+"""
+import os
+
+from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse, Response
+
+CANONICAL_HOST = os.environ.get("CANONICAL_HOST", "evemarket-analyzer.online")
+
+IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
+
+
+def docs_kwargs() -> dict:
+    """La documentación (/docs, /redoc, /openapi.json) también lista las rutas privadas y
+    no aporta nada a un visitante: solo se publica con ENABLE_API_DOCS=1 (dev local)."""
+    if os.environ.get("ENABLE_API_DOCS") == "1":
+        return {}
+    return {"docs_url": None, "redoc_url": None, "openapi_url": None}
+
+
+def canonical_redirect(host: str, forwarded_proto: str, path_qs: str) -> str | None:
+    """URL a la que redirigir (301), o None si la request ya es canónica. Solo actúa sobre
+    el dominio de producción (y su `www`): localhost, el health check del deploy y los
+    tests no mandan ese Host y no se tocan."""
+    host = host.split(":")[0].lower()
+    if host not in (CANONICAL_HOST, f"www.{CANONICAL_HOST}"):
+        return None
+    if host == CANONICAL_HOST and forwarded_proto != "http":
+        return None
+    return f"https://{CANONICAL_HOST}{path_qs}"
+
+
+def cache_control_for(path: str, content_type: str, status_code: int) -> str | None:
+    if status_code != 200:
+        return None
+    if path.startswith("/assets/"):
+        return IMMUTABLE_CACHE  # archivos con hash en el nombre: nunca cambian
+    if content_type.startswith("text/html"):
+        return "no-cache"  # que el HTML siempre apunte a los assets vigentes
+    return None
+
+
+def install_seo_middleware(app: FastAPI) -> None:
+    @app.middleware("http")
+    async def seo_middleware(request: Request, call_next) -> Response:
+        target = canonical_redirect(
+            request.headers.get("host", ""),
+            request.headers.get("x-forwarded-proto", ""),
+            request.url.path + (f"?{request.url.query}" if request.url.query else ""),
+        )
+        if target:
+            return RedirectResponse(target, status_code=301)
+
+        response = await call_next(request)
+        cache = cache_control_for(
+            request.url.path, response.headers.get("content-type", ""), response.status_code,
+        )
+        if cache and "cache-control" not in response.headers:
+            response.headers["Cache-Control"] = cache
+        if request.url.path.startswith("/api/"):
+            response.headers["X-Robots-Tag"] = "noindex, nofollow"
+        return response
