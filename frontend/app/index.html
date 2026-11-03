@@ -24,9 +24,57 @@
     <meta property="og:url" content="https://evemarket-analyzer.online/" />
     <meta property="og:image" content="https://evemarket-analyzer.online/icon-512.png" />
     <meta name="twitter:card" content="summary" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "EveMarket Screener",
+        "url": "https://evemarket-analyzer.online/",
+        "description": "Screener gratuito de station trading para EVE Online: ítems con mejor ROI, spread y liquidez en The Forge (Jita), actualizado cada 4 horas.",
+        "applicationCategory": "GameApplication",
+        "operatingSystem": "Web",
+        "inLanguage": "es",
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+      }
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Contenido estático dentro de #root: lo ven los crawlers (incluidos los de IA) que
+         no ejecutan JavaScript. React lo reemplaza apenas monta la app. -->
+    <div id="root">
+      <h1>EveMarket Screener — station trading en EVE Online</h1>
+      <p>
+        Screener gratuito que clasifica los ítems del mercado de The Forge (Jita) según su
+        ROI, spread, volumen diario y operaciones por día. Los datos se actualizan cada
+        4 horas.
+      </p>
+      <h2>Preguntas frecuentes</h2>
+      <h3>¿Qué es el station trading?</h3>
+      <p>
+        Comprar ítems a precio de orden de compra y revenderlos con una orden de venta en la
+        misma estación, ganando la diferencia (spread) menos impuestos y comisiones.
+      </p>
+      <h3>¿Qué significan las categorías?</h3>
+      <p>
+        Potencial: el spread, la liquidez y la actividad real de mercado de los últimos
+        7 días cumplen los criterios. Sin órdenes: spread y liquidez cumplen, pero el
+        histórico de transacciones ejecutadas es demasiado bajo (poco volumen o pocas
+        operaciones por día). En observación: caso borderline, se necesita más historial.
+        Descartado: spread en pérdida o liquidez inviable.
+      </p>
+      <h3>¿De dónde salen los datos?</h3>
+      <p>De la ESI, la API oficial de CCP Games para EVE Online. No se usa scraping.</p>
+      <h3>¿Cada cuánto se actualizan los datos?</h3>
+      <p>El motor de mercado corre cada 4 horas.</p>
+      <h3>¿Es gratis?</h3>
+      <p>Sí, el Screener es público y no requiere cuenta.</p>
+      <p>
+        Sitio independiente, no afiliado a CCP Games. EVE Online es marca de CCP hf.
+        Herramienta informativa, no una recomendación de inversión.
+      </p>
+      <noscript>Activá JavaScript para usar el Screener interactivo.</noscript>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
