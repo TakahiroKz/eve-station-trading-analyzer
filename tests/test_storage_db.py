@@ -246,3 +246,26 @@ def test_get_connection_enforces_foreign_keys(db_path):
             "order_count) VALUES (999999, date('now'), 1, 1, 1, 1, 1)",
         )
     conn.close()
+
+
+def test_prune_old_snapshots_keeps_recent_rows_and_reports_deleted_count(tmp_path):
+    from storage.db import prune_old_snapshots
+
+    path = str(tmp_path / "prune.db")
+    init_db(path)
+    conn = get_connection(path)
+    conn.execute("INSERT INTO item_type (type_id, name) VALUES (34, 'Tritanium')")
+    for days_ago in (0, 3, 10, 20):
+        conn.execute(
+            "INSERT INTO market_snapshot (type_id, captured_at, best_buy, best_sell, buy_volume, "
+            "sell_volume, buy_order_count, sell_order_count) "
+            f"VALUES (34, datetime('now', '-{days_ago} days'), 1, 2, 1, 1, 1, 1)",
+        )
+    conn.commit()
+
+    deleted = prune_old_snapshots(conn, keep_days=7)
+    remaining = conn.execute("SELECT COUNT(*) FROM market_snapshot").fetchone()[0]
+    conn.close()
+
+    assert deleted == 2
+    assert remaining == 2

@@ -254,3 +254,69 @@ def test_screen_opportunities_forces_descartado_when_price_is_insane(
 
     assert status["status"] == "DESCARTADO"
     assert mocked_screening == [[]]  # DESCARTADO nunca dispara NewOpportunity
+
+
+def test_screen_opportunities_uses_only_the_latest_snapshot_and_a_bounded_history(
+    tmp_path, screening_db, mocked_screening, monkeypatch,
+):
+    """Regresión de memoria: el screening no debe cargar TODAS las filas de
+    market_snapshot/market_history (en la VM de 1 GB de RAM llevó al swap thrashing),
+    sino el último snapshot por ítem y las últimas HISTORY_WINDOW filas de histórico."""
+    seen = {}
+
+    def fake_evaluar(item, buy, sell, volumen_deseado, volumen_diario_real, config):
+        seen["buy"], seen["sell"], seen["volumen_diario_real"] = buy, sell, volumen_diario_real
+        from analytics.eve_calculator import evaluar_oportunidad
+        return evaluar_oportunidad(item, buy, sell, volumen_deseado, volumen_diario_real, config)
+
+    monkeypatch.setattr("scheduler.run.evaluar_oportunidad", fake_evaluar)
+    monkeypatch.setattr("scheduler.run.is_price_sane", lambda *a, **k: True)
+    monkeypatch.setattr("scheduler.run.classify", lambda *a, **k: ("POTENCIAL", "ok"))
+
+    conn = get_connection(screening_db)
+    # Snapshots viejos con precios distintos: el vigente es el de datetime('now') del fixture.
+    for days_ago, price in ((1, 1.0), (2, 2.0), (3, 3.0)):
+        conn.execute(
+            "INSERT INTO market_snapshot (type_id, captured_at, best_buy, best_sell, buy_volume, "
+            "sell_volume, buy_order_count, sell_order_count) "
+            f"VALUES (34, datetime('now', '-{days_ago} days'), {price}, {price + 1}, 10, 10, 1, 1)",
+        )
+    # 60 días de histórico viejo con volumen enorme: fuera de la ventana de 30 filas.
+    for days_ago in range(1, 61):
+        conn.execute(
+            "INSERT INTO market_history (type_id, date, avg_price, highest, lowest, volume, order_count) "
+            f"VALUES (34, date('now', '-{days_ago} days'), 4.2, 4.6, 3.9, "
+            f"{1000 if days_ago < 30 else 10_000_000}, 5)",
+        )
+    conn.commit()
+    conn.close()
+
+    screen_opportunities(screening_db, str(tmp_path / "registro.xlsx"))
+
+    assert (seen["buy"], seen["sell"]) == (4.0, 4.5)  # el snapshot más reciente, no uno viejo
+    assert seen["volumen_diario_real"] == 1000  # las 30 filas más recientes, sin el histórico viejo
+
+
+def test_ingest_prunes_snapshots_older_than_the_retention_window(db_path, monkeypatch):
+    monkeypatch.setenv("SNAPSHOT_RETENTION_DAYS", "7")
+    conn = get_connection(db_path)
+    conn.execute("INSERT INTO item_type (type_id, name) VALUES (34, 'Tritanium')")
+    conn.execute(
+        "INSERT INTO market_snapshot (type_id, captured_at, best_buy, best_sell, buy_volume, "
+        "sell_volume, buy_order_count, sell_order_count) "
+        "VALUES (34, datetime('now', '-30 days'), 1, 2, 1, 1, 1, 1)",
+    )
+    conn.commit()
+    conn.close()
+    client = _FakeMarketClient(
+        type_ids=[34],
+        orders=[{"type_id": 34, "is_buy_order": False, "volume_remain": 10, "price": 4.5}],
+        names={34: "Tritanium"},
+    )
+
+    ingest(client, region_id=10000002, db_path=db_path, backfill=False)
+
+    conn = get_connection(db_path)
+    remaining = conn.execute("SELECT COUNT(*) FROM market_snapshot WHERE type_id = 34").fetchone()[0]
+    conn.close()
+    assert remaining == 1  # solo el snapshot nuevo; el de hace 30 días se borró

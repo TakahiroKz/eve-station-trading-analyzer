@@ -43,6 +43,7 @@ from storage.db import (
     init_db,
     insert_opportunity,
     insert_status_history,
+    prune_old_snapshots,
     upsert_item_category,
     upsert_item_status,
     upsert_item_type,
@@ -54,6 +55,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logging.getLogger("httpx").setLevel(logging.WARNING)  # una línea por request satura el log en corridas programadas
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
+
+HISTORY_WINDOW = 30  # filas de histórico por ítem que usa el screening (ventana de 30 días)
+DEFAULT_SNAPSHOT_RETENTION_DAYS = 7
 
 
 def ingest(client: EsiClient, region_id: int, db_path: str, backfill: bool, max_workers: int = 20) -> list[int]:
@@ -74,6 +78,11 @@ def ingest(client: EsiClient, region_id: int, db_path: str, backfill: bool, max_
             upsert_market_snapshot(conn, type_id, captured_at, snapshot)
         conn.commit()
         logger.info("Nombres e snapshot de órdenes cargados para %d tipos", len(type_ids))
+
+        keep_days = int(os.environ.get("SNAPSHOT_RETENTION_DAYS", DEFAULT_SNAPSHOT_RETENTION_DAYS))
+        deleted = prune_old_snapshots(conn, keep_days)
+        if deleted:
+            logger.info("Snapshots de más de %d días borrados: %d filas", keep_days, deleted)
 
         done = 0
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
@@ -202,11 +211,23 @@ def screen_opportunities(db_path: str, excel_path: str,
         logger.info("AlertRules activas: min_daily_volume_7d=%.0f, min_daily_order_count_7d=%.0f",
                     settings["min_daily_volume_7d"], settings["min_daily_order_count_7d"])
 
+        # Solo lo que el screening realmente usa: el ÚLTIMO snapshot de cada ítem y sus
+        # últimas HISTORY_WINDOW filas de histórico (más abajo se hace tail(30)/tail(7)
+        # por ítem). Cargar las tablas completas (1,3 GB en la VM de 1 GB de RAM) llevaba
+        # al swap thrashing y la corrida nunca terminaba.
         snapshot = pd.read_sql_query(
-            "SELECT s.*, i.name FROM market_snapshot s JOIN item_type i ON i.type_id = s.type_id",
+            "SELECT s.*, i.name FROM market_snapshot s JOIN item_type i ON i.type_id = s.type_id "
+            "WHERE s.captured_at = (SELECT MAX(s2.captured_at) FROM market_snapshot s2 "
+            "WHERE s2.type_id = s.type_id)",
             conn,
         )
-        history = pd.read_sql_query("SELECT * FROM market_history", conn)
+        history = pd.read_sql_query(
+            "SELECT type_id, date, avg_price, volume, order_count FROM ("
+            "SELECT type_id, date, avg_price, volume, order_count, "
+            "ROW_NUMBER() OVER (PARTITION BY type_id ORDER BY date DESC) AS rn "
+            "FROM market_history) WHERE rn <= ?",
+            conn, params=(HISTORY_WINDOW,),
+        )
 
         latest_snapshot = snapshot.sort_values("captured_at").groupby("type_id").tail(1)
         recent_history = history.sort_values("date").groupby("type_id").tail(30)
