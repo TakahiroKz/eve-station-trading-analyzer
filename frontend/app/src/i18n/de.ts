@@ -205,4 +205,51 @@ export const de: Messages = {
   "setting.recomendacion_objetivo_pct": "Zielvolumen (% des Tagesvolumens)",
   "setting.sanity_min_ratio": "Minimales Verhältnis zum Referenzpreis",
   "setting.sanity_max_ratio": "Maximales Verhältnis zum Referenzpreis",
+
+  "nav.howItWorks": "So funktioniert's",
+  "nav.allItems": "Alle Items",
+
+  "hero.eyebrow": "STATION TRADING · THE FORGE (JITA)",
+  "hero.title": "Finde heraus, was sich in Jita zu handeln lohnt",
+  "hero.subtitle":
+    "Kostenloser Screener, der Marktgüter nach ROI, Spread und echtem Volumen sortiert. Offizielle ESI-Daten, alle 4 Stunden aktualisiert.",
+  "hero.cta": "Chancen ansehen",
+  "hero.ctaHow": "So funktioniert's",
+
+  "stats.opportunities": "Aktuelle Chancen",
+  "stats.analyzed": "Analysierte Items",
+  "stats.refresh": "Aktualisierung",
+  "stats.every4h": "alle 4 Std.",
+  "stats.next": "Nächste Aktualisierung",
+
+  "best.title": "Aktuell die Besten",
+  "best.hint": "Höchster ROI bei mindestens {n} Trades pro Tag",
+
+  "screener.title": "Alle Chancen",
+  "screener.colSpread": "SPREAD/E",
+  "screener.colOps": "TRADES/TAG",
+  "filters.minRoiShort": "Min. ROI %",
+  "filters.minVolumeShort": "Min. Volumen",
+  "screener.pricesInIsk": "Preise in ISK",
+
+  "how.title": "So funktioniert's",
+  "how.step1.title": "Status wählen",
+  "how.step1.body": "Beginne bei Potenzial: Items mit gutem Spread, Liquidität und echter Handelsaktivität.",
+  "how.step2.title": "Filtern und sortieren",
+  "how.step2.body": "Nach ROI, Spread, Preis oder Tagesvolumen – passend zu deinem Kapital und deinem Stil.",
+  "how.step3.title": "Kaufen und weiterverkaufen",
+  "how.step3.body": "Die Daten werden alle 4 Stunden aus der ESI, der offiziellen API von CCP Games, aktualisiert.",
+  "how.statesTitle": "Was die Status bedeuten",
+  "how.stateBody.POTENCIAL":
+    "Spread, Liquidität und tatsächliche Marktaktivität der letzten 7 Tage erfüllen die Kriterien.",
+  "how.stateBody.POTENCIAL_SIN_ORDENES":
+    "Spread und Liquidität passen, aber die Historie ausgeführter Trades ist zu niedrig (wenig Volumen oder wenige Trades pro Tag).",
+  "how.stateBody.EN_OBSERVACION": "Grenzfall: Für eine Entscheidung braucht es mehr Verlauf.",
+  "how.stateBody.DESCARTADO": "Spread im Minus oder nicht tragfähige Liquidität.",
+
+  "support.title": "Hilft dir der Screener?",
+  "support.body": "Er ist kostenlos und wird durch Spenden am Laufen gehalten. Jeder Beitrag hilft, ihn online zu halten.",
+
+  "footer.disclaimer":
+    "Unabhängige Seite, nicht mit CCP Games verbunden. EVE Online ist eine Marke von CCP hf. Reines Informationswerkzeug, keine Anlageberatung.",
 };

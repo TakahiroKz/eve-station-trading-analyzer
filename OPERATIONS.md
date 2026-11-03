@@ -171,6 +171,25 @@ el watchdog no puede ver porque corre en la misma VM: VM entera caída, túnel o
   agradecimiento. Si algún día hace falta confirmar donaciones, hay que usar webhooks de
   PayPal, que es otro trabajo.
 
+## Frontend: idiomas por ruta, SEO y desarrollo local
+
+- **Un HTML por idioma.** `npm run build` genera `dist/index.html` (inglés) y
+  `dist/{es,de,fr,it}/index.html` (plugin `language-pages` en `frontend/app/vite.config.ts`),
+  cada uno con su `<title>`, descripción, `canonical`, `hreflang`, Open Graph y bloque
+  `<noscript>` en su idioma, más un `manifest.json` localizado por idioma. La API los sirve con
+  el mismo `StaticFiles(html=True)` de siempre (`/es/` → `es/index.html`). Los textos salen de
+  `src/i18n/*.ts`: una clave nueva se agrega en los cinco archivos o no compila.
+- **La app elige el idioma así:** ruta (`/es/`) > `?lang=xx` (formato viejo: se reescribe a
+  `/es/` al cargar) > elección guardada > idioma del navegador > inglés. Cambiar de idioma en
+  el selector cambia la URL.
+- **Fuentes propias:** Space Grotesk e IBM Plex Mono vienen de `@fontsource/*` (versión fija en
+  `package.json`), ya no de Google Fonts.
+- **`og-image.png`** (1200×630) está dibujada a mano; no se regenera sola. Si cambia la marca o
+  el lema, hay que rehacerla.
+- **Desarrollo local contra producción:** poner `API_PROXY=https://evemarket-analyzer.online`
+  en `frontend/app/.env` (no se versiona) para que `npm run dev` use la API de producción sin
+  levantar el backend. Solo sirve para endpoints públicos; los privados piden login de Access.
+
 ## Datos
 
 - `storage/market.db` — SQLite: histórico, snapshots, clasificación vigente por ítem

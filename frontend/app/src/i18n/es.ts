@@ -205,4 +205,51 @@ export const es: Messages = {
   "setting.recomendacion_objetivo_pct": "Volumen objetivo (% del volumen diario)",
   "setting.sanity_min_ratio": "Ratio mínimo vs. precio de referencia",
   "setting.sanity_max_ratio": "Ratio máximo vs. precio de referencia",
+
+  "nav.howItWorks": "Cómo funciona",
+  "nav.allItems": "Todos los ítems",
+
+  "hero.eyebrow": "STATION TRADING · THE FORGE (JITA)",
+  "hero.title": "Encuentra qué comerciar en Jita",
+  "hero.subtitle":
+    "Screener gratuito que ordena los ítems del mercado por ROI, spread y volumen real. Datos oficiales de la ESI, actualizados cada 4 horas.",
+  "hero.cta": "Ver oportunidades",
+  "hero.ctaHow": "Cómo funciona",
+
+  "stats.opportunities": "Oportunidades ahora",
+  "stats.analyzed": "Ítems analizados",
+  "stats.refresh": "Se actualiza",
+  "stats.every4h": "cada 4 h",
+  "stats.next": "Próxima actualización",
+
+  "best.title": "Mejores ahora",
+  "best.hint": "Mayor ROI con al menos {n} operaciones al día",
+
+  "screener.title": "Todas las oportunidades",
+  "screener.colSpread": "SPREAD/U",
+  "screener.colOps": "OPS/DÍA",
+  "filters.minRoiShort": "ROI mínimo %",
+  "filters.minVolumeShort": "Volumen mín.",
+  "screener.pricesInIsk": "Precios en ISK",
+
+  "how.title": "Cómo funciona",
+  "how.step1.title": "Elige un estado",
+  "how.step1.body": "Empieza por Potencial: ítems con buen margen, liquidez y movimiento real.",
+  "how.step2.title": "Filtra y ordena",
+  "how.step2.body": "Por ROI, spread, precio o volumen diario, según tu capital y tu estilo.",
+  "how.step3.title": "Compra y revende",
+  "how.step3.body": "Los datos se renuevan cada 4 horas desde la ESI, la API oficial de CCP Games.",
+  "how.statesTitle": "Qué significa cada estado",
+  "how.stateBody.POTENCIAL":
+    "Spread, liquidez y actividad real de mercado de los últimos 7 días cumplen los criterios.",
+  "how.stateBody.POTENCIAL_SIN_ORDENES":
+    "Spread y liquidez cumplen, pero el histórico de transacciones ejecutadas es demasiado bajo (poco volumen o pocas operaciones por día).",
+  "how.stateBody.EN_OBSERVACION": "Caso límite: hace falta más historial para decidir.",
+  "how.stateBody.DESCARTADO": "Spread en pérdida o liquidez inviable.",
+
+  "support.title": "¿Te sirve el Screener?",
+  "support.body": "Es gratis y se mantiene con donaciones. Cualquier aporte ayuda a que siga online.",
+
+  "footer.disclaimer":
+    "Sitio independiente, no afiliado a CCP Games. EVE Online es marca de CCP hf. Herramienta informativa, no una recomendación de inversión.",
 };

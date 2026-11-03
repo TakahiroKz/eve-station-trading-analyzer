@@ -205,4 +205,51 @@ export const fr: Messages = {
   "setting.recomendacion_objetivo_pct": "Volume cible (% du volume quotidien)",
   "setting.sanity_min_ratio": "Ratio minimum par rapport au prix de référence",
   "setting.sanity_max_ratio": "Ratio maximum par rapport au prix de référence",
+
+  "nav.howItWorks": "Comment ça marche",
+  "nav.allItems": "Tous les objets",
+
+  "hero.eyebrow": "STATION TRADING · THE FORGE (JITA)",
+  "hero.title": "Trouvez quoi échanger à Jita",
+  "hero.subtitle":
+    "Screener gratuit qui classe les objets du marché par ROI, spread et volume réel. Données officielles de l'ESI, actualisées toutes les 4 heures.",
+  "hero.cta": "Voir les opportunités",
+  "hero.ctaHow": "Comment ça marche",
+
+  "stats.opportunities": "Opportunités actuelles",
+  "stats.analyzed": "Objets analysés",
+  "stats.refresh": "Actualisation",
+  "stats.every4h": "toutes les 4 h",
+  "stats.next": "Prochaine actualisation",
+
+  "best.title": "Les meilleures en ce moment",
+  "best.hint": "ROI le plus élevé avec au moins {n} transactions par jour",
+
+  "screener.title": "Toutes les opportunités",
+  "screener.colSpread": "SPREAD/U",
+  "screener.colOps": "TRANSACT./JOUR",
+  "filters.minRoiShort": "ROI min. %",
+  "filters.minVolumeShort": "Volume min.",
+  "screener.pricesInIsk": "Prix en ISK",
+
+  "how.title": "Comment ça marche",
+  "how.step1.title": "Choisissez un statut",
+  "how.step1.body": "Commencez par Potentiel : des objets avec une bonne marge, de la liquidité et une activité de marché réelle.",
+  "how.step2.title": "Filtrez et triez",
+  "how.step2.body": "Par ROI, spread, prix ou volume quotidien, selon votre capital et votre style.",
+  "how.step3.title": "Achetez et revendez",
+  "how.step3.body": "Les données sont actualisées toutes les 4 heures depuis l'ESI, l'API officielle de CCP Games.",
+  "how.statesTitle": "Ce que signifie chaque statut",
+  "how.stateBody.POTENCIAL":
+    "Le spread, la liquidité et l'activité réelle du marché sur 7 jours respectent les critères.",
+  "how.stateBody.POTENCIAL_SIN_ORDENES":
+    "Le spread et la liquidité conviennent, mais l'historique des transactions exécutées est trop faible (peu de volume ou peu de transactions par jour).",
+  "how.stateBody.EN_OBSERVACION": "Cas limite : il faut plus d'historique pour trancher.",
+  "how.stateBody.DESCARTADO": "Spread négatif ou liquidité non viable.",
+
+  "support.title": "Le Screener vous est utile ?",
+  "support.body": "Il est gratuit et fonctionne grâce aux dons. Chaque contribution aide à le garder en ligne.",
+
+  "footer.disclaimer":
+    "Site indépendant, non affilié à CCP Games. EVE Online est une marque de CCP hf. Outil informatif, pas un conseil en investissement.",
 };

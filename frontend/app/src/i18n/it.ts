@@ -205,4 +205,51 @@ export const it: Messages = {
   "setting.recomendacion_objetivo_pct": "Volume obiettivo (% del volume giornaliero)",
   "setting.sanity_min_ratio": "Rapporto minimo rispetto al prezzo di riferimento",
   "setting.sanity_max_ratio": "Rapporto massimo rispetto al prezzo di riferimento",
+
+  "nav.howItWorks": "Come funziona",
+  "nav.allItems": "Tutti gli oggetti",
+
+  "hero.eyebrow": "STATION TRADING · THE FORGE (JITA)",
+  "hero.title": "Scopri cosa scambiare a Jita",
+  "hero.subtitle":
+    "Screener gratuito che classifica gli oggetti del mercato per ROI, spread e volume reale. Dati ufficiali dell'ESI, aggiornati ogni 4 ore.",
+  "hero.cta": "Vedi le opportunità",
+  "hero.ctaHow": "Come funziona",
+
+  "stats.opportunities": "Opportunità attuali",
+  "stats.analyzed": "Oggetti analizzati",
+  "stats.refresh": "Aggiornamento",
+  "stats.every4h": "ogni 4 h",
+  "stats.next": "Prossimo aggiornamento",
+
+  "best.title": "I migliori adesso",
+  "best.hint": "ROI più alto con almeno {n} operazioni al giorno",
+
+  "screener.title": "Tutte le opportunità",
+  "screener.colSpread": "SPREAD/U",
+  "screener.colOps": "OPER./GIORNO",
+  "filters.minRoiShort": "ROI min. %",
+  "filters.minVolumeShort": "Volume min.",
+  "screener.pricesInIsk": "Prezzi in ISK",
+
+  "how.title": "Come funziona",
+  "how.step1.title": "Scegli uno stato",
+  "how.step1.body": "Inizia da Potenziale: oggetti con buon margine, liquidità e attività di mercato reale.",
+  "how.step2.title": "Filtra e ordina",
+  "how.step2.body": "Per ROI, spread, prezzo o volume giornaliero, in base al tuo capitale e al tuo stile.",
+  "how.step3.title": "Compra e rivendi",
+  "how.step3.body": "I dati vengono aggiornati ogni 4 ore dall'ESI, l'API ufficiale di CCP Games.",
+  "how.statesTitle": "Cosa significa ogni stato",
+  "how.stateBody.POTENCIAL":
+    "Spread, liquidità e attività di mercato reale degli ultimi 7 giorni rispettano i criteri.",
+  "how.stateBody.POTENCIAL_SIN_ORDENES":
+    "Spread e liquidità vanno bene, ma lo storico delle transazioni eseguite è troppo basso (poco volume o poche operazioni al giorno).",
+  "how.stateBody.EN_OBSERVACION": "Caso limite: serve più storico per decidere.",
+  "how.stateBody.DESCARTADO": "Spread in perdita o liquidità non sostenibile.",
+
+  "support.title": "Lo Screener ti è utile?",
+  "support.body": "È gratuito e va avanti grazie alle donazioni. Ogni contributo aiuta a tenerlo online.",
+
+  "footer.disclaimer":
+    "Sito indipendente, non affiliato a CCP Games. EVE Online è un marchio di CCP hf. Strumento informativo, non consulenza finanziaria.",
 };

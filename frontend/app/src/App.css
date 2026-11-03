@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
-
 :root {
   --bg-0: #08090f;
   --bg-1: #0a0c14;
@@ -177,17 +175,39 @@
 
 .site-footer {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 10px 16px;
-  max-width: var(--content-max);
-  margin: 28px auto 0;
-  padding: 18px 16px 28px;
+  flex-direction: column;
+  gap: 12px;
+  margin: 32px 0 0;
+  padding: 18px 4px 28px;
   border-top: 1px solid var(--line);
   color: var(--ink-dim);
   font-size: 0.8rem;
-  text-align: center;
+}
+
+.footer-disclaimer {
+  margin: 0;
+  max-width: 64ch;
+  line-height: 1.5;
+}
+
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+
+.footer-links a {
+  color: var(--ink-dim);
+  text-decoration: none;
+}
+
+.footer-links a:hover {
+  color: var(--ink);
+}
+
+.footer-links a[aria-current="true"] {
+  color: var(--ink);
+  font-weight: 600;
 }
 
 .thanks-panel {
@@ -608,6 +628,7 @@
 }
 
 .pagination button {
+  white-space: nowrap;
   padding: 8px 12px;
   border-radius: 10px;
   border: 1px solid var(--line);
@@ -982,16 +1003,498 @@
   }
 }
 
-/* Selector de idioma (T15): un <select> con el mismo aspecto que los links de la navbar. */
+/* Selector de idioma: un <select> con globo y flecha, para que se lea como un menú
+   desplegable y no como una pestaña más. */
+.lang-picker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  color: var(--ink-dim);
+}
+
+.lang-icon,
+.lang-chevron {
+  position: absolute;
+  pointer-events: none;
+}
+
+.lang-icon { left: 9px; }
+.lang-chevron { right: 9px; }
+
 .lang-select {
   appearance: none;
-  padding-right: 9px;
+  padding: 7px 26px 7px 31px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: transparent;
   color: var(--ink);
-  background: var(--panel);
-  outline: none;
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  color-scheme: dark;
 }
 
 .lang-select option {
   background: var(--bg-1);
   color: var(--ink);
+}
+
+/* ---------- barra superior pública ---------- */
+
+.app.is-public {
+  /* Sin la fila de relojes del motor (solo la ve el dueño), la barra es de una línea. */
+  --navbar-h: 60px;
+}
+
+.public-nav {
+  display: none;
+  order: 2;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 22px;
+  margin-left: 18px;
+}
+
+.public-nav-link {
+  color: var(--ink-dim);
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.public-nav-link:hover { color: var(--ink); }
+
+.navbar-links.is-public {
+  margin-left: auto;
+  padding: 0;
+  gap: 10px;
+  border: none;
+  background: none;
+}
+
+.btn-donate-nav {
+  display: flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 9px;
+  background: var(--accent-cyan);
+  color: #04141c;
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn-donate-nav:hover { background: #8fe3ff; }
+
+/* ---------- portada: título, métricas, mejores ahora ---------- */
+
+.section-heading {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+  margin-bottom: 12px;
+}
+
+.section-hint {
+  font-size: 0.78rem;
+  color: var(--ink-dim);
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 28px 4px 24px;
+  text-align: center;
+}
+
+.hero-eyebrow {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--positive);
+}
+
+.hero-title {
+  margin: 0;
+  max-width: 20ch;
+  font-size: 1.9rem;
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.5px;
+}
+
+.hero-subtitle {
+  margin: 0;
+  max-width: 60ch;
+  font-size: 0.98rem;
+  line-height: 1.55;
+  color: var(--ink-dim);
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.btn-cta,
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 22px;
+  border-radius: 10px;
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  text-decoration: none;
+}
+
+.btn-cta {
+  background: var(--positive);
+  color: #04140b;
+  font-weight: 700;
+}
+
+.btn-cta-cyan {
+  background: var(--accent-cyan);
+  color: #04141c;
+}
+
+.btn-ghost {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+.stat-label {
+  font-size: 0.74rem;
+  color: var(--ink-dim);
+}
+
+.stat-value {
+  font-family: var(--mono);
+  font-size: 1.3rem;
+  font-weight: 500;
+  /* "toutes les 4 h" is longer than the number cards: let it wrap instead of overflowing. */
+  overflow-wrap: anywhere;
+}
+
+.stat-value.positive { color: var(--positive); }
+
+.best {
+  margin-bottom: 32px;
+}
+
+.best-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.best-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  font-family: var(--sans);
+  text-align: left;
+  cursor: pointer;
+}
+
+.best-card:hover { border-color: rgba(63, 208, 255, 0.45); }
+
+.best-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.best-sub {
+  font-size: 0.72rem;
+  color: var(--ink-dim);
+}
+
+.best-roi {
+  margin-top: 8px;
+  font-family: var(--mono);
+  font-size: 1.45rem;
+  font-weight: 500;
+  color: var(--positive);
+}
+
+.best-prices {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--ink-dim);
+}
+
+/* ---------- Screener: filtros visibles y encabezados que ordenan ---------- */
+
+.screener-section,
+.how {
+  scroll-margin-top: calc(var(--navbar-h) + 12px);
+}
+
+.screener-section > .section-heading {
+  margin-bottom: 12px;
+  font-size: 1.2rem;
+}
+
+.filter-bar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.filter-bar > select.filter-quick {
+  grid-column: 1 / -1;
+}
+
+.filter-quick {
+  min-width: 0;
+  min-height: 40px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  color-scheme: dark;
+}
+
+.filter-quick option {
+  background: var(--bg-1);
+  color: var(--ink);
+}
+
+.filters-more {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-dim);
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* .col-num pone el color de texto normal; en el encabezado todas las columnas, ordenables o
+   no, van en el tono tenue y solo la ordenada se resalta. */
+.data-header .col-num {
+  color: var(--ink-faint);
+}
+
+.col-sort {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  text-align: right;
+  cursor: pointer;
+}
+
+.col-sort:hover,
+.col-sort.is-active {
+  color: var(--accent-cyan);
+}
+
+/* Spread por unidad y operaciones por día: solo en pantallas donde caben las 6 columnas
+   (ver el breakpoint de 900px abajo). Antes de eso las operaciones siguen en la línea de
+   abajo del nombre. */
+.col-extra {
+  display: none;
+}
+
+/* Un precio nunca se parte en dos líneas: la unidad (ISK) va en la nota de arriba. */
+.screener-section .col-num {
+  white-space: nowrap;
+}
+
+.table-note {
+  margin: 0 2px 6px;
+  font-size: 0.72rem;
+  text-align: right;
+  color: var(--ink-faint);
+}
+
+/* ---------- cómo funciona y apoyo ---------- */
+
+.how {
+  margin-top: 48px;
+  padding-top: 28px;
+  border-top: 1px solid var(--line);
+}
+
+.how .section-heading {
+  margin-bottom: 18px;
+  font-size: 1.4rem;
+}
+
+.how-steps {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  margin-bottom: 28px;
+}
+
+.how-num {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--positive);
+}
+
+.how-step h3 {
+  margin: 4px 0 6px;
+  font-size: 1.05rem;
+}
+
+.how-step p,
+.how-state p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--ink-dim);
+}
+
+.how-states-title {
+  margin: 0 0 12px;
+  font-size: 1.05rem;
+}
+
+.how-states {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.how-state {
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+}
+
+.how-state b {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.how-state.is-potential {
+  border-color: rgba(61, 220, 132, 0.35);
+}
+
+.how-state.is-potential b {
+  color: var(--positive);
+}
+
+.support {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 24px;
+  margin: 40px 0 8px;
+  padding: 22px 20px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.support p {
+  margin: 6px 0 0;
+  max-width: 56ch;
+  font-size: 0.9rem;
+  color: var(--ink-dim);
+}
+
+@media (min-width: 640px) {
+  .public-nav { display: flex; }
+
+  .hero { padding: 56px 0 36px; }
+  .hero-title { max-width: 18ch; font-size: 2.9rem; }
+  .hero-subtitle { font-size: 1.1rem; }
+
+  .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+  .stat-value { font-size: 1.5rem; }
+
+  .best-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+
+  .filter-bar { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) auto; }
+  .filter-bar > select.filter-quick,
+  .filters-more { grid-column: auto; }
+
+  .data-header .col-num { font-size: 0.62rem; }
+
+  .how-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+  .how-states { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Teléfonos muy angostos (320px): marca + idioma + donar no caben en una línea, así que la
+   barra pública pasa a dos filas en vez de recortar el botón de donar. */
+@media (max-width: 350px) {
+  .app.is-public { --navbar-h: 84px; }
+  .navbar-links.is-public { margin-left: 0; }
+}
+
+@media (min-width: 900px) {
+  .col-extra { display: block; }
+  .row-sub-ops { display: none; }
+}
+
+@media (min-width: 1024px) {
+  .hero-title { font-size: 3.4rem; }
+  .stat-value { font-size: 1.9rem; }
+  .how-states { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .data-header .col-num { font-size: 0.68rem; }
 }
