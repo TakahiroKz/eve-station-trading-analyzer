@@ -981,3 +981,17 @@
     grid-template-columns: repeat(3, 1fr);
   }
 }
+
+/* Selector de idioma (T15): un <select> con el mismo aspecto que los links de la navbar. */
+.lang-select {
+  appearance: none;
+  padding-right: 9px;
+  color: var(--ink);
+  background: var(--panel);
+  outline: none;
+}
+
+.lang-select option {
+  background: var(--bg-1);
+  color: var(--ink);
+}

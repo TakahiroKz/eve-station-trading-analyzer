@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/icon-192.png" />
@@ -8,18 +8,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#08090f" />
     <meta name="color-scheme" content="dark" />
-    <title>EveMarket Screener — Station trading en EVE Online (Jita)</title>
+    <title>EveMarket Screener — Station trading in EVE Online (Jita)</title>
     <meta
       name="description"
-      content="Screener gratuito de station trading para EVE Online: ítems con mejor ROI, spread y liquidez en The Forge (Jita), actualizado cada 4 horas."
+      content="Free station trading screener for EVE Online: items with the best ROI, spread and liquidity in The Forge (Jita), refreshed every 4 hours."
     />
     <link rel="canonical" href="https://evemarket-analyzer.online/" />
+    <!-- One URL per language (?lang=xx, applied by the app on load) so each version can be
+         indexed and shown to the right audience. English is the default. -->
+    <link rel="alternate" hreflang="en" href="https://evemarket-analyzer.online/?lang=en" />
+    <link rel="alternate" hreflang="es" href="https://evemarket-analyzer.online/?lang=es" />
+    <link rel="alternate" hreflang="de" href="https://evemarket-analyzer.online/?lang=de" />
+    <link rel="alternate" hreflang="fr" href="https://evemarket-analyzer.online/?lang=fr" />
+    <link rel="alternate" hreflang="it" href="https://evemarket-analyzer.online/?lang=it" />
+    <link rel="alternate" hreflang="x-default" href="https://evemarket-analyzer.online/" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="EveMarket Screener" />
-    <meta property="og:title" content="EveMarket Screener — Station trading en EVE Online" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:title" content="EveMarket Screener — Station trading in EVE Online (Jita)" />
     <meta
       property="og:description"
-      content="Encontrá qué ítems conviene comerciar en Jita: ROI, spread y liquidez, actualizado cada 4 horas."
+      content="Find which items are worth trading in Jita: ROI, spread and liquidity, refreshed every 4 hours."
     />
     <meta property="og:url" content="https://evemarket-analyzer.online/" />
     <meta property="og:image" content="https://evemarket-analyzer.online/icon-512.png" />
@@ -30,50 +39,49 @@
         "@type": "WebApplication",
         "name": "EveMarket Screener",
         "url": "https://evemarket-analyzer.online/",
-        "description": "Screener gratuito de station trading para EVE Online: ítems con mejor ROI, spread y liquidez en The Forge (Jita), actualizado cada 4 horas.",
+        "description": "Free station trading screener for EVE Online: items with the best ROI, spread and liquidity in The Forge (Jita), refreshed every 4 hours.",
         "applicationCategory": "GameApplication",
         "operatingSystem": "Web",
-        "inLanguage": "es",
+        "inLanguage": ["en", "es", "de", "fr", "it"],
         "isAccessibleForFree": true,
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
       }
     </script>
   </head>
   <body>
-    <!-- Contenido estático dentro de #root: lo ven los crawlers (incluidos los de IA) que
-         no ejecutan JavaScript. React lo reemplaza apenas monta la app. -->
+    <!-- Static content inside #root: seen by crawlers (including AI ones) that do not run
+         JavaScript. React replaces it as soon as the app mounts. English, the default. -->
     <div id="root">
-      <h1>EveMarket Screener — station trading en EVE Online</h1>
+      <h1>EveMarket Screener — station trading in EVE Online</h1>
       <p>
-        Screener gratuito que clasifica los ítems del mercado de The Forge (Jita) según su
-        ROI, spread, volumen diario y operaciones por día. Los datos se actualizan cada
-        4 horas.
+        Free screener that ranks the items of The Forge (Jita) market by ROI, spread, daily
+        volume and trades per day. Data is refreshed every 4 hours. Available in English,
+        Spanish, German, French and Italian.
       </p>
-      <h2>Preguntas frecuentes</h2>
-      <h3>¿Qué es el station trading?</h3>
+      <h2>Frequently asked questions</h2>
+      <h3>What is station trading?</h3>
       <p>
-        Comprar ítems a precio de orden de compra y revenderlos con una orden de venta en la
-        misma estación, ganando la diferencia (spread) menos impuestos y comisiones.
+        Buying items at the buy-order price and reselling them with a sell order in the same
+        station, earning the difference (spread) minus taxes and fees.
       </p>
-      <h3>¿Qué significan las categorías?</h3>
+      <h3>What do the categories mean?</h3>
       <p>
-        Potencial: el spread, la liquidez y la actividad real de mercado de los últimos
-        7 días cumplen los criterios. Sin órdenes: spread y liquidez cumplen, pero el
-        histórico de transacciones ejecutadas es demasiado bajo (poco volumen o pocas
-        operaciones por día). En observación: caso borderline, se necesita más historial.
-        Descartado: spread en pérdida o liquidez inviable.
+        Potential: spread, liquidity and real market activity over the last 7 days meet the
+        criteria. No orders: spread and liquidity qualify, but the executed-trade history is
+        too low (little volume or few trades per day). Under observation: borderline case,
+        more history is needed. Discarded: losing spread or unviable liquidity.
       </p>
-      <h3>¿De dónde salen los datos?</h3>
-      <p>De la ESI, la API oficial de CCP Games para EVE Online. No se usa scraping.</p>
-      <h3>¿Cada cuánto se actualizan los datos?</h3>
-      <p>El motor de mercado corre cada 4 horas.</p>
-      <h3>¿Es gratis?</h3>
-      <p>Sí, el Screener es público y no requiere cuenta.</p>
+      <h3>Where does the data come from?</h3>
+      <p>From the ESI, CCP Games' official API for EVE Online. No scraping is used.</p>
+      <h3>How often is the data refreshed?</h3>
+      <p>The market engine runs every 4 hours.</p>
+      <h3>Is it free?</h3>
+      <p>Yes, the Screener is public and requires no account.</p>
       <p>
-        Sitio independiente, no afiliado a CCP Games. EVE Online es marca de CCP hf.
-        Herramienta informativa, no una recomendación de inversión.
+        Independent site, not affiliated with CCP Games. EVE Online is a trademark of CCP hf.
+        Informational tool, not investment advice.
       </p>
-      <noscript>Activá JavaScript para usar el Screener interactivo.</noscript>
+      <noscript>Enable JavaScript to use the interactive Screener.</noscript>
     </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
