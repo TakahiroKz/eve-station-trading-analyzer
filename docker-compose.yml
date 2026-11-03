@@ -15,7 +15,7 @@
 
 services:
   api:
-    image: ghcr.io/sukunaryomendev/evemarket-analyzer-trading-tool:latest
+    image: ghcr.io/takahirokz/eve-station-trading-analyzer:latest
     container_name: evemarket-api
     restart: unless-stopped
     ports:
@@ -29,7 +29,7 @@ services:
       - ./credentials:/app/credentials
 
   engine-market:
-    image: ghcr.io/sukunaryomendev/evemarket-analyzer-trading-tool:latest
+    image: ghcr.io/takahirokz/eve-station-trading-analyzer:latest
     container_name: evemarket-engine-market
     command: ["python", "-m", "scheduler.run"]
     env_file: .env
@@ -39,7 +39,7 @@ services:
     profiles: ["cron"]
 
   engine-positions:
-    image: ghcr.io/sukunaryomendev/evemarket-analyzer-trading-tool:latest
+    image: ghcr.io/takahirokz/eve-station-trading-analyzer:latest
     container_name: evemarket-engine-positions
     command: ["python", "-m", "scheduler.orders_run"]
     env_file: .env
