@@ -178,12 +178,18 @@ object-family in tenancy` — sin la cual Oracle rechaza las reglas de auto-borr
 en producción de punta a punta: backup real corrido y subido (19MB), confirmado en
 el bucket. Ver `OPERATIONS.md` para el procedimiento de restauración.
 
-### D11. Sin monitoreo continuo entre deploys — **Media**
-El health check de `deploy.yml` solo corre EN el momento del deploy — si el
-contenedor, `cloudflared`, o el cron se caen en cualquier otro momento, nadie se entera
-hasta que el usuario nota que la app no responde o que dejaron de llegar notificaciones.
-No hay un chequeo periódico independiente (ej. un ping externo tipo UptimeRobot gratis,
-o un cron propio que avise por Telegram si `/api/summary` no responde).
+### D11. ~~Sin monitoreo continuo entre deploys~~ (hecho en código; falta UptimeRobot y verificar en la VM) — **Media**
+Diagnóstico original: el health check de `deploy.yml` solo corre EN el momento del
+deploy — si el contenedor, `cloudflared`, o el cron se caen en cualquier otro momento,
+nadie se entera hasta que el usuario nota que la app no responde.
+
+Resuelto en código: `scripts/healthcheck.sh` corre por cron cada 10 min en la VM y avisa
+por Telegram, sin spam (solo en cambios de estado), si la API no responde, si el motor
+de mercado (`last_evaluated_at` > 5 h) o el de posiciones (log sin tocar > 20 min) dejaron
+de correr, o si `cloudflared` está caído. Probado localmente contra una API falsa
+(OK silencioso, alerta, sin repetición, recuperación). **Pendiente, a mano:** re-correr
+`scripts/setup_cron.sh` en la VM, confirmar una corrida real, y crear el monitor de
+UptimeRobot (cubre VM/túnel/DNS caídos; pasos en `OPERATIONS.md`). Con eso se tacha D11.
 
 ### D12. Reconstrucción de la VM no es reproducible — **Media**
 Todo el setup de hoy (Docker, cron, `.env`/`credentials/` copiados a mano, cloudflared,

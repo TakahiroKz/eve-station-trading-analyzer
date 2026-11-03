@@ -28,6 +28,8 @@ CRON_BLOCK=$(cat <<'CRONEOF'
 */5 * * * * cd __APP_DIR__ && flock -n .positions.lock docker compose --profile cron run --rm engine-positions >> logs/orders_$(date +\%Y-\%m-\%d).log 2>&1
 # evemarket-screener: backup diario de la DB (D10)
 17 3 * * * cd __APP_DIR__ && flock -n .backup.lock ./scripts/backup_db.sh >> logs/backup_$(date +\%Y-\%m-\%d).log 2>&1
+# evemarket-screener: watchdog de salud (D11), cada 10 min
+*/10 * * * * cd __APP_DIR__ && flock -n .healthcheck.lock ./scripts/healthcheck.sh >> logs/healthcheck_$(date +\%Y-\%m-\%d).log 2>&1
 CRONEOF
 )
 CRON_BLOCK="${CRON_BLOCK//__APP_DIR__/$APP_DIR}"
@@ -37,7 +39,7 @@ CRON_BLOCK="${CRON_BLOCK//__APP_DIR__/$APP_DIR}"
 # grep: con set -e, un crontab vacío/inexistente hace que grep sin coincidencias
 # (exit 1, "nada que filtrar") aborte el script antes de llegar a escribir el nuevo
 # -- pasó en la práctica en la VM recién creada, sin crontab previo.
-{ crontab -l 2>/dev/null | grep -vE "evemarket-screener|engine-market|engine-positions|backup_db" || true; echo "$CRON_BLOCK"; } | crontab -
+{ crontab -l 2>/dev/null | grep -vE "evemarket-screener|engine-market|engine-positions|backup_db|healthcheck" || true; echo "$CRON_BLOCK"; } | crontab -
 
 echo "Crontab instalado:"
 crontab -l

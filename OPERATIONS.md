@@ -134,6 +134,30 @@ más de 60 días — el script no maneja retención, solo sube.
    `sqlite3 market-YYYY-MM-DD.db ".tables"` si se quiere verificar antes de pisar la
    base en uso.
 
+## Monitoreo continuo (D11)
+
+Dos capas complementarias — ninguna reemplaza a la otra:
+
+**1. Watchdog en la VM — `scripts/healthcheck.sh`** (cron cada 10 min, ver
+`scripts/setup_cron.sh`; re-correr ese script para instalar la entrada). Detecta lo que
+un ping externo no ve: la API responde pero los motores dejaron de correr. Chequea:
+- la API responde en `http://127.0.0.1:8001/api/summary`;
+- `last_evaluated_at` (motor de mercado) tiene menos de 5 h;
+- el log de hoy del motor de posiciones se tocó hace menos de 20 min;
+- el servicio systemd `cloudflared` está activo.
+
+Avisa por Telegram (mismas variables del `.env` que el resto) solo cuando el estado
+cambia: falla nueva, cambio de motivo, o recuperación (✅). El último estado queda en
+`.healthcheck.state`. Umbrales sobreescribibles con `MARKET_MAX_AGE_HOURS`,
+`POSITIONS_MAX_AGE_MIN`, `HEALTH_URL`. Para probarlo a mano: `./scripts/healthcheck.sh`
+(silencioso si todo está bien).
+
+**2. Ping externo — UptimeRobot (plan gratis, setup manual una sola vez).** Cubre lo que
+el watchdog no puede ver porque corre en la misma VM: VM entera caída, túnel o DNS rotos.
+1. Crear cuenta en uptimerobot.com → Add New Monitor → tipo `HTTP(s)`.
+2. URL: la pública de la app (`https://<dominio>/api/summary`), intervalo 5 min.
+3. Alert Contacts: agregar el email (o el bot de Telegram) donde se quiera recibir el aviso.
+
 ## Datos
 
 - `storage/market.db` — SQLite: histórico, snapshots, clasificación vigente por ítem
