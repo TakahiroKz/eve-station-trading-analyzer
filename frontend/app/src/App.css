@@ -171,6 +171,52 @@
   color: var(--ink);
 }
 
+.navbar-donate {
+  color: var(--accent-cyan);
+}
+
+.site-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px 16px;
+  max-width: var(--content-max);
+  margin: 28px auto 0;
+  padding: 18px 16px 28px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-dim);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.thanks-panel {
+  max-width: 520px;
+  margin: 48px auto;
+  padding: 32px 24px;
+  text-align: center;
+}
+
+.thanks-heart {
+  font-size: 2.6rem;
+  line-height: 1;
+  color: var(--accent-cyan);
+}
+
+.thanks-panel p {
+  color: var(--ink-dim);
+}
+
+.btn-donate {
+  padding: 8px 16px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+  color: #08090f;
+  font-family: var(--sans);
+  font-weight: 700;
+  text-decoration: none;
+}
+
 .navbar-meta {
   /* Mobile-first: order 3 = después de marca+tabs, flex-basis 100% garantiza que
      ocupe su propia línea (nada más entra al lado de un item al 100%) sin importar

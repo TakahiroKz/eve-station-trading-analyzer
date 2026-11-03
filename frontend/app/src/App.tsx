@@ -4,6 +4,7 @@ import {
   type CharacterOrderFill, type ItemDetail, type ItemFilters, type ItemStatus, type Opportunity,
   type Schedule, type Status, type Summary,
 } from "./api";
+import { DONATE_URL } from "./config";
 import "./App.css";
 
 const CLOSED_STATE_LABEL: Record<string, string> = {
@@ -117,7 +118,11 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<ItemDetail | null>(null);
   const [openWindowMsg, setOpenWindowMsg] = useState<string | null>(null);
-  const [view, setView] = useState<"screener" | "orders" | "settings">("screener");
+  // "thanks" es la página de agradecimiento: PayPal redirige a `/?gracias=1` al terminar
+  // una donación (se configura como return URL del botón Donar, ver OPERATIONS.md).
+  const [view, setView] = useState<"screener" | "orders" | "settings" | "thanks">(() =>
+    new URLSearchParams(window.location.search).has("gracias") ? "thanks" : "screener",
+  );
   const [characterOrders, setCharacterOrders] = useState<CharacterOrder[]>([]);
   const [closedOrders, setClosedOrders] = useState<CharacterOrderClosed[]>([]);
   const [orderFills, setOrderFills] = useState<CharacterOrderFill[]>([]);
@@ -165,8 +170,16 @@ export default function App() {
 
   useEffect(() => {
     // Si se pierde la sesión estando en una vista privada, volver al Screener.
-    if (!authenticated && view !== "screener") setView("screener");
+    if (!authenticated && view !== "screener" && view !== "thanks") setView("screener");
   }, [authenticated, view]);
+
+  useEffect(() => {
+    // Al salir de la página de agradecimiento, sacar `?gracias=1` de la URL para que
+    // recargar no la vuelva a mostrar.
+    if (view !== "thanks" && window.location.search.includes("gracias")) {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, [view]);
 
   useEffect(() => {
     if (!authenticated) { setWallet(null); return; }
@@ -457,11 +470,28 @@ export default function App() {
                 Iniciar sesión
               </a>
             )}
+            {DONATE_URL && (
+              <a className="navbar-link navbar-donate" href={DONATE_URL} target="_blank" rel="noopener noreferrer">
+                ♥ Donar
+              </a>
+            )}
           </div>
         </div>
       </nav>
 
-      {view === "orders" ? (
+      {view === "thanks" ? (
+        <div className="glass-panel thanks-panel">
+          <div className="thanks-heart">♥</div>
+          <h2>¡Gracias por tu donación!</h2>
+          <p>
+            Tu apoyo ayuda a mantener el Screener online y gratuito para toda la comunidad
+            de EVE Online. Si completaste el pago, PayPal te enviará el comprobante por correo.
+          </p>
+          <button className="btn-primary" onClick={() => setView("screener")}>
+            Volver al Screener
+          </button>
+        </div>
+      ) : view === "orders" ? (
         <>
           {error && <p className="error">{error}</p>}
           {ordersLoading && <p className="muted">Cargando…</p>}
@@ -888,6 +918,15 @@ export default function App() {
             </table>
           </div>
         </div>
+      )}
+
+      {DONATE_URL && (
+        <footer className="site-footer">
+          <span>¿Te sirve el Screener? Ayudá a mantenerlo online.</span>
+          <a className="btn-donate" href={DONATE_URL} target="_blank" rel="noopener noreferrer">
+            ♥ Enviar donación
+          </a>
+        </footer>
       )}
     </div>
   );

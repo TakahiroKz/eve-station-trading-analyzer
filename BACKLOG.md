@@ -452,3 +452,24 @@ estándar, no depende del dispositivo). Queda como nota menor, no bloqueante: la
 regla del NSG de Oracle para el 8001 sigue sin sacarse (D9 ya cerrado igual, porque
 `docker-compose.yml` dejó de publicar el puerto — la regla del NSG hoy no tiene nada
 detrás a lo que conectarse).
+
+### T15. Internacionalización: selector de idioma + detección automática (pendiente)
+Pedido del usuario (2026-11-03): que la web esté disponible en **español, inglés,
+alemán, francés e italiano**, con dos mecanismos combinados: (a) detección automática
+al primer ingreso a partir de `navigator.language` (con español como fallback), y (b)
+un selector manual en la navbar que se recuerda en `localStorage` y tiene prioridad
+sobre la detección. Hoy todos los textos de `frontend/app/src/App.tsx` están
+hardcodeados en español.
+
+**Notas para cuando se encare** (no implementado todavía, solo la dirección):
+- Sacar los textos a un diccionario por idioma (`src/i18n/{es,en,de,fr,it}.ts`) con un
+  hook `useT()`; no hace falta una librería pesada para una SPA de este tamaño.
+- Traducir también `index.html` (`<title>`, `description`, Open Graph) y cambiar
+  `<html lang>` dinámicamente según el idioma elegido.
+- Formatos de número/fecha vía `Intl` con el locale elegido (hoy `formatIsk`/`formatPct`
+  asumen formato local fijo).
+- Los textos que viene de la API (`reason`, `recomendacion`, `evaluacion_spread`) están
+  en español desde el backend: traducirlos requiere devolver códigos y no frases, o
+  traducirlos en el frontend — decidir antes de empezar.
+- Para SEO, un idioma por URL (`/en/`, `/de/`...) con `hreflang` rinde mucho más que
+  uno solo por JS; va de la mano con las páginas públicas por ítem (ver tráfico).
