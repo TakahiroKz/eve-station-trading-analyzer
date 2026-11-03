@@ -1,0 +1,49 @@
+# Producción (VM de Oracle): la imagen se compila y publica en GHCR vía CI, acá
+# solo se hace `pull` + `up`/`run` — ver .github/workflows/deploy.yml.
+#
+# `api` es el único servicio de larga duración (restart: unless-stopped, sobrevive
+# reinicios de la VM porque Docker reinicia los contenedores marcados así cuando el
+# daemon arranca). `engine-market`/`engine-positions` son la misma imagen con otro
+# comando, pensados para correr como contenedores de un solo uso disparados por cron
+# del host (ver scripts/setup_cron.sh) — el profile "cron" evita que un `docker
+# compose up -d` sin argumentos los deje corriendo en loop por error.
+#
+# Los tres comparten los mismos volúmenes (storage/, credentials/) porque escriben
+# la MISMA SQLite y leen las MISMAS credenciales — igual que hoy en Windows, donde
+# los dos motores y la API acceden al mismo storage/market.db desde procesos
+# separados (busy_timeout ya configurado en storage/db.py y backend/api/main.py).
+
+services:
+  api:
+    image: ghcr.io/sukunaryomendev/evemarket-analyzer-trading-tool:latest
+    container_name: evemarket-api
+    restart: unless-stopped
+    ports:
+      # Solo loopback: cloudflared (que corre en el host) y el health check del
+      # deploy pegan a localhost, no hace falta publicar en la NIC pública. Con esto
+      # el único camino de entrada real es el túnel de Cloudflare (T14/D9).
+      - "127.0.0.1:8001:8001"
+    env_file: .env
+    volumes:
+      - ./storage:/app/storage
+      - ./credentials:/app/credentials
+
+  engine-market:
+    image: ghcr.io/sukunaryomendev/evemarket-analyzer-trading-tool:latest
+    container_name: evemarket-engine-market
+    command: ["python", "-m", "scheduler.run"]
+    env_file: .env
+    volumes:
+      - ./storage:/app/storage
+      - ./credentials:/app/credentials
+    profiles: ["cron"]
+
+  engine-positions:
+    image: ghcr.io/sukunaryomendev/evemarket-analyzer-trading-tool:latest
+    container_name: evemarket-engine-positions
+    command: ["python", "-m", "scheduler.orders_run"]
+    env_file: .env
+    volumes:
+      - ./storage:/app/storage
+      - ./credentials:/app/credentials
+    profiles: ["cron"]

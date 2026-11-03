@@ -1,0 +1,35 @@
+# Imagen única: sirve la API (FastAPI) y el build estático de la PWA desde el mismo
+# proceso (ver el mount condicional al final de backend/api/main.py) — mismo origen,
+# sin CORS que configurar en producción. La MISMA imagen también corre los dos
+# motores programados (scheduler/run.py, scheduler/orders_run.py), invocados como
+# contenedores de un solo uso por cron del host — ver docker-compose.yml.
+#
+# Build de dos etapas: el frontend (Node) se compila en una etapa aparte y solo se
+# copia el resultado (dist/) a la imagen final de Python — así la imagen que corre
+# en producción no carga con Node ni node_modules.
+
+FROM node:22-alpine AS frontend-builder
+WORKDIR /build/frontend/app
+COPY frontend/app/package.json frontend/app/package-lock.json ./
+RUN npm ci
+COPY frontend/app/ ./
+RUN npm run build
+
+FROM python:3.11-slim AS final
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY analytics/ ./analytics/
+COPY backend/ ./backend/
+COPY ingestion/ ./ingestion/
+COPY notifications/ ./notifications/
+COPY reporting/ ./reporting/
+COPY scheduler/ ./scheduler/
+COPY storage/ ./storage/
+
+COPY --from=frontend-builder /build/frontend/app/dist ./frontend/app/dist
+
+EXPOSE 8001
+CMD ["uvicorn", "backend.api.main:app", "--host", "0.0.0.0", "--port", "8001"]

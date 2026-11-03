@@ -1,0 +1,937 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg-0: #08090f;
+  --bg-1: #0a0c14;
+  --bg-2: #0d1020;
+  --ink: #e7eaf3;
+  --ink-dim: rgba(231, 234, 243, 0.55);
+  --ink-faint: rgba(231, 234, 243, 0.35);
+  --line: rgba(255, 255, 255, 0.08);
+  --line-soft: rgba(255, 255, 255, 0.06);
+  --panel: rgba(255, 255, 255, 0.045);
+  --panel-strong: rgba(255, 255, 255, 0.1);
+  --accent-cyan: #3fd0ff;
+  --accent-purple: #7c6cf7;
+  --positive: #3ddc84;
+  --positive-soft: rgba(61, 220, 132, 0.14);
+  --negative: #ff8a8a;
+  --negative-soft: rgba(255, 93, 93, 0.12);
+  --warning: #f59e0b;
+  --sans: 'Space Grotesk', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --content-max: 720px;
+  --navbar-h: 92px;
+}
+
+.app {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: calc(var(--navbar-h) + env(safe-area-inset-top, 0px) + 14px) 12px 80px;
+  position: relative;
+  font-family: var(--sans);
+  background:
+    linear-gradient(180deg, var(--bg-2) 0%, var(--bg-1) 55%, var(--bg-0) 100%);
+  min-height: 100svh;
+  isolation: isolate;
+}
+
+.bg-blob {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.16;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.blob-a {
+  width: 340px;
+  height: 340px;
+  top: -120px;
+  right: -100px;
+  background: var(--accent-cyan);
+}
+
+.blob-b {
+  width: 300px;
+  height: 300px;
+  bottom: 60px;
+  left: -100px;
+  background: var(--accent-purple);
+  opacity: 0.13;
+}
+
+/* ---------- glass panel primitive ---------- */
+
+.glass-panel {
+  background: var(--panel);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+
+/* ---------- fixed top navbar ---------- */
+
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  height: calc(var(--navbar-h) + env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
+  background: rgba(9, 11, 18, 0.78);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-bottom: 1px solid var(--line);
+}
+
+.navbar-inner {
+  max-width: var(--content-max);
+  height: 100%;
+  margin: 0 auto;
+  padding: 6px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 4px;
+}
+
+.navbar-brand {
+  order: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--sans);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: var(--ink);
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.navbar-title {
+  background: linear-gradient(90deg, var(--ink) 0%, var(--accent-cyan) 140%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--positive);
+  box-shadow: 0 0 7px var(--positive);
+  animation: live-blink 1.6s steps(2, jump-none) infinite;
+  flex: 0 0 auto;
+}
+
+@keyframes live-blink {
+  50% { opacity: 0.2; }
+}
+
+.navbar-links {
+  order: 2;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.navbar-link {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  justify-content: center;
+  padding: 7px 9px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: var(--ink-dim);
+  font-family: var(--sans);
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  /* El botón de login (T14) es un <a>, no un <button> -- sin esto llevaría el
+     subrayado default de los links. */
+  text-decoration: none;
+}
+
+.navbar-link.active {
+  background: var(--panel-strong);
+  color: var(--ink);
+}
+
+.navbar-meta {
+  /* Mobile-first: order 3 = después de marca+tabs, flex-basis 100% garantiza que
+     ocupe su propia línea (nada más entra al lado de un item al 100%) sin importar
+     el ancho — más robusto que calcular a mano si marca+tabs+meta entran juntos.
+     El breakpoint de 640px lo vuelve a poner en línea con marca y tabs (ver abajo),
+     que es como se ve en pantallas anchas. */
+  order: 3;
+  display: flex;
+  align-items: center;
+  flex: 1 1 100%;
+  min-width: 0;
+  height: 26px;
+  overflow-x: auto;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  color: var(--ink-dim);
+}
+
+.navbar-meta::-webkit-scrollbar {
+  display: none;
+}
+
+.navbar-meta b {
+  color: #9fe8c2;
+  font-weight: 600;
+}
+
+.navbar-meta > span {
+  flex: 0 0 auto;
+}
+
+.navbar-meta > span:not(:first-child) {
+  margin-left: 10px;
+  padding-left: 10px;
+  border-left: 1px solid var(--line-soft);
+}
+
+/* ---------- tabs ---------- */
+
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin: 0 0 12px;
+  overflow-x: auto;
+  font-family: var(--mono);
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--ink-faint);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tab.active {
+  background: var(--positive-soft);
+  border-color: rgba(61, 220, 132, 0.35);
+  color: #7cf0ab;
+}
+
+.badge {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 0.65rem;
+  font-family: var(--mono);
+}
+
+.badge-warning {
+  background: var(--warning);
+  color: #1a1200;
+}
+
+/* ---------- filters ---------- */
+
+.filters-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  color: var(--ink-dim);
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.filters-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.filters-panel label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--ink-dim);
+}
+
+.field-hint {
+  font-family: var(--sans);
+  font-size: 0.68rem;
+  font-weight: 400;
+  color: var(--ink-faint);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.filters-panel select,
+.filters-panel input[type="text"],
+.filters-panel input[type="number"] {
+  padding: 9px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 0.82rem;
+}
+
+.filters-panel select {
+  /* El popup nativo de <option> no hereda el theme de la página — sin esto, algunos
+     navegadores lo renderizan con fondo blanco pese a --bg-0 oscuro en el resto del
+     sitio. color-scheme fuerza los controles nativos del navegador a modo oscuro;
+     el color explícito en option es el respaldo para los que igual ignoran eso. */
+  color-scheme: dark;
+}
+
+.filters-panel select option {
+  background-color: var(--bg-1);
+  color: var(--ink);
+}
+
+.filters-panel .checkbox-label {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  color: var(--ink-dim);
+}
+
+.filters-panel .checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent-cyan);
+}
+
+.sort-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.sort-order-toggle {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-toggle {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 8px 4px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-dim);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.btn-toggle.active {
+  background: var(--panel-strong);
+  border-color: var(--accent-cyan);
+  color: var(--ink);
+}
+
+.filter-range {
+  display: grid;
+  grid-template-columns: 1fr 70px 70px;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--ink-dim);
+}
+
+.filter-range input {
+  width: 100%;
+  padding: 7px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+}
+
+.filter-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.btn-primary, .btn-secondary {
+  flex: 1;
+  padding: 9px;
+  border-radius: 10px;
+  border: none;
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: var(--accent-cyan);
+  color: #04141c;
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.open-client-btn {
+  display: block;
+  width: 100%;
+  margin: 10px 0;
+}
+
+/* ---------- data table panel ---------- */
+
+.section-title {
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 18px 2px 8px;
+}
+
+.data-panel {
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.data-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.data-row:last-child {
+  border-bottom: none;
+}
+
+.data-row.clickable {
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.data-row.clickable:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.data-row.undercut {
+  background: var(--negative-soft);
+}
+
+.data-header {
+  font-family: var(--mono);
+  font-size: 0.56rem;
+  letter-spacing: 0.2px;
+  color: var(--ink-faint);
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+
+.data-header .col-num {
+  white-space: nowrap;
+  overflow: hidden;
+  font-size: 0.52rem;
+  letter-spacing: 0;
+}
+
+.col-item {
+  flex: 4.5;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.row-name {
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.25;
+}
+
+.row-sub {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.col-num {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--ink);
+}
+
+.col-num.positive {
+  color: var(--positive);
+  font-weight: 600;
+}
+
+.col-num.negative {
+  color: var(--negative);
+  font-weight: 600;
+}
+
+.col-num.muted-num {
+  color: var(--ink-faint);
+  font-size: 0.68rem;
+}
+
+.panel-empty {
+  padding: 16px 14px;
+}
+
+.error {
+  color: var(--negative);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+}
+
+.muted {
+  color: var(--ink-dim);
+  font-size: 0.82rem;
+}
+
+/* ---------- pagination ---------- */
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--ink-dim);
+}
+
+.pagination button {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.pagination button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ---------- drawer ---------- */
+
+.drawer {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 5, 10, 0.65);
+  display: flex;
+  align-items: flex-end;
+  z-index: 40;
+}
+
+.drawer-content {
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  border-radius: 20px 20px 0 0;
+  padding: 22px;
+  position: relative;
+  /* .glass-panel trae --panel (4.5% de opacidad) pensado para paneles chicos
+     sobre el fondo — acá, en un recuadro grande, se leía casi transparente.
+     Lo pisamos con un fondo bien opaco propio, sin tocar tamaño ni forma. */
+  background: rgba(10, 12, 22, 0.97);
+}
+
+.drawer-content h2 {
+  font-family: var(--sans);
+  font-size: 1.1rem;
+  margin: 0 0 4px;
+  color: var(--ink);
+}
+
+.drawer-content h3 {
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  color: var(--ink);
+  margin: 16px 0 8px;
+}
+
+.close {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  color: var(--ink);
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 14px 0;
+  font-family: var(--mono);
+}
+
+.detail-grid div {
+  font-size: 0.82rem;
+  color: var(--ink);
+}
+
+.label {
+  display: block;
+  font-size: 0.62rem;
+  letter-spacing: 0.4px;
+  color: var(--ink-faint);
+  margin-bottom: 2px;
+}
+
+.recommendation {
+  background: var(--positive-soft);
+  border: 1px solid rgba(61, 220, 132, 0.25);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin: 12px 0;
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+.recommendation strong {
+  color: #9fe8c2;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+}
+
+.history-table th {
+  text-align: left;
+  padding: 6px;
+  color: var(--ink-faint);
+  font-weight: 500;
+  font-size: 0.62rem;
+  letter-spacing: 0.4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.history-table td {
+  text-align: left;
+  padding: 6px;
+  color: var(--ink-dim);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+/* ---------- section headers / row actions ---------- */
+
+.section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 18px 2px 8px;
+}
+
+.section-title-row .section-title {
+  margin: 0;
+}
+
+.section-title-row .section-subtitle {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.section-value {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--ink-faint);
+}
+
+.section-subtitle-standalone {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--accent-cyan);
+  text-transform: uppercase;
+  margin: 18px 2px 8px;
+}
+
+.btn-refresh {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  cursor: pointer;
+}
+
+.btn-refresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.row-action {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--accent-cyan);
+  font-size: 0.82rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.row-action:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.col-action-spacer {
+  flex: 0 0 28px;
+}
+
+/* ---------- order cards (Compra / Venta, en horizontal) ---------- */
+
+.order-groups {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  align-items: start;
+}
+
+.order-group {
+  min-width: 0;
+}
+
+.order-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.order-card:last-child {
+  border-bottom: none;
+}
+
+.order-card.undercut {
+  background: var(--negative-soft);
+}
+
+.order-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.order-card-top .row-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.order-card-prices {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--mono);
+}
+
+.order-price {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.order-price.negative {
+  color: var(--negative);
+}
+
+.order-mkt {
+  font-size: 0.6rem;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.order-mkt.positive {
+  color: var(--positive);
+}
+
+.order-mkt.negative {
+  color: var(--negative);
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 360px) {
+  .filter-range {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "label label" "min max";
+  }
+  .filter-range span { grid-area: label; }
+  .filter-range input:first-of-type { grid-area: min; }
+  .filter-range input:last-of-type { grid-area: max; }
+  .navbar-title { font-size: 0.92rem; }
+  .row-name { font-size: 0.76rem; }
+  .col-num { font-size: 0.72rem; }
+  .order-price { font-size: 0.72rem; }
+  .order-mkt { font-size: 0.56rem; }
+}
+
+@media (min-width: 640px) {
+  :root {
+    --content-max: 900px;
+    --navbar-h: 60px;
+  }
+  .app {
+    padding: calc(var(--navbar-h) + env(safe-area-inset-top, 0px) + 20px) 28px 90px;
+  }
+
+  /* Suficiente ancho para que marca + wallet/horas/próxima corrida + tabs entren
+     en una sola línea (ver .navbar-meta arriba) — vuelve a la línea del medio en
+     vez de su propia fila. */
+  .navbar-inner {
+    flex-wrap: nowrap;
+  }
+  .navbar-meta {
+    order: 2;
+    flex: 1 1 auto;
+    height: 100%;
+  }
+  .navbar-links {
+    order: 3;
+  }
+
+  .filters-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 20px;
+  }
+  .sort-row,
+  .filter-actions {
+    grid-column: 1 / -1;
+  }
+
+  .drawer {
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .drawer-content {
+    width: 560px;
+    max-width: 90vw;
+    max-height: 82vh;
+    border-radius: 20px;
+  }
+  .detail-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .order-groups {
+    gap: 16px;
+  }
+  .order-card {
+    padding: 12px 14px;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --content-max: 1100px;
+  }
+  .data-row {
+    padding: 12px 20px;
+  }
+  .row-name {
+    font-size: 0.85rem;
+  }
+  .filters-panel {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

@@ -1,0 +1,5 @@
+# Los scripts de shell corren en la VM (Linux) — un CRLF colado en el shebang
+# rompe la ejecución ("bad interpreter"). Fuerza LF sin importar el autocrlf de
+# quien commitee, en vez de confiar en que Windows lo maneje bien por las suyas.
+*.sh text eol=lf
+Dockerfile text eol=lf
