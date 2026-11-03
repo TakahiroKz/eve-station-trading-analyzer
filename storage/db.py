@@ -1,4 +1,5 @@
 import sqlite3
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from storage.settings_registry import SETTINGS
@@ -184,6 +185,23 @@ def upsert_market_snapshot(conn: sqlite3.Connection, type_id: int, captured_at: 
             row.get("sell_order_count", 0),
         ),
     )
+
+
+def prune_old_snapshots(conn: sqlite3.Connection, keep_days: int) -> int:
+    """Borra snapshots de órdenes más viejos que `keep_days` días (solo el último de
+    cada ítem alimenta al screening y a la API; el resto es historial que crecía sin
+    límite -- 1,3 GB en la VM de 1 GB de RAM). Borra por lote (un captured_at por
+    commit) para no mantener un lock de escritura largo sobre la SQLite compartida.
+    No hace VACUUM: las páginas liberadas se reutilizan. Devuelve las filas borradas."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=keep_days)).isoformat()
+    stamps = [r[0] for r in conn.execute(
+        "SELECT DISTINCT captured_at FROM market_snapshot WHERE captured_at < ?", (cutoff,)
+    ).fetchall()]
+    deleted = 0
+    for stamp in stamps:
+        deleted += conn.execute("DELETE FROM market_snapshot WHERE captured_at = ?", (stamp,)).rowcount
+        conn.commit()
+    return deleted
 
 
 def get_item_status(conn: sqlite3.Connection, type_id: int) -> sqlite3.Row | None:
