@@ -1,7 +1,9 @@
 {
   "name": "EveMarket Screener",
   "short_name": "EveScreener",
-  "description": "Screener de station trading para EVE Online (The Forge)",
+  "description": "Free station trading screener for EVE Online (The Forge): items ranked by ROI, spread and liquidity.",
+  "lang": "en",
+  "id": "/",
   "theme_color": "#08090f",
   "background_color": "#08090f",
   "display": "standalone",

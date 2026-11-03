@@ -3,26 +3,10 @@ import { en, type MessageKey, type Messages } from "./en";
 import { es } from "./es";
 import { fr } from "./fr";
 import { it } from "./it";
+import { DEFAULT_LANG, type Lang } from "./langs";
 
 export type { MessageKey };
-export type Lang = "en" | "es" | "de" | "fr" | "it";
-
-// Native names, so someone who cannot read the current language can still find theirs.
-export const LANGS: { code: Lang; label: string }[] = [
-  { code: "en", label: "English" },
-  { code: "es", label: "Español" },
-  { code: "de", label: "Deutsch" },
-  { code: "fr", label: "Français" },
-  { code: "it", label: "Italiano" },
-];
-
-// English is the default: used when nothing is stored and the browser language is not
-// one of the supported ones.
-export const DEFAULT_LANG: Lang = "en";
-
-export const LOCALES: Record<Lang, string> = {
-  en: "en-US", es: "es-ES", de: "de-DE", fr: "fr-FR", it: "it-IT",
-};
+export { DEFAULT_LANG, LANGS, LOCALES, langPath, type Lang } from "./langs";
 
 const DICTS: Record<Lang, Messages> = { en, es, de, fr, it };
 const STORAGE_KEY = "lang";
@@ -58,9 +42,19 @@ export function storeLang(lang: Lang): void {
   }
 }
 
-/** Priority: `?lang=xx` in the URL (shareable, what hreflang points to) > the manual choice
- *  remembered in localStorage > the browser language > English. */
+/** The language named by the first path segment (`/es/` -> "es"), if any. */
+export function langFromPath(pathname: string): Lang | null {
+  const first = pathname.split("/")[1]?.toLowerCase();
+  return isLang(first) && first !== DEFAULT_LANG ? first : null;
+}
+
+/** Priority: the language in the path (`/es/`, what hreflang points to) > `?lang=xx` (the
+ *  old URL form, still honored for links already shared) > the manual choice remembered in
+ *  localStorage > the browser language > English. */
 export function detectLang(): Lang {
+  const fromPath = langFromPath(window.location.pathname);
+  if (fromPath) return fromPath;
+
   const fromUrl = new URLSearchParams(window.location.search).get("lang");
   if (isLang(fromUrl)) return fromUrl;
 

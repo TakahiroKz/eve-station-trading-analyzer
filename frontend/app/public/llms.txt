@@ -1,7 +1,7 @@
 # EveMarket Screener
 
 > Free station-trading screener for EVE Online. Shows which items in The Forge (Jita) market are worth trading, ranked by ROI, spread and liquidity, with data refreshed every 4 hours.
-> Available in English (default), Spanish, German, French and Italian — add `?lang=es|de|fr|it` to the URL.
+> Available in English (default), Spanish, German, French and Italian, each at its own URL (`/es/`, `/de/`, `/fr/`, `/it/`).
 
 The public Screener requires no account. The "My Orders" and "Settings" sections are private, for the site owner's personal use, and are not public content.
 
@@ -17,7 +17,8 @@ The public Screener requires no account. The "My Orders" and "Settings" sections
 
 ## Pages
 - [Screener](https://evemarket-analyzer.online/): main listing, public.
-- [Español](https://evemarket-analyzer.online/?lang=es) · [Deutsch](https://evemarket-analyzer.online/?lang=de) · [Français](https://evemarket-analyzer.online/?lang=fr) · [Italiano](https://evemarket-analyzer.online/?lang=it)
+- [All items](https://evemarket-analyzer.online/items): one plain HTML page per tracked item, with its prices, ROI, spread, volume and status.
+- [Español](https://evemarket-analyzer.online/es/) · [Deutsch](https://evemarket-analyzer.online/de/) · [Français](https://evemarket-analyzer.online/fr/) · [Italiano](https://evemarket-analyzer.online/it/)
 
 ## Data and limits
 - Source: the ESI, CCP Games' official API for EVE Online (not scraping).

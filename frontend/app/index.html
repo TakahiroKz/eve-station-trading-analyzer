@@ -1,38 +1,33 @@
 <!doctype html>
-<html lang="en">
+<html lang="%SEO_LANG%">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/png" href="/icon-192.png" />
-    <link rel="manifest" href="/manifest.json" />
+    <link rel="manifest" href="%SEO_MANIFEST%" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#08090f" />
     <meta name="color-scheme" content="dark" />
-    <title>EveMarket Screener — Station trading in EVE Online (Jita)</title>
-    <meta
-      name="description"
-      content="Free station trading screener for EVE Online: items with the best ROI, spread and liquidity in The Forge (Jita), refreshed every 4 hours."
-    />
-    <link rel="canonical" href="https://evemarket-analyzer.online/" />
-    <!-- One URL per language (?lang=xx, applied by the app on load) so each version can be
-         indexed and shown to the right audience. English is the default. -->
-    <link rel="alternate" hreflang="en" href="https://evemarket-analyzer.online/?lang=en" />
-    <link rel="alternate" hreflang="es" href="https://evemarket-analyzer.online/?lang=es" />
-    <link rel="alternate" hreflang="de" href="https://evemarket-analyzer.online/?lang=de" />
-    <link rel="alternate" hreflang="fr" href="https://evemarket-analyzer.online/?lang=fr" />
-    <link rel="alternate" hreflang="it" href="https://evemarket-analyzer.online/?lang=it" />
-    <link rel="alternate" hreflang="x-default" href="https://evemarket-analyzer.online/" />
+    <!-- The %SEO_*% tokens and the two SEO_ comments are filled per language by the
+         `language-pages` plugin in vite.config.ts (one HTML page per language: /, /es/, /de/,
+         /fr/, /it/), using the same dictionaries as the app. -->
+    <title>%SEO_TITLE%</title>
+    <meta name="description" content="%SEO_DESCRIPTION%" />
+    <link rel="canonical" href="%SEO_CANONICAL%" />
+    <!--SEO_HREFLANG-->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="EveMarket Screener" />
-    <meta property="og:locale" content="en_US" />
-    <meta property="og:title" content="EveMarket Screener — Station trading in EVE Online (Jita)" />
-    <meta
-      property="og:description"
-      content="Find which items are worth trading in Jita: ROI, spread and liquidity, refreshed every 4 hours."
-    />
-    <meta property="og:url" content="https://evemarket-analyzer.online/" />
-    <meta property="og:image" content="https://evemarket-analyzer.online/icon-512.png" />
-    <meta name="twitter:card" content="summary" />
+    <meta property="og:locale" content="%SEO_LOCALE%" />
+    <meta property="og:title" content="%SEO_TITLE%" />
+    <meta property="og:description" content="%SEO_OG_DESCRIPTION%" />
+    <meta property="og:url" content="%SEO_CANONICAL%" />
+    <meta property="og:image" content="https://evemarket-analyzer.online/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="EveMarket Screener: station trading screener for EVE Online" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://evemarket-analyzer.online/og-image.png" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -53,39 +48,9 @@
     <!-- Static content for crawlers (including AI ones) that do not run JavaScript. It lives in
          <noscript> on purpose: in a normal browser it is never rendered, so there is no flash
          of unstyled text before the app loads. ASSUMPTION, not verified: that crawlers read
-         <noscript> content; Google renders JavaScript and sees the mounted app instead. English,
-         the default; the app itself translates at runtime. -->
+         <noscript> content; Google renders JavaScript and sees the mounted app instead. -->
     <noscript>
-      <h1>EveMarket Screener — station trading in EVE Online</h1>
-      <p>
-        Free screener that ranks the items of The Forge (Jita) market by ROI, spread, daily
-        volume and trades per day. Data is refreshed every 4 hours. Available in English,
-        Spanish, German, French and Italian.
-      </p>
-      <h2>Frequently asked questions</h2>
-      <h3>What is station trading?</h3>
-      <p>
-        Buying items at the buy-order price and reselling them with a sell order in the same
-        station, earning the difference (spread) minus taxes and fees.
-      </p>
-      <h3>What do the categories mean?</h3>
-      <p>
-        Potential: spread, liquidity and real market activity over the last 7 days meet the
-        criteria. No orders: spread and liquidity qualify, but the executed-trade history is
-        too low (little volume or few trades per day). Under observation: borderline case,
-        more history is needed. Discarded: losing spread or unviable liquidity.
-      </p>
-      <h3>Where does the data come from?</h3>
-      <p>From the ESI, CCP Games' official API for EVE Online. No scraping is used.</p>
-      <h3>How often is the data refreshed?</h3>
-      <p>The market engine runs every 4 hours.</p>
-      <h3>Is it free?</h3>
-      <p>Yes, the Screener is public and requires no account.</p>
-      <p>
-        Independent site, not affiliated with CCP Games. EVE Online is a trademark of CCP hf.
-        Informational tool, not investment advice.
-      </p>
-      <p>Enable JavaScript to use the interactive Screener.</p>
+      <!--SEO_NOSCRIPT-->
     </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>

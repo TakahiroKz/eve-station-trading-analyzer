@@ -10,7 +10,36 @@ import {
   translateSettingCategory, translateSettingLabel, translateSpread, type MessageKey, type TFunction,
 } from "./i18n";
 import { useI18n } from "./i18n/useI18n";
+import { BEST_COUNT, BEST_MIN_TRADES, BestNow, Hero, HowItWorks, SiteFooter, Stats, SupportBand } from "./Landing";
 import "./App.css";
+
+// Remembers that this browser belongs to the signed-in owner, so the public landing (hero,
+// stats...) is not drawn for a moment on every load before the session check answers.
+const OWNER_HINT_KEY = "owner";
+
+function readOwnerHint(): boolean {
+  try {
+    return window.localStorage.getItem(OWNER_HINT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeOwnerHint(isOwner: boolean) {
+  try {
+    if (isOwner) window.localStorage.setItem(OWNER_HINT_KEY, "1");
+    else window.localStorage.removeItem(OWNER_HINT_KEY);
+  } catch {
+    // Storage can be blocked; the landing is then just drawn until the session check answers.
+  }
+}
+
+type SortField = "best_buy" | "best_sell" | "roi" | "avg_daily_order_count_7d";
+
+// Price columns read best low-to-high; the rest, high-to-low.
+const DEFAULT_ORDER: Record<SortField, "asc" | "desc"> = {
+  best_buy: "asc", best_sell: "asc", roi: "desc", avg_daily_order_count_7d: "desc",
+};
 
 // The backend stores closed-order states in Spanish; these are the known values.
 const CLOSED_STATES = ["completada", "expirada", "cancelada", "cerrada"];
@@ -43,10 +72,6 @@ const EMPTY_FILTERS: FilterForm = {
   categoryId: "", minRoi: "", maxRoi: "", minSpread: "", maxSpread: "",
   minBuy: "", maxBuy: "", minSell: "", maxSell: "", minVolume: "", maxVolume: "",
 };
-
-function formatPct(value: number) {
-  return `${(value * 100).toFixed(2)}%`;
-}
 
 function formatCountdown(target: string | null, now: Date, t: TFunction): string {
   if (!target) return t("schedule.none");
@@ -88,10 +113,17 @@ export default function App() {
     // maximumFractionDigits: 2 porque el ISK no tiene más precisión que eso — cubre
     // sin redondear a cero los precios chicos (ítems de pocas ISK con decimales
     // significativos), sin agregar ".00" de más en los enteros (no hay minimum).
-    return new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(value);
+    // useGrouping "always": Spanish (es-ES) otherwise leaves 4-digit numbers ungrouped
+    // ("2830") while 5-digit ones get a separator ("12.080"), which reads as two formats.
+    return new Intl.NumberFormat(locale, { maximumFractionDigits: 2, useGrouping: "always" }).format(value);
   };
   const formatIskValue = (value: number | null | undefined) =>
     value == null ? "—" : `${formatIsk(value)} ISK`;
+  // Percentages and per-day counts follow the language too (they used a fixed "." decimal).
+  const formatPct = (value: number) =>
+    new Intl.NumberFormat(locale, { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value);
+  const formatTrades = (value: number) =>
+    new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1, useGrouping: "always" }).format(value);
 
   const [summary, setSummary] = useState<Summary | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -137,12 +169,22 @@ export default function App() {
   const [authenticated, setAuthenticated] = useState(false);
   const [wallet, setWallet] = useState<number | null>(null);
   const [recommendation, setRecommendation] = useState<Opportunity | null>(null);
+  const [bestItems, setBestItems] = useState<ItemStatus[]>([]);
+  const [ownerHint, setOwnerHint] = useState(readOwnerHint);
 
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
     api.summary().then(setSummary).catch((e) => setError(String(e)));
     api.categories().then(setCategories).catch(() => {});
+    // "Best right now": the highest ROI among items that really trade (the API cannot filter
+    // by trades per day, so a wide page sorted by ROI is filtered here).
+    api
+      .items({ status: "POTENCIAL", sort: "roi", order: "desc", limit: 200 })
+      .then((res) => setBestItems(
+        res.items.filter((i) => i.avg_daily_order_count_7d >= BEST_MIN_TRADES).slice(0, BEST_COUNT),
+      ))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -152,7 +194,10 @@ export default function App() {
 
   useEffect(() => {
     const checkAuth = () =>
-      api.authPing().then(() => setAuthenticated(true)).catch(() => setAuthenticated(false));
+      api
+        .authPing()
+        .then(() => { setAuthenticated(true); setOwnerHint(true); writeOwnerHint(true); })
+        .catch(() => { setAuthenticated(false); setOwnerHint(false); writeOwnerHint(false); });
     checkAuth();
     // Repetido para notar una sesión de Access vencida sin necesidad de recargar.
     const id = setInterval(checkAuth, 60_000);
@@ -336,6 +381,41 @@ export default function App() {
     setPage(0);
   }
 
+  // The quick filters above the table apply on their own, without the "Apply" button.
+  function applyForm(next: FilterForm) {
+    setFilterForm(next);
+    setAppliedFilters(toFilters(next));
+    setPage(0);
+  }
+
+  // Column headers sort: a second click on the same column flips the direction.
+  function sortBy(field: SortField) {
+    if (sortField === field) {
+      setSortOrder((o) => (o === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortOrder(DEFAULT_ORDER[field]);
+    }
+    setPage(0);
+  }
+
+  function renderSortHeader(field: SortField, label: string, className = "col-num") {
+    const active = sortField === field;
+    return (
+      <button
+        className={`${className} col-sort${active ? " is-active" : ""}`}
+        onClick={() => sortBy(field)}
+        aria-label={`${t("common.sortBy")}: ${label}`}
+      >
+        {label}{active ? (sortOrder === "asc" ? " ↑" : " ↓") : ""}
+      </button>
+    );
+  }
+
+  // The marketing sections (hero, stats...) are for visitors; the signed-in owner goes
+  // straight to the table.
+  const showLanding = !authenticated && !ownerHint;
+
   const undercutCount = characterOrders.filter((o) => o.is_undercut).length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const orderFiltersActive = orderSearch.trim() !== "" || orderRegion !== "all" || orderUndercutOnly;
@@ -415,7 +495,7 @@ export default function App() {
   }
 
   return (
-    <div className="app">
+    <div className={authenticated ? "app" : "app is-public"}>
       <div className="bg-blob blob-a" />
       <div className="bg-blob blob-b" />
 
@@ -425,31 +505,45 @@ export default function App() {
             <span className="live-dot" />
             <span className="navbar-title">EveMarket</span>
           </div>
-          <div className="navbar-meta">
-            {authenticated && (
+          {authenticated ? (
+            <div className="navbar-meta">
               <span>{t("nav.wallet")} <b>{wallet != null ? formatIskValue(wallet) : t("nav.notAuthorized")}</b></span>
+              <span>EVE {now.toISOString().slice(11, 19)} · {t("nav.local")} {now.toLocaleTimeString(locale)}</span>
+              <span>{t("nav.market")}: <b>{formatCountdown(schedule?.market_next_run ?? null, now, t)}</b></span>
+              <span>{t("nav.positions")}: <b>{formatCountdown(schedule?.positions_next_run ?? null, now, t)}</b></span>
+            </div>
+          ) : (
+            // Visitors get the page links instead of the engine clocks, which only mean
+            // something to the owner (the next-refresh time is in the stats cards).
+            <div className="public-nav">
+              <a className="public-nav-link" href="#screener">{t("nav.screener")}</a>
+              <a className="public-nav-link" href="#how-it-works">{t("nav.howItWorks")}</a>
+              <a className="public-nav-link" href="/items">{t("nav.allItems")}</a>
+            </div>
+          )}
+          <div className={authenticated ? "navbar-links" : "navbar-links is-public"}>
+            <label className="lang-picker">
+              <svg className="lang-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" /></svg>
+              <select
+                className="lang-select"
+                aria-label={t("nav.language")}
+                value={lang}
+                onChange={(e) => { if (isLang(e.target.value)) setLang(e.target.value); }}
+              >
+                {LANGS.map((l) => (
+                  <option key={l.code} value={l.code}>{l.label}</option>
+                ))}
+              </select>
+              <svg className="lang-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+            </label>
+            {authenticated && (
+              <button
+                className={view === "screener" ? "navbar-link active" : "navbar-link"}
+                onClick={() => setView("screener")}
+              >
+                {t("nav.screener")}
+              </button>
             )}
-            <span>EVE {now.toISOString().slice(11, 19)} · {t("nav.local")} {now.toLocaleTimeString(locale)}</span>
-            <span>{t("nav.market")}: <b>{formatCountdown(schedule?.market_next_run ?? null, now, t)}</b></span>
-            <span>{t("nav.positions")}: <b>{formatCountdown(schedule?.positions_next_run ?? null, now, t)}</b></span>
-          </div>
-          <div className="navbar-links">
-            <select
-              className="navbar-link lang-select"
-              aria-label={t("nav.language")}
-              value={lang}
-              onChange={(e) => { if (isLang(e.target.value)) setLang(e.target.value); }}
-            >
-              {LANGS.map((l) => (
-                <option key={l.code} value={l.code}>{l.label}</option>
-              ))}
-            </select>
-            <button
-              className={view === "screener" ? "navbar-link active" : "navbar-link"}
-              onClick={() => setView("screener")}
-            >
-              {t("nav.screener")}
-            </button>
             {authenticated && (
               <button
                 className={view === "orders" ? "navbar-link active" : "navbar-link"}
@@ -467,13 +561,13 @@ export default function App() {
                 {t("nav.settings")}
               </button>
             )}
-            {!authenticated && (
-              <a className="navbar-link" href={api.authLoginUrl}>
-                {t("nav.login")}
-              </a>
-            )}
             {DONATE_URL && (
-              <a className="navbar-link navbar-donate" href={DONATE_URL} target="_blank" rel="noopener noreferrer">
+              <a
+                className={authenticated ? "navbar-link navbar-donate" : "btn-donate-nav"}
+                href={DONATE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 {t("nav.donate")}
               </a>
             )}
@@ -708,6 +802,27 @@ export default function App() {
         </>
       ) : (
       <>
+      {showLanding && (
+        <>
+          <Hero t={t} />
+          <Stats
+            t={t}
+            opportunities={summary ? formatIsk(summary.counts.POTENCIAL ?? 0) : "—"}
+            analyzed={summary ? formatIsk(summary.total) : "—"}
+            nextRefresh={formatCountdown(schedule?.market_next_run ?? null, now, t)}
+          />
+          <BestNow
+            t={t}
+            items={bestItems}
+            formatPrice={formatIsk}
+            formatRoi={formatPct}
+            formatCount={formatTrades}
+            onOpen={openItem}
+          />
+        </>
+      )}
+      <section id="screener" className="screener-section">
+      {showLanding && <h2 className="section-heading">{t("screener.title")}</h2>}
       <nav className="tabs">
         {TAB_KEYS.map((key) => (
           <button
@@ -721,10 +836,45 @@ export default function App() {
         ))}
       </nav>
 
-      <button className="filters-toggle glass-panel" onClick={() => setShowFilters((s) => !s)}>
-        {showFilters ? t("filters.hide") : t("filters.show")}
-        {Object.keys(appliedFilters).length > 0 && <span className="badge">{t("filters.active")}</span>}
-      </button>
+      <div className="filter-bar">
+        <select
+          className="filter-quick"
+          aria-label={t("filters.category")}
+          value={filterForm.categoryId}
+          onChange={(e) => applyForm({ ...filterForm, categoryId: e.target.value })}
+        >
+          <option value="">{t("filters.category")}: {t("common.all")}</option>
+          {categories.map((c) => (
+            <option key={c.category_id} value={c.category_id}>{c.category_name}</option>
+          ))}
+        </select>
+        <input
+          className="filter-quick"
+          type="number"
+          inputMode="decimal"
+          placeholder={t("filters.minRoiShort")}
+          aria-label={t("filters.minRoiShort")}
+          value={filterForm.minRoi}
+          onChange={(e) => setFilterForm({ ...filterForm, minRoi: e.target.value })}
+          onBlur={applyFilters}
+          onKeyDown={(e) => { if (e.key === "Enter") applyFilters(); }}
+        />
+        <input
+          className="filter-quick"
+          type="number"
+          inputMode="decimal"
+          placeholder={t("filters.minVolumeShort")}
+          aria-label={t("filters.minVolumeShort")}
+          value={filterForm.minVolume}
+          onChange={(e) => setFilterForm({ ...filterForm, minVolume: e.target.value })}
+          onBlur={applyFilters}
+          onKeyDown={(e) => { if (e.key === "Enter") applyFilters(); }}
+        />
+        <button className="filters-more" onClick={() => setShowFilters((s) => !s)}>
+          {showFilters ? t("filters.hide") : t("filters.show")}
+          {Object.keys(appliedFilters).length > 0 && <span className="badge">{t("filters.active")}</span>}
+        </button>
+      </div>
 
       {showFilters && (
         <div className="glass-panel filters-panel">
@@ -816,12 +966,15 @@ export default function App() {
       {error && <p className="error">{error}</p>}
       {loading && <p className="muted">{t("common.loading")}</p>}
 
+      <p className="table-note">{t("screener.pricesInIsk")}</p>
       <div className="glass-panel data-panel">
         <div className="data-row data-header">
           <span className="col-item">{t("screener.colItem")}</span>
-          <span className="col-num">{t("screener.colBuy")}</span>
-          <span className="col-num">{t("screener.colSell")}</span>
-          <span className="col-num">{t("screener.colRoi")}</span>
+          {renderSortHeader("best_buy", t("screener.colBuy"))}
+          {renderSortHeader("best_sell", t("screener.colSell"))}
+          <span className="col-num col-extra">{t("screener.colSpread")}</span>
+          {renderSortHeader("roi", t("screener.colRoi"))}
+          {renderSortHeader("avg_daily_order_count_7d", t("screener.colOps"), "col-num col-extra")}
         </div>
         {items.map((item) => (
           <div key={item.type_id} className="data-row clickable" onClick={() => openItem(item.type_id)}>
@@ -830,13 +983,15 @@ export default function App() {
               <span className="row-sub">
                 {item.category_name ?? "—"} · {translateSpread(t, item.evaluacion_spread)}
               </span>
-              <span className="row-sub">
-                {t("screener.tradesPerDay", { n: item.avg_daily_order_count_7d.toFixed(1) })}
+              <span className="row-sub row-sub-ops">
+                {t("screener.tradesPerDay", { n: formatTrades(item.avg_daily_order_count_7d) })}
               </span>
             </span>
-            <span className="col-num">{formatIskValue(item.best_buy)}</span>
-            <span className="col-num">{formatIskValue(item.best_sell)}</span>
+            <span className="col-num">{formatIsk(item.best_buy)}</span>
+            <span className="col-num">{formatIsk(item.best_sell)}</span>
+            <span className="col-num col-extra">{formatIsk(item.best_sell - item.best_buy)}</span>
             <span className={item.roi >= 0 ? "col-num positive" : "col-num negative"}>{formatPct(item.roi)}</span>
+            <span className="col-num col-extra">{formatTrades(item.avg_daily_order_count_7d)}</span>
           </div>
         ))}
         {!loading && items.length === 0 && <p className="muted panel-empty">{t("screener.empty")}</p>}
@@ -848,6 +1003,13 @@ export default function App() {
           <span>{t("screener.page", { page: page + 1, total: totalPages, count: formatIsk(total) })}</span>
           <button disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)}>{t("screener.next")}</button>
         </div>
+      )}
+      </section>
+      {showLanding && (
+        <>
+          <HowItWorks t={t} />
+          <SupportBand t={t} />
+        </>
       )}
       </>
       )}
@@ -914,14 +1076,13 @@ export default function App() {
         </div>
       )}
 
-      {DONATE_URL && (
-        <footer className="site-footer">
-          <span>{t("footer.text")}</span>
-          <a className="btn-donate" href={DONATE_URL} target="_blank" rel="noopener noreferrer">
-            {t("footer.donate")}
-          </a>
-        </footer>
-      )}
+      <SiteFooter
+        t={t}
+        lang={lang}
+        setLang={setLang}
+        loginUrl={api.authLoginUrl}
+        showLogin={!authenticated}
+      />
     </div>
   );
 }

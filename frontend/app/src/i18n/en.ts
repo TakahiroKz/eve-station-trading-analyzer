@@ -205,6 +205,53 @@ export const en = {
   "setting.recomendacion_objetivo_pct": "Target volume (% of daily volume)",
   "setting.sanity_min_ratio": "Minimum ratio vs. reference price",
   "setting.sanity_max_ratio": "Maximum ratio vs. reference price",
+
+  "nav.howItWorks": "How it works",
+  "nav.allItems": "All items",
+
+  "hero.eyebrow": "STATION TRADING · THE FORGE (JITA)",
+  "hero.title": "Find what to trade in Jita",
+  "hero.subtitle":
+    "Free screener that ranks market items by ROI, spread and real volume. Official ESI data, refreshed every 4 hours.",
+  "hero.cta": "See opportunities",
+  "hero.ctaHow": "How it works",
+
+  "stats.opportunities": "Opportunities now",
+  "stats.analyzed": "Items analyzed",
+  "stats.refresh": "Refreshed",
+  "stats.every4h": "every 4 h",
+  "stats.next": "Next refresh",
+
+  "best.title": "Best right now",
+  "best.hint": "Highest ROI with at least {n} trades a day",
+
+  "screener.title": "All opportunities",
+  "screener.colSpread": "SPREAD/U",
+  "screener.colOps": "TRADES/DAY",
+  "filters.minRoiShort": "Min ROI %",
+  "filters.minVolumeShort": "Min volume",
+  "screener.pricesInIsk": "Prices in ISK",
+
+  "how.title": "How it works",
+  "how.step1.title": "Pick a status",
+  "how.step1.body": "Start with Potential: items with a good margin, liquidity and real trading activity.",
+  "how.step2.title": "Filter and sort",
+  "how.step2.body": "By ROI, spread, price or daily volume, to fit your capital and your style.",
+  "how.step3.title": "Buy and resell",
+  "how.step3.body": "Data is refreshed every 4 hours from the ESI, CCP Games' official API.",
+  "how.statesTitle": "What each status means",
+  "how.stateBody.POTENCIAL":
+    "Spread, liquidity and real market activity over the last 7 days meet the criteria.",
+  "how.stateBody.POTENCIAL_SIN_ORDENES":
+    "Spread and liquidity qualify, but the executed-trade history is too low (little volume or few trades per day).",
+  "how.stateBody.EN_OBSERVACION": "Borderline case: more history is needed to decide.",
+  "how.stateBody.DESCARTADO": "Losing spread or unviable liquidity.",
+
+  "support.title": "Do you find the Screener useful?",
+  "support.body": "It is free and kept alive by donations. Any contribution helps keep it online.",
+
+  "footer.disclaimer":
+    "Independent site, not affiliated with CCP Games. EVE Online is a trademark of CCP hf. Informational tool, not investment advice.",
 } as const;
 
 export type MessageKey = keyof typeof en;
