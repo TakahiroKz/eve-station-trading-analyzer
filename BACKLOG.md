@@ -127,7 +127,7 @@ workflow de CD (deploy por SSH a la VM al mergear a `main`), y del lado del usua
 terminar de crear la VM de Oracle y generar el par de llaves SSH para el deploy.
 
 **2026-09-22 (T5 — funcionando en producción)**: pipeline de CI/CD completo, verificado
-de punta a punta contra la VM real (`<IP-DE-LA-VM>`), con la primera corrida real del
+de punta a punta contra la VM real (`141.148.60.142`), con la primera corrida real del
 motor de mercado poblando datos reales (16.089 ítems clasificados, 699 POTENCIAL).
 
 - `Dockerfile` (build de dos etapas: Node compila la PWA, imagen final Python

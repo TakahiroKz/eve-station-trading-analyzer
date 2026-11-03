@@ -154,7 +154,7 @@ de verificación (solo `npm run build`). Al correrlo aparecen:
 
 ### D9. ~~Puerto 8001 seguía abierto públicamente en paralelo al túnel~~ (hecho) — **Media**
 Al armar el Cloudflare Tunnel (HTTPS real, ver BACKLOG.md T5) no se había cerrado el
-acceso directo por HTTP a `http://<IP-DE-LA-VM>:8001` — seguía permitido tanto en el
+acceso directo por HTTP a `http://141.148.60.142:8001` — seguía permitido tanto en el
 NSG de Oracle como en el iptables de la VM, y el túnel no lo necesita para nada
 (conecta saliente). Cerrado al implementar T14 (login): `docker-compose.yml` publica
 el puerto solo en loopback (`127.0.0.1:8001:8001`), se sacó la regla de ingress del

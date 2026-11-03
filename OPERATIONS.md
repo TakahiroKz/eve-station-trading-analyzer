@@ -2,7 +2,7 @@
 
 ## Producción: VM de Oracle Cloud (desde 2026-09-22)
 
-La automatización real corre en la VM (`<IP-DE-LA-VM>`, Oracle Free Tier) vía Docker +
+La automatización real corre en la VM (`141.148.60.142`, Oracle Free Tier) vía Docker +
 cron — ver `CONTRIBUTING.md` para el flujo de CI/CD y `docker-compose.yml` /
 `scripts/setup_cron.sh` para cómo están armados los dos motores ahí. Las tareas de
 Windows (abajo) están **desactivadas** (`Disable-ScheduledTask`, no eliminadas) desde
