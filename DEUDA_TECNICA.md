@@ -178,18 +178,19 @@ object-family in tenancy` — sin la cual Oracle rechaza las reglas de auto-borr
 en producción de punta a punta: backup real corrido y subido (19MB), confirmado en
 el bucket. Ver `OPERATIONS.md` para el procedimiento de restauración.
 
-### D11. ~~Sin monitoreo continuo entre deploys~~ (hecho en código; falta UptimeRobot y verificar en la VM) — **Media**
+### D11. ~~Sin monitoreo continuo entre deploys~~ (hecho) — **Media**
 Diagnóstico original: el health check de `deploy.yml` solo corre EN el momento del
 deploy — si el contenedor, `cloudflared`, o el cron se caen en cualquier otro momento,
 nadie se entera hasta que el usuario nota que la app no responde.
 
-Resuelto en código: `scripts/healthcheck.sh` corre por cron cada 10 min en la VM y avisa
-por Telegram, sin spam (solo en cambios de estado), si la API no responde, si el motor
-de mercado (`last_evaluated_at` > 5 h) o el de posiciones (log sin tocar > 20 min) dejaron
-de correr, o si `cloudflared` está caído. Probado localmente contra una API falsa
-(OK silencioso, alerta, sin repetición, recuperación). **Pendiente, a mano:** re-correr
-`scripts/setup_cron.sh` en la VM, confirmar una corrida real, y crear el monitor de
-UptimeRobot (cubre VM/túnel/DNS caídos; pasos en `OPERATIONS.md`). Con eso se tacha D11.
+Resuelto: `scripts/healthcheck.sh` corre por cron cada 10 min en la VM y avisa por
+Telegram, sin spam (solo en cambios de estado), si la API no responde, si el motor de
+mercado (`last_evaluated_at` > 5 h) o el de posiciones (log sin tocar > 20 min) dejaron
+de correr, o si `cloudflared` está caído. Instalado en la VM el 2026-11-03 y verificado en
+producción: avisó que el motor de mercado llevaba 326 h sin correr, y mandó el aviso de
+recuperación cuando la corrida terminó. Además hay un monitor de UptimeRobot sobre
+`/api/summary` (cubre VM/túnel/DNS caídos). Las incidencias que lo hicieron necesario
+(motores colgados desde el 20-21 de octubre) están en D19.
 
 ### D12. Reconstrucción de la VM no es reproducible — **Media**
 Todo el setup de hoy (Docker, cron, `.env`/`credentials/` copiados a mano, cloudflared,
@@ -266,6 +267,32 @@ de después necesita (queda excluido del grupo), así que el fix real requiere r
 cada uno de los cuatro con cuidado, no un sed masivo. Como estos módulos hoy no están
 enganchados a nada (ver D6), no es urgente.
 
+
+### D19. ~~Motores colgados por falta de memoria; `market.db` crecía sin límite~~ (hecho) — **Alta**
+Incidente del 2026-10-20 al 2026-11-03: los dos motores quedaron colgados (el de
+posiciones por un fallo de DNS sin timeout, el de mercado al cargar en pandas las tablas
+`market_snapshot` y `market_history` completas) y, como el cron usa `flock -n`, cada
+corrida nueva se descartaba en silencio; los datos quedaron 13 días sin actualizar.
+`market.db` pesaba 1,3 GB en una VM de 954 MB de RAM con el swap lleno.
+
+Resuelto: el screening lee solo el último snapshot por ítem y las últimas 30 filas de
+histórico por ítem (PR #2); cada corrida poda los snapshots de más de
+`SNAPSHOT_RETENTION_DAYS` (default 7) por lotes de filas (PR #4: la primera versión
+borraba un `captured_at` por vez, recorría toda la tabla cada vez y la API devolvía 500
+por `database is locked`); y la base está en modo WAL. Verificado en producción: la poda
+borró 2 millones de filas en 3 min y la corrida completa terminó en ~32 min. El hueco de
+histórico (20-oct a 1-nov) se rellenó con una corrida `--backfill`.
+Queda como mejora opcional, no urgente: el archivo sigue ocupando 1,3 GB (borrar filas
+no lo achica; un `VACUUM` con los motores parados lo reduciría) y un timeout explícito en
+las llamadas a la ESI evitaría otro cuelgue como el del motor de posiciones.
+
+### D20. Google Sheets no está configurado en la VM — **Baja**
+`credentials/` en la VM solo tiene el token de la ESI, no `google-service-account.json`,
+así que `reporting/gsheets_sync.py` degrada como está diseñado: cada fila POTENCIAL se
+anota en un log local (`reporting/pending_gsheets_sync`, dentro del contenedor, que es
+efímero) y los motores avisan con un WARNING. No rompe nada; el registro útil sigue
+siendo la base y las alertas de Telegram. Para activarlo hay que copiar el JSON de la
+service account a `credentials/` y compartir la hoja con ella.
 ---
 
 ## Chequeado y sin deuda
