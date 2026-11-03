@@ -158,6 +158,19 @@ el watchdog no puede ver porque corre en la misma VM: VM entera caída, túnel o
 2. URL: la pública de la app (`https://<dominio>/api/summary`), intervalo 5 min.
 3. Alert Contacts: agregar el email (o el bot de Telegram) donde se quiera recibir el aviso.
 
+## Donaciones (botón de PayPal + página de agradecimiento)
+
+- El link de donación va en `frontend/app/src/config.ts` (`DONATE_URL`); vacío = no se
+  muestra ningún botón. Es un link público, no un secreto.
+- **Página de agradecimiento:** la app la muestra en `https://evemarket-analyzer.online/?gracias=1`.
+  Para que PayPal mande ahí al donante al terminar: PayPal → Herramientas → botones
+  Donar → editar el botón → "Después de donar, redirigir a" → esa URL. Funciona solo con
+  el botón Donar (cuenta Business); **PayPal.me no permite redirección**, así que con
+  ese link el donante se queda en PayPal.
+- La página no confirma el pago (cualquiera con la URL puede abrirla); es solo un
+  agradecimiento. Si algún día hace falta confirmar donaciones, hay que usar webhooks de
+  PayPal, que es otro trabajo.
+
 ## Datos
 
 - `storage/market.db` — SQLite: histórico, snapshots, clasificación vigente por ítem

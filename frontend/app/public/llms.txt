@@ -1,0 +1,26 @@
+# EveMarket Screener
+
+> Screener gratuito de station trading para EVE Online. Muestra qué ítems del mercado de The Forge (Jita) conviene comerciar, ordenados por ROI, spread y liquidez, con datos que se actualizan cada 4 horas.
+> Free station-trading screener for EVE Online: ranks items in The Forge (Jita) market by ROI, spread and liquidity, refreshed every 4 hours.
+
+El Screener público no requiere cuenta. Las secciones "Mis Órdenes" y "Ajustes" son privadas, de uso personal del dueño del sitio, y no son contenido público.
+
+## Qué hace
+- Clasifica cada ítem del mercado de Jita en cuatro estados:
+  - Potencial: spread, liquidez y actividad real de mercado de los últimos 7 días cumplen los criterios.
+  - Sin órdenes: spread y liquidez cumplen, pero el histórico de transacciones ejecutadas es demasiado bajo (poco volumen o pocas operaciones por día).
+  - En observación: caso borderline, se necesita más historial.
+  - Descartado: spread en pérdida o liquidez inviable.
+- Calcula por ítem: mejor precio de compra y de venta, spread, ROI, volumen diario real y operaciones por día.
+- Permite filtrar y ordenar por categoría, ROI, spread, precio y volumen.
+- Cada ítem tiene un detalle con su histórico reciente de precio y volumen.
+
+## Páginas
+- [Screener](https://evemarket-analyzer.online/): listado principal, público.
+
+## Datos y límites
+- Fuente: la ESI, la API oficial de CCP Games para EVE Online (no es scraping).
+- Región cubierta: The Forge (Jita).
+- Frecuencia: el motor de mercado corre cada 4 horas; los datos pueden tener hasta ese retraso.
+- Es una herramienta informativa, no una recomendación de inversión ni de compra dentro del juego.
+- Sitio independiente, no afiliado a CCP Games. EVE Online es marca de CCP hf.
