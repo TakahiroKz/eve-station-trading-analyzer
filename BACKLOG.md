@@ -485,3 +485,35 @@ hardcodeados en español.
   traducirlos en el frontend — decidir antes de empezar.
 - Para SEO, un idioma por URL (`/en/`, `/de/`...) con `hreflang` rinde mucho más que
   uno solo por JS; va de la mano con las páginas públicas por ítem (ver tráfico).
+
+### T16. Ganancia en ISK además del ROI (próxima actualización)
+
+Aprobado por el usuario (2026-11-04), en backlog para una próxima actualización. El ROI
+solo engaña: un +300 % en un ítem barato que casi no rota rinde menos que un +20 % en uno
+líquido. Calcular y mostrar, por ítem:
+- **Ganancia neta por unidad** (ya con impuesto y comisiones de T17).
+- **Ganancia diaria esperada** = ganancia por unidad × la parte realista del volumen diario
+  que se puede capturar (la parte capturable debe ser un parámetro; hoy ya existen
+  `recomendacion_techo_pct` / `recomendacion_objetivo_pct` como referencia).
+- **Capital necesario** para mover ese volumen.
+Notas: no son filtros nuevos ni cambian la clasificación; es información adicional en el
+detalle y, opcionalmente, una columna ordenable. Mantiene la decisión de no filtrar ROI altos.
+
+### T17. Comisiones reales del trader, ingresadas a mano (próxima actualización)
+
+Aprobado por el usuario (2026-11-04), en backlog para una próxima actualización. Hoy
+`EveCalculatorConfig` usa factores fijos por defecto (`sales_tax_factor` 0.901,
+`buy_fee_factor` 1.024). En EVE el impuesto de venta depende de Accounting y la comisión de
+corretaje de Broker Relations y de los standings, y varía según la estación; además cada
+reajuste de una orden vuelve a cobrar comisión.
+
+**Decisión de diseño (usuario, 2026-11-04):** por limitación de infraestructura **no** se
+hace login con la cuenta de EVE de cada usuario (sin lectura de skills por ESI ni scope
+`esi-skills.read_skills.v1`). El usuario **ingresa los parámetros a mano**: nivel de
+Accounting, nivel de Broker Relations, standings con la facción/corporación de la estación
+(o directamente los porcentajes efectivos de impuesto y comisión). Los valores por defecto
+siguen siendo los actuales hasta que alguien los edite.
+- Guardarlos por navegador (`localStorage`) y/o en Ajustes, sin cuentas de usuario.
+- Calcular con ellos: precio de equilibrio, ganancia neta por unidad (alimenta T16) y
+  cuántos reajustes aguanta el margen.
+- Alcance: la web pública no debe requerir login para esto.
