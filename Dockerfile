@@ -8,7 +8,7 @@
 # copia el resultado (dist/) a la imagen final de Python — así la imagen que corre
 # en producción no carga con Node ni node_modules.
 
-FROM node:22-alpine AS frontend-builder
+FROM node:26-alpine AS frontend-builder
 WORKDIR /build/frontend/app
 COPY frontend/app/package.json frontend/app/package-lock.json ./
 RUN npm ci
