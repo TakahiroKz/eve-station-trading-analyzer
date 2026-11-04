@@ -223,7 +223,7 @@ export const de: Messages = {
   "stats.next": "Nächste Aktualisierung",
 
   "best.title": "Aktuell die Besten",
-  "best.hint": "Höchster ROI bei mindestens {n} Trades pro Tag",
+  "best.hint": "Meistgehandelte Artikel mit ROI über {n} %",
 
   "screener.title": "Alle Chancen",
   "screener.colSpread": "SPREAD/E",

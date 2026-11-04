@@ -10,7 +10,7 @@ import {
   translateSettingCategory, translateSettingLabel, translateSpread, type MessageKey, type TFunction,
 } from "./i18n";
 import { useI18n } from "./i18n/useI18n";
-import { BEST_COUNT, BEST_MIN_TRADES, BestNow, Hero, HowItWorks, SiteFooter, Stats, SupportBand } from "./Landing";
+import { BEST_COUNT, BEST_MIN_ROI, BestNow, Hero, HowItWorks, SiteFooter, Stats, SupportBand } from "./Landing";
 import "./App.css";
 
 // Remembers that this browser belongs to the signed-in owner, so the public landing (hero,
@@ -177,12 +177,12 @@ export default function App() {
   useEffect(() => {
     api.summary().then(setSummary).catch((e) => setError(String(e)));
     api.categories().then(setCategories).catch(() => {});
-    // "Best right now": the highest ROI among items that really trade (the API cannot filter
-    // by trades per day, so a wide page sorted by ROI is filtered here).
+    // "Best right now": the most-traded items (trades/day, 7d) with ROI above BEST_MIN_ROI. The API
+    // cannot filter by ROI, so a wide page sorted by trades is filtered here.
     api
-      .items({ status: "POTENCIAL", sort: "roi", order: "desc", limit: 200 })
+      .items({ status: "POTENCIAL", sort: "avg_daily_order_count_7d", order: "desc", limit: 200 })
       .then((res) => setBestItems(
-        res.items.filter((i) => i.avg_daily_order_count_7d >= BEST_MIN_TRADES).slice(0, BEST_COUNT),
+        res.items.filter((i) => i.roi > BEST_MIN_ROI).slice(0, BEST_COUNT),
       ))
       .catch(() => {});
   }, []);

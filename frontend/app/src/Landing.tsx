@@ -7,8 +7,8 @@ import { LANGS, langPath, type Lang, type MessageKey, type TFunction } from "./i
 // from the i18n dictionaries; the same keys feed the <noscript> block of each language page
 // (see the `language-pages` plugin in vite.config.ts).
 
-/** The "Best right now" cards only list items that trade at least this many times a day. */
-export const BEST_MIN_TRADES = 150;
+/** The "Best right now" cards list the most-traded items whose ROI exceeds this fraction (0.165 = 16.5 %). */
+export const BEST_MIN_ROI = 0.165;
 export const BEST_COUNT = 4;
 
 const STATUSES: Status[] = ["POTENCIAL", "POTENCIAL_SIN_ORDENES", "EN_OBSERVACION", "DESCARTADO"];
@@ -68,7 +68,7 @@ export function BestNow({ t, items, formatPrice, formatRoi, formatCount, onOpen 
     <section className="best" aria-labelledby="best-title">
       <div className="section-head">
         <h2 id="best-title" className="section-heading">{t("best.title")}</h2>
-        <span className="section-hint">{t("best.hint", { n: BEST_MIN_TRADES })}</span>
+        <span className="section-hint">{t("best.hint", { n: formatCount(BEST_MIN_ROI * 100) })}</span>
       </div>
       <div className="best-grid">
         {items.map((item) => (
