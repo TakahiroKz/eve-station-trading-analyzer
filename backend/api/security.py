@@ -24,12 +24,12 @@ logger = logging.getLogger(__name__)
 
 CANONICAL_HOST = os.environ.get("CANONICAL_HOST", "evemarket-analyzer.online")
 
-# Sin scripts inline ni orígenes externos: la PWA, las páginas de ítem y las de idioma se
+# Sin scripts inline; solo se admite la baliza de analíticas que Cloudflare inyecta en el borde: la PWA, las páginas de ítem y las de idioma se
 # sirven con JS/CSS/fuentes propios. 'unsafe-inline' solo en estilos (React usa style=...
 # y las páginas de ítem llevan un <style>).
 CONTENT_SECURITY_POLICY = (
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
-    "img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; "
+    "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data:; font-src 'self'; connect-src 'self' https://cloudflareinsights.com; manifest-src 'self'; "
     "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
 )
 SECURITY_HEADERS = {

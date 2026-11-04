@@ -21,7 +21,7 @@ def test_security_headers_on_every_response(client):
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["x-frame-options"] == "DENY"
     assert "frame-ancestors 'none'" in response.headers["content-security-policy"]
-    assert "script-src 'self'" in response.headers["content-security-policy"]
+    assert "script-src 'self' https://static.cloudflareinsights.com" in response.headers["content-security-policy"]
     assert "strict-transport-security" not in response.headers
 
 
