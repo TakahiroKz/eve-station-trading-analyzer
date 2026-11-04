@@ -94,3 +94,14 @@ def test_sitemap_contains_home_hub_and_only_indexable_items(client):
     assert 'hreflang="de" href="https://evemarket-analyzer.online/de/"' in xml
     assert '<loc>https://evemarket-analyzer.online/de/</loc>' in xml
     assert '?lang=' not in xml
+
+
+def test_indexnow_key_file_is_served_and_does_not_shadow_other_txt(client):
+    from backend.api.indexnow import INDEXNOW_KEY
+
+    http, _ = client
+    response = http.get(f"/{INDEXNOW_KEY}.txt")
+
+    assert response.status_code == 200
+    assert response.text == INDEXNOW_KEY
+    assert http.get("/otra-clave.txt").text != INDEXNOW_KEY

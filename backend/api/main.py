@@ -19,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from backend.api.deps import ITEM_JOIN, ITEM_SELECT_COLS, _db
+from backend.api.indexnow import router as indexnow_router
 from backend.api.pages import router as pages_router
 from backend.api.private import router as private_router
 from backend.api.seo import docs_kwargs, install_seo_middleware
@@ -50,6 +51,7 @@ app.add_middleware(
 
 app.include_router(private_router)
 app.include_router(pages_router)
+app.include_router(indexnow_router)
 
 
 @app.get("/api/summary", response_model=SummaryOut)
