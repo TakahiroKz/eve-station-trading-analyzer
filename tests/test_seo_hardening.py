@@ -74,3 +74,13 @@ def test_language_root_with_slash_is_left_alone():
     assert canonical_redirect("evemarket-analyzer.online", "https", "/de?x=1") == (
         "https://evemarket-analyzer.online/de/?x=1"
     )
+
+
+def test_head_requests_are_served_like_get_without_body(client):
+    http, _ = client
+    for path in ("/api/summary", "/api/schedule"):
+        get = http.get(path)
+        head = http.head(path)
+        assert head.status_code == get.status_code == 200
+        assert head.content == b""
+        assert head.headers["content-type"] == get.headers["content-type"]

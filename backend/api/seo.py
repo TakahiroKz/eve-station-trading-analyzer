@@ -62,6 +62,12 @@ def install_seo_middleware(app: FastAPI) -> None:
         if target:
             return RedirectResponse(target, status_code=301)
 
+        # Los monitores (UptimeRobot) y algunos rastreadores usan HEAD; las rutas de la API solo
+        # declaran GET y el mount estático respondía 404. Se atiende como GET y se descarta el cuerpo.
+        is_head = request.method == "HEAD"
+        if is_head:
+            request.scope["method"] = "GET"
+
         response = await call_next(request)
         cache = cache_control_for(
             request.url.path, response.headers.get("content-type", ""), response.status_code,
@@ -70,4 +76,6 @@ def install_seo_middleware(app: FastAPI) -> None:
             response.headers["Cache-Control"] = cache
         if request.url.path.startswith("/api/"):
             response.headers["X-Robots-Tag"] = "noindex, nofollow"
+        if is_head:
+            return Response(status_code=response.status_code, headers=dict(response.headers))
         return response
