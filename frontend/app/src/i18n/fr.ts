@@ -223,7 +223,6 @@ export const fr: Messages = {
   "stats.next": "Prochaine actualisation",
 
   "best.title": "Les meilleures en ce moment",
-  "best.hint": "Articles les plus échangés avec un ROI supérieur à {n} %",
 
   "screener.title": "Toutes les opportunités",
   "screener.colSpread": "SPREAD/U",
