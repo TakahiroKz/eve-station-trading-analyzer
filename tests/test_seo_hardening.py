@@ -57,3 +57,20 @@ def test_cache_control_policy():
     assert cache_control_for("/", "text/html; charset=utf-8", 200) == "no-cache"
     assert cache_control_for("/assets/index-abc.js", "text/javascript", 404) is None
     assert cache_control_for("/api/summary", "application/json", 200) is None
+
+
+def test_language_root_without_trailing_slash_redirects_in_one_hop(client):
+    http, _ = client
+    response = http.get(
+        "/es", follow_redirects=False,
+        headers={"host": "evemarket-analyzer.online", "x-forwarded-proto": "https"},
+    )
+    assert response.status_code == 301
+    assert response.headers["location"] == "https://evemarket-analyzer.online/es/"
+
+
+def test_language_root_with_slash_is_left_alone():
+    assert canonical_redirect("evemarket-analyzer.online", "https", "/de/") is None
+    assert canonical_redirect("evemarket-analyzer.online", "https", "/de?x=1") == (
+        "https://evemarket-analyzer.online/de/?x=1"
+    )

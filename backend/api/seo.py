@@ -13,6 +13,7 @@ from fastapi.responses import RedirectResponse, Response
 CANONICAL_HOST = os.environ.get("CANONICAL_HOST", "evemarket-analyzer.online")
 
 IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
+LANGUAGE_ROOTS = ("/es", "/de", "/fr", "/it")  # per-language home pages built by the frontend
 
 
 def docs_kwargs() -> dict:
@@ -30,9 +31,14 @@ def canonical_redirect(host: str, forwarded_proto: str, path_qs: str) -> str | N
     host = host.split(":")[0].lower()
     if host not in (CANONICAL_HOST, f"www.{CANONICAL_HOST}"):
         return None
-    if host == CANONICAL_HOST and forwarded_proto != "http":
+    # /es -> /es/: the per-language pages are directories; StaticFiles would answer 307 with
+    # an http:// Location (it only sees the tunnel's plain HTTP), costing a second redirect.
+    path, sep, query = path_qs.partition("?")
+    fixed_path = f"{path}/" if path in LANGUAGE_ROOTS else path
+    fixed = f"{fixed_path}{sep}{query}"
+    if host == CANONICAL_HOST and forwarded_proto != "http" and fixed == path_qs:
         return None
-    return f"https://{CANONICAL_HOST}{path_qs}"
+    return f"https://{CANONICAL_HOST}{fixed}"
 
 
 def cache_control_for(path: str, content_type: str, status_code: int) -> str | None:

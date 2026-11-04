@@ -91,4 +91,6 @@ def test_sitemap_contains_home_hub_and_only_indexable_items(client):
     assert "<loc>https://evemarket-analyzer.online/items</loc>" in xml
     assert "<loc>https://evemarket-analyzer.online/items/34-tritanium</loc>" in xml
     assert "mexallon" not in xml
-    assert 'hreflang="de"' in xml
+    assert 'hreflang="de" href="https://evemarket-analyzer.online/de/"' in xml
+    assert '<loc>https://evemarket-analyzer.online/de/</loc>' in xml
+    assert '?lang=' not in xml

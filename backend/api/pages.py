@@ -69,6 +69,11 @@ _CSS = (
 )
 
 
+def lang_path(lang: str) -> str:
+    """URL path of the home page in a language: English lives at the root."""
+    return "/" if lang == "en" else f"/{lang}/"
+
+
 def slugify(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "item"
 
@@ -334,14 +339,17 @@ def sitemap() -> Response:
         tag = f"<lastmod>{mod}</lastmod>" if mod else ""
         return f"<url><loc>{_e(loc)}</loc>{tag}{alternates}<changefreq>daily</changefreq></url>"
 
+    # Same alternates as the <link rel="alternate"> tags of the per-language pages (the
+    # frontend build generates /es/, /de/, /fr/, /it/): every language URL lists the full set.
     home_alternates = "".join(
-        f'<xhtml:link rel="alternate" hreflang="{lang}" href="{BASE_URL}/?lang={lang}"/>'
+        f'<xhtml:link rel="alternate" hreflang="{lang}" href="{BASE_URL}{lang_path(lang)}"/>'
         for lang in SITEMAP_LANGS
     ) + f'<xhtml:link rel="alternate" hreflang="x-default" href="{BASE_URL}/"/>'
     parts = [
-        url(f"{BASE_URL}/", lastmod(latest), home_alternates),
-        url(f"{BASE_URL}/items", lastmod(latest)),
+        url(f"{BASE_URL}{lang_path(lang)}", lastmod(latest), home_alternates)
+        for lang in SITEMAP_LANGS
     ]
+    parts.append(url(f"{BASE_URL}/items", lastmod(latest)))
     parts += [
         url(f"{BASE_URL}{item_path(r['type_id'], r['name'])}", lastmod(r["last_evaluated_at"]))
         for r in rows
