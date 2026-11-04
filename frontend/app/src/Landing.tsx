@@ -68,7 +68,6 @@ export function BestNow({ t, items, formatPrice, formatRoi, formatCount, onOpen 
     <section className="best" aria-labelledby="best-title">
       <div className="section-head">
         <h2 id="best-title" className="section-heading">{t("best.title")}</h2>
-        <span className="section-hint">{t("best.hint", { n: formatCount(BEST_MIN_ROI * 100) })}</span>
       </div>
       <div className="best-grid">
         {items.map((item) => (
