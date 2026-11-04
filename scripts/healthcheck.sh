@@ -102,9 +102,12 @@ echo "$current" > "$STATE_FILE"
 notify() {
   echo "$1"
   if [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && [ -n "${TELEGRAM_CHAT_ID:-}" ]; then
-    curl -fsS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+    # El token va por stdin (--config -) y no en la línea de comandos, que `ps` muestra.
+    curl -fsS -X POST --config - \
       -d "chat_id=${TELEGRAM_CHAT_ID}" \
-      --data-urlencode "text=$1" > /dev/null || true
+      --data-urlencode "text=$1" > /dev/null <<EOF || true
+url = "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage"
+EOF
   fi
 }
 

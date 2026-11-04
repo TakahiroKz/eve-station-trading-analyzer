@@ -121,6 +121,10 @@ def save_refresh_token(path: str, refresh_token: str) -> None:
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(refresh_token, encoding="utf-8")
+    try:
+        p.chmod(0o600)  # el refresh token da acceso al wallet: solo el dueño del archivo
+    except OSError:
+        pass
 
 
 def load_refresh_token(path: str) -> str | None:

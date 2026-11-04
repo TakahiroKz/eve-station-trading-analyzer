@@ -6,6 +6,8 @@ import sqlite3
 
 from fastapi import HTTPException, Request
 
+from backend.api.security import check_same_origin, verify_access_jwt
+
 
 def _db() -> sqlite3.Connection:
     db_path = os.environ.get("DB_PATH", "./storage/market.db")
@@ -37,3 +39,5 @@ def require_cf_access_header(request: Request) -> None:
     jwt = request.headers.get("Cf-Access-Jwt-Assertion", "")
     if jwt.count(".") != 2:
         raise HTTPException(401, "Acceso restringido (falta la sesión de Cloudflare Access).")
+    verify_access_jwt(jwt)
+    check_same_origin(request)

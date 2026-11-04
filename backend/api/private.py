@@ -4,6 +4,8 @@ bajo /api/private, el único prefijo que la Cloudflare Access Application proteg
 el borde (ver T14 en BACKLOG.md) — más el chequeo liviano de deps.require_cf_access_header
 como red de seguridad adicional. Nada de auth propia acá: la autenticación en sí la
 resuelve Cloudflare antes de que la request llegue a este proceso."""
+import logging
+import math
 import os
 from datetime import datetime, timezone
 
@@ -36,6 +38,12 @@ from storage.db import get_app_settings, get_app_settings_dict, reset_app_settin
 from storage.settings_registry import SETTINGS_BY_KEY, STRICTLY_POSITIVE_KEYS
 
 router = APIRouter(prefix="/api/private", dependencies=[Depends(require_cf_access_header)])
+logger = logging.getLogger(__name__)
+
+
+def _check_limit(limit: int) -> None:
+    if limit < 1 or limit > 500:
+        raise HTTPException(400, "limit debe estar entre 1 y 500")
 
 
 @router.get("/auth/ping", response_model=AuthPingOut)
@@ -148,6 +156,7 @@ def list_character_orders(undercut_only: bool = False):
 
 @router.get("/character-orders/closed", response_model=list[CharacterOrderClosedOut])
 def list_character_orders_closed(limit: int = 50):
+    _check_limit(limit)
     """R4: órdenes tuyas completadas/expiradas/canceladas recientemente."""
     conn = _db()
     try:
@@ -166,6 +175,7 @@ def list_character_orders_closed(limit: int = 50):
 
 @router.get("/character-orders/fills", response_model=list[CharacterOrderFillOut])
 def list_character_order_fills(limit: int = 50):
+    _check_limit(limit)
     """Historial de ejecuciones parciales de tus órdenes activas: el motor de
     posiciones (scheduler/orders_run.py, cada 5 min) persiste una fila acá cada vez
     que detecta que volume_remain bajó sin que la orden se cerrara del todo."""
@@ -206,7 +216,8 @@ def refresh_character_orders():
         with EsiClient(base_url=base_url, user_agent=user_agent) as client:
             check_character_orders(client, db_path, notify=False)
     except Exception as exc:
-        raise HTTPException(502, f"La ESI rechazó el refresco de órdenes: {exc}") from exc
+        logger.exception("Falló el refresco de órdenes contra la ESI")
+        raise HTTPException(502, "La ESI rechazó el refresco de órdenes.") from exc
 
     return list_character_orders()
 
@@ -228,7 +239,8 @@ def open_in_client(type_id: int):
         with EsiClient(base_url=base_url, user_agent=user_agent) as client:
             client.open_market_window(type_id, access_token)
     except Exception as exc:
-        raise HTTPException(502, f"La ESI rechazó la apertura de ventana: {exc}") from exc
+        logger.exception("Falló la apertura de ventana en el cliente de EVE")
+        raise HTTPException(502, "La ESI rechazó la apertura de ventana.") from exc
 
     return OpenWindowOut(opened=True, detail="Ventana abierta en el cliente de EVE.")
 
@@ -252,6 +264,8 @@ def update_app_setting_route(key: str, body: AppSettingUpdateIn):
     setting_def = SETTINGS_BY_KEY.get(key)
     if setting_def is None:
         raise HTTPException(404, f"No existe el parámetro '{key}'")
+    if not math.isfinite(body.value) or body.value > 1e12:
+        raise HTTPException(422, "El valor debe ser un número finito")
     if body.value < 0:
         raise HTTPException(422, "El valor no puede ser negativo")
     if key in STRICTLY_POSITIVE_KEYS and body.value <= 0:
