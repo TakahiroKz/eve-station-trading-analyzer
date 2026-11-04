@@ -74,7 +74,8 @@ def test_items_index_lists_only_indexable_items_grouped_by_category(client):
 
     assert "/items/34-tritanium" in page and "/items/35-pyerite" in page
     assert "mexallon" not in page.lower()
-    assert "Material (2)" in page
+    assert '<h2>Material</h2><span class="count">2</span>' in page
+    assert "Material · 2" in page
 
 
 def test_sitemap_contains_home_hub_and_only_indexable_items(client):
