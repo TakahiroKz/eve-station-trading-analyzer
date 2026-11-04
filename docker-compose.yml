@@ -24,6 +24,8 @@ services:
       # el único camino de entrada real es el túnel de Cloudflare (T14/D9).
       - "127.0.0.1:8001:8001"
     env_file: .env
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - ./storage:/app/storage
       - ./credentials:/app/credentials
@@ -33,6 +35,8 @@ services:
     container_name: evemarket-engine-market
     command: ["python", "-m", "scheduler.run"]
     env_file: .env
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - ./storage:/app/storage
       - ./credentials:/app/credentials
@@ -43,6 +47,8 @@ services:
     container_name: evemarket-engine-positions
     command: ["python", "-m", "scheduler.orders_run"]
     env_file: .env
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - ./storage:/app/storage
       - ./credentials:/app/credentials

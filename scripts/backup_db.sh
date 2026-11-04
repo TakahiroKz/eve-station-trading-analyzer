@@ -20,6 +20,7 @@
 # Uso: ./scripts/backup_db.sh   (desde ~/app en la VM, vía cron)
 
 set -euo pipefail
+umask 077  # el respaldo contiene las órdenes del personaje: nada legible por otros usuarios
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$APP_DIR"
@@ -70,10 +71,13 @@ if ! curl -fsS -X PUT --data-binary "@${TMP_GZ}" "${ORACLE_BACKUP_PAR_URL}market
   # Aviso por Telegram si está configurado -- un backup fallido en silencio no sirve
   # de nada (ver D11 en DEUDA_TECNICA.md, monitoreo continuo, todavía sin resolver).
   if [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && [ -n "${TELEGRAM_CHAT_ID:-}" ]; then
-    curl -fsS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+    # El token va por stdin (--config -) y no en la línea de comandos, que `ps` muestra.
+    curl -fsS -X POST --config - \
       -d "chat_id=${TELEGRAM_CHAT_ID}" \
       -d "text=⚠️ Falló el backup diario de market.db (${DATE}) a Oracle Object Storage." \
-      > /dev/null || true
+      > /dev/null <<EOF || true
+url = "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage"
+EOF
   fi
   exit 1
 fi

@@ -105,6 +105,8 @@ def list_items(
         raise HTTPException(400, f"sort debe ser uno de {allowed_sort}")
     if order not in {"asc", "desc"}:
         raise HTTPException(400, "order debe ser 'asc' o 'desc'")
+    if offset < 0 or offset > 100_000:
+        raise HTTPException(400, "offset debe estar entre 0 y 100000")
     if limit < 1 or limit > 500:
         raise HTTPException(400, "limit debe estar entre 1 y 500")
 
@@ -208,6 +210,8 @@ def get_item_detail(type_id: int):
 
 @app.get("/api/status-changes", response_model=list[StatusChangeOut])
 def list_status_changes(limit: int = 50):
+    if limit < 1 or limit > 200:
+        raise HTTPException(400, "limit debe estar entre 1 y 200")
     conn = _db()
     try:
         rows = conn.execute(

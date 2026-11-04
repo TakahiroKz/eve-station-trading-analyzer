@@ -116,8 +116,11 @@ def _json_ld(name: str, path: str, crumbs: list[tuple[str, str]], about: str | N
     }
     if about:
         data["about"] = {"@type": "Thing", "name": about}
-    # `</` inside a <script> would end it early; the names come from the ESI, so escape it.
-    payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
+    # `</` (or `<!--`) inside a <script> would end it early; the names come from the ESI, so
+    # escape every <, > and & as JSON unicode escapes (same text for a JSON parser).
+    payload = json.dumps(data, ensure_ascii=False)
+    for char, escaped in (("<", "\\u003c"), (">", "\\u003e"), ("&", "\\u0026")):
+        payload = payload.replace(char, escaped)
     return f'<script type="application/ld+json">{payload}</script>\n'
 
 

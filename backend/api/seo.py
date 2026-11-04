@@ -10,6 +10,8 @@ import os
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse, Response
 
+from backend.api.security import apply_security_headers
+
 CANONICAL_HOST = os.environ.get("CANONICAL_HOST", "evemarket-analyzer.online")
 
 IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
@@ -74,6 +76,7 @@ def install_seo_middleware(app: FastAPI) -> None:
         )
         if cache and "cache-control" not in response.headers:
             response.headers["Cache-Control"] = cache
+        apply_security_headers(response.headers, request.headers.get("x-forwarded-proto", ""))
         if request.url.path.startswith("/api/"):
             response.headers["X-Robots-Tag"] = "noindex, nofollow"
         if is_head:
