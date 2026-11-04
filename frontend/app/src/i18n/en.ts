@@ -223,7 +223,7 @@ export const en = {
   "stats.next": "Next refresh",
 
   "best.title": "Best right now",
-  "best.hint": "Highest ROI with at least {n} trades a day",
+  "best.hint": "Most traded items with ROI above {n}%",
 
   "screener.title": "All opportunities",
   "screener.colSpread": "SPREAD/U",

@@ -223,7 +223,7 @@ export const it: Messages = {
   "stats.next": "Prossimo aggiornamento",
 
   "best.title": "I migliori adesso",
-  "best.hint": "ROI più alto con almeno {n} operazioni al giorno",
+  "best.hint": "Articoli più scambiati con ROI superiore al {n}%",
 
   "screener.title": "Tutte le opportunità",
   "screener.colSpread": "SPREAD/U",
