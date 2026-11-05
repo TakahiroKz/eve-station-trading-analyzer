@@ -86,3 +86,28 @@ def test_head_requests_are_served_like_get_without_body(client):
         assert head.status_code == get.status_code == 200
         assert head.content == b""
         assert head.headers["content-type"] == get.headers["content-type"]
+
+
+def test_head_restores_the_method_so_uvicorn_does_not_demand_a_body(client):
+    import asyncio
+
+    from backend.api.main import app
+
+    scope = {
+        "type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1", "method": "HEAD",
+        "path": "/api/summary", "raw_path": b"/api/summary", "query_string": b"", "root_path": "",
+        "scheme": "http", "headers": [(b"host", b"localhost:8001")], "client": ("127.0.0.1", 1),
+        "server": ("localhost", 8001),
+    }
+    sent = []
+
+    async def receive():
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def send(message):
+        sent.append(message)
+
+    asyncio.run(app(scope, receive, send))
+    assert scope["method"] == "HEAD"
+    assert sent[0]["status"] == 200
+    assert all(not m.get("body") for m in sent if m["type"] == "http.response.body")
