@@ -83,5 +83,8 @@ def install_seo_middleware(app: FastAPI) -> None:
         if request.url.path.startswith("/api/"):
             response.headers["X-Robots-Tag"] = "noindex, nofollow"
         if is_head:
+            # El scope es el mismo dict que usa uvicorn: hay que devolverle HEAD, si no exige que
+            # el cuerpo mida lo que dice Content-Length y falla con "shorter than Content-Length".
+            request.scope["method"] = "HEAD"
             return Response(status_code=response.status_code, headers=dict(response.headers))
         return response
