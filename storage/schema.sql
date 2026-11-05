@@ -167,6 +167,27 @@ CREATE TABLE IF NOT EXISTS app_settings (
     updated_at     TEXT NOT NULL
 );
 
+-- Métricas de uso con consentimiento (backend/api/analytics.py): sin IP ni user agent.
+CREATE TABLE IF NOT EXISTS analytics_visitor (
+    visitor_id   TEXT PRIMARY KEY,
+    first_seen   TEXT NOT NULL,
+    last_seen    TEXT NOT NULL,
+    visit_count  INTEGER NOT NULL DEFAULT 1,
+    lang         TEXT
+);
+CREATE TABLE IF NOT EXISTS analytics_visit (
+    visit_id        TEXT PRIMARY KEY,
+    visitor_id      TEXT NOT NULL,
+    started_at      TEXT NOT NULL,
+    last_ping_at    TEXT NOT NULL,
+    active_seconds  INTEGER NOT NULL DEFAULT 0,
+    pageviews       INTEGER NOT NULL DEFAULT 1,
+    landing_path    TEXT,
+    ref_host        TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_analytics_visit_visitor ON analytics_visit(visitor_id);
+CREATE INDEX IF NOT EXISTS idx_analytics_visit_started ON analytics_visit(started_at);
+
 CREATE INDEX IF NOT EXISTS idx_history_type ON market_history(type_id);
 CREATE INDEX IF NOT EXISTS idx_snapshot_type ON market_snapshot(type_id);
 CREATE INDEX IF NOT EXISTS idx_opportunity_type ON opportunity_log(type_id);

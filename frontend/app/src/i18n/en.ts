@@ -208,6 +208,7 @@ export const en = {
 
   "nav.howItWorks": "How it works",
   "nav.allItems": "All items",
+  "nav.privacy": "Privacy",
 
   "hero.eyebrow": "STATION TRADING · THE FORGE (JITA)",
   "hero.title": "Find what to trade in Jita",

@@ -115,7 +115,7 @@ def test_json_ld_cannot_break_out_of_its_script_tag(client):
               category_id=4, category_name="Material")
     page = http.get("/items/77-evil").text
     assert "<img src=x" not in page
-    assert page.count("</script>") == 1
+    assert page.count("</script>") == 2  # the JSON-LD block and /analytics.js
     assert "<!--" not in page
 
 

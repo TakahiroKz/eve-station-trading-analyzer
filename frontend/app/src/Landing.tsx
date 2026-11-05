@@ -139,6 +139,7 @@ export function SiteFooter({ t, lang, setLang, loginUrl, showLogin }: {
       <nav className="footer-links" aria-label="Footer">
         {/* A real page (server-rendered, crawlable) listing every item the Screener tracks. */}
         <a href="/items">{t("nav.allItems")}</a>
+        <a href="/privacy">{t("nav.privacy")}</a>
         {showLogin && <a href={loginUrl}>{t("nav.login")}</a>}
         {LANGS.map((l) => (
           <a

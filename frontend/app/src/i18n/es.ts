@@ -208,6 +208,7 @@ export const es: Messages = {
 
   "nav.howItWorks": "Cómo funciona",
   "nav.allItems": "Todos los ítems",
+  "nav.privacy": "Privacidad",
 
   "hero.eyebrow": "STATION TRADING · THE FORGE (JITA)",
   "hero.title": "Encuentra qué comerciar en Jita",

@@ -226,8 +226,9 @@ def _page(title: str, description: str, canonical_path: str, body: str, robots: 
         '<footer class="site-foot"><p>Independent site, not affiliated with CCP Games. EVE Online '
         "is a trademark of CCP hf. Informational tool, not investment advice. Data from the "
         "official ESI API.</p>"
-        '<nav aria-label="Footer"><a href="/">Screener</a><a href="/items">All items</a></nav>'
-        f"</footer>\n{scripts}</body></html>\n"
+        '<nav aria-label="Footer"><a href="/">Screener</a><a href="/items">All items</a>'
+        '<a href="/privacy">Privacy</a></nav>'
+        f'</footer>\n{scripts}<script src="/analytics.js" defer></script>\n</body></html>\n'
     )
 
 
@@ -429,6 +430,92 @@ def item_page(item_ref: str):
     )
     robots = "index, follow" if status in INDEXABLE_STATUSES else "noindex, follow"
     return _html(_page(title, description, canonical_path, body, robots, ld))
+
+
+_PRIVACY = {
+    "en": ("Privacy", [
+        "This site is an independent EVE Online tool. It works without accounts and the Screener data is public.",
+        "<b>Usage metrics (only if you accept the banner).</b> We save a random ID in your browser (localStorage) and, on our server, "
+        "the dates and times of your visits, the pages you open, how many seconds the page is visible, your language and the host of the "
+        "site that sent you here. We do not store your IP address or browser details, we do not use it for advertising and we do not "
+        "share it. Purpose: to know how many people use the site and whether they come back.",
+        "<b>Retention.</b> 13 months, then it is deleted automatically.",
+        "<b>Your choice.</b> Rejecting, or withdrawing later with the button below, deletes the ID from your browser and your records "
+        "from our server. Browsers that send Global Privacy Control or Do Not Track are treated as a rejection.",
+        "<b>Hosting.</b> The site is served through Cloudflare, which processes network requests for us and runs its own cookie-free "
+        "traffic statistics.",
+        "<button type=\"button\" data-eve-consent-settings>Change my choice</button>",
+    ]),
+    "es": ("Privacidad", [
+        "Este sitio es una herramienta independiente para EVE Online. Funciona sin cuentas y los datos del Screener son públicos.",
+        "<b>Métricas de uso (solo si aceptas el aviso).</b> Guardamos un ID aleatorio en tu navegador (localStorage) y, en nuestro "
+        "servidor, las fechas de tus visitas, las páginas que abres, los segundos que la página está visible, tu idioma y el sitio "
+        "desde el que llegaste. No guardamos tu IP ni datos de tu navegador, no lo usamos para publicidad y no lo compartimos. "
+        "Finalidad: saber cuánta gente usa el sitio y si vuelve.",
+        "<b>Conservación.</b> 13 meses; después se borra solo.",
+        "<b>Tu decisión.</b> Si rechazas, o retiras el permiso después con el botón de abajo, se borra el ID de tu navegador y tus "
+        "registros del servidor. Los navegadores que envían Global Privacy Control o No Rastrear se tratan como un rechazo.",
+        "<b>Alojamiento.</b> El sitio se sirve a través de Cloudflare, que procesa las peticiones de red por nuestra cuenta y ofrece "
+        "sus propias estadísticas sin cookies.",
+        "<button type=\"button\" data-eve-consent-settings>Cambiar mi decisión</button>",
+    ]),
+    "de": ("Datenschutz", [
+        "Diese Seite ist ein unabhängiges Werkzeug für EVE Online. Sie funktioniert ohne Konto, die Daten des Screeners sind öffentlich.",
+        "<b>Nutzungsstatistik (nur wenn du das Banner akzeptierst).</b> Wir speichern eine zufällige ID in deinem Browser "
+        "(localStorage) und auf unserem Server Datum und Uhrzeit deiner Besuche, die geöffneten Seiten, die Sekunden, in denen die "
+        "Seite sichtbar ist, deine Sprache und die Herkunftsseite. Deine IP-Adresse und Browserdaten speichern wir nicht, wir "
+        "nutzen sie nicht für Werbung und geben sie nicht weiter. Zweck: wissen, wie viele Menschen die Seite nutzen und ob sie wiederkommen.",
+        "<b>Speicherdauer.</b> 13 Monate, danach wird alles automatisch gelöscht.",
+        "<b>Deine Wahl.</b> Bei Ablehnung oder späterem Widerruf über die Schaltfläche unten werden die ID im Browser und deine "
+        "Einträge auf unserem Server gelöscht. Browser mit Global Privacy Control oder Do Not Track gelten als Ablehnung.",
+        "<b>Hosting.</b> Die Seite wird über Cloudflare ausgeliefert, das Netzwerkanfragen in unserem Auftrag verarbeitet und eigene "
+        "cookiefreie Statistiken erhebt.",
+        "<button type=\"button\" data-eve-consent-settings>Meine Wahl ändern</button>",
+    ]),
+    "fr": ("Confidentialité", [
+        "Ce site est un outil indépendant pour EVE Online. Il fonctionne sans compte et les données du Screener sont publiques.",
+        "<b>Mesure d'audience (uniquement si vous acceptez le bandeau).</b> Nous enregistrons un identifiant aléatoire dans votre "
+        "navigateur (localStorage) et, sur notre serveur, les dates de vos visites, les pages ouvertes, les secondes pendant lesquelles "
+        "la page est visible, votre langue et le site d'origine. Nous ne conservons ni votre adresse IP ni les détails de votre "
+        "navigateur, nous ne l'utilisons pas pour la publicité et nous ne le partageons pas. Finalité : savoir combien de personnes "
+        "utilisent le site et si elles reviennent.",
+        "<b>Conservation.</b> 13 mois, puis suppression automatique.",
+        "<b>Votre choix.</b> En refusant, ou en retirant votre accord avec le bouton ci-dessous, l'identifiant de votre navigateur et "
+        "vos enregistrements sur notre serveur sont supprimés. Les navigateurs qui envoient Global Privacy Control ou Do Not Track "
+        "sont traités comme un refus.",
+        "<b>Hébergement.</b> Le site est servi par Cloudflare, qui traite les requêtes réseau pour notre compte et propose ses propres "
+        "statistiques sans cookies.",
+        "<button type=\"button\" data-eve-consent-settings>Modifier mon choix</button>",
+    ]),
+    "it": ("Privacy", [
+        "Questo sito è uno strumento indipendente per EVE Online. Funziona senza account e i dati dello Screener sono pubblici.",
+        "<b>Statistiche d'uso (solo se accetti il banner).</b> Salviamo un ID casuale nel tuo browser (localStorage) e, sul nostro "
+        "server, le date delle visite, le pagine aperte, i secondi in cui la pagina è visibile, la lingua e il sito di provenienza. "
+        "Non conserviamo il tuo indirizzo IP né dati del browser, non lo usiamo per la pubblicità e non lo condividiamo. Scopo: "
+        "sapere quante persone usano il sito e se tornano.",
+        "<b>Conservazione.</b> 13 mesi, poi viene cancellato automaticamente.",
+        "<b>La tua scelta.</b> Se rifiuti, o revochi dopo con il pulsante qui sotto, l'ID nel browser e i tuoi dati sul nostro server "
+        "vengono cancellati. I browser che inviano Global Privacy Control o Do Not Track sono trattati come un rifiuto.",
+        "<b>Hosting.</b> Il sito è servito tramite Cloudflare, che elabora le richieste di rete per nostro conto e offre statistiche "
+        "proprie senza cookie.",
+        "<button type=\"button\" data-eve-consent-settings>Cambia la mia scelta</button>",
+    ]),
+}
+_PRIVACY_LANG_NAMES = {"en": "English", "es": "Español", "de": "Deutsch", "fr": "Français", "it": "Italiano"}
+
+
+@router.get("/privacy", response_class=HTMLResponse, include_in_schema=False)
+def privacy_page():
+    sections = "".join(
+        f'<section lang="{code}"><h2>{_e(title)} <small>({_PRIVACY_LANG_NAMES[code]})</small></h2>'
+        + "".join(f"<p>{para}</p>" for para in paragraphs) + "</section>"
+        for code, (title, paragraphs) in _PRIVACY.items()
+    )
+    body = f"<h1>Privacy / Privacidad</h1>\n{sections}"
+    return _html(_page(
+        "Privacy | EveMarket Screener", "How EveMarket Screener handles usage data and your consent.",
+        "/privacy", body, "noindex,follow",
+    ))
 
 
 @router.get("/sitemap.xml", include_in_schema=False)

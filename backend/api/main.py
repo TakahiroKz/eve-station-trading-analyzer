@@ -18,6 +18,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from backend.api.analytics import private_router as analytics_private_router
+from backend.api.analytics import router as analytics_router
 from backend.api.deps import ITEM_JOIN, ITEM_SELECT_COLS, _db
 from backend.api.indexnow import router as indexnow_router
 from backend.api.pages import router as pages_router
@@ -52,6 +54,8 @@ app.add_middleware(
 )
 
 app.include_router(private_router)
+app.include_router(analytics_private_router)
+app.include_router(analytics_router)
 app.include_router(pages_router)
 app.include_router(indexnow_router)
 
