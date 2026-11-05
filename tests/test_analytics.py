@@ -159,3 +159,16 @@ def test_pages_load_the_script_and_the_privacy_page_lists_every_language(client)
     script = open(os.path.join("frontend", "app", "public", "analytics.js"), encoding="utf-8").read()
     for key in ("eve_consent", "globalPrivacyControl", "/api/analytics/ping", "/api/analytics/forget"):
         assert key in script
+
+
+def test_api_creates_the_analytics_tables_when_no_engine_has_run_init_db(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from backend.api.main import app
+
+    bare = tmp_path / "bare.db"
+    sqlite3.connect(bare).close()  # an empty database: no tables at all
+    monkeypatch.setenv("DB_PATH", str(bare))
+    http = TestClient(app)
+    assert _ping(http).status_code == 204
+    assert http.get("/api/private/analytics/summary", headers=FAKE_CF_HEADER).json()["total_visits"] == 1

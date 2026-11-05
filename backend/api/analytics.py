@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 
 from backend.api.deps import _db, require_cf_access_header
 from backend.api.security import CANONICAL_HOST, check_same_origin
+from storage.db import ANALYTICS_SCHEMA
 
 RETENTION_DAYS = 395
 MAX_ACTIVE_SECONDS = 4 * 3600
@@ -33,6 +34,17 @@ private_router = APIRouter(
 
 _purge_lock = threading.Lock()
 _last_purge = 0.0
+_schema_ready: set[str] = set()
+
+
+def _ensure_schema(conn) -> None:
+    """La API puede arrancar antes de que un motor corra init_db (p. ej. tras un despliegue):
+    las tablas de analíticas se crean aquí la primera vez que se usan (CREATE IF NOT EXISTS)."""
+    path = conn.execute("PRAGMA database_list").fetchone()[2]
+    if path in _schema_ready:
+        return
+    conn.executescript(ANALYTICS_SCHEMA)
+    _schema_ready.add(path)
 
 
 class PingIn(BaseModel):
@@ -90,6 +102,7 @@ def ping(body: PingIn, request: Request) -> Response:
     stamp = _iso(now)
     conn = _db()
     try:
+        _ensure_schema(conn)
         visit = conn.execute(
             "SELECT visitor_id, started_at, active_seconds, pageviews FROM analytics_visit "
             "WHERE visit_id = ?", (body.s,),
@@ -138,6 +151,7 @@ def forget(body: ForgetIn, request: Request) -> Response:
     _check_ids(body.v)
     conn = _db()
     try:
+        _ensure_schema(conn)
         conn.execute("DELETE FROM analytics_visit WHERE visitor_id = ?", (body.v,))
         conn.execute("DELETE FROM analytics_visitor WHERE visitor_id = ?", (body.v,))
         conn.commit()
@@ -253,6 +267,7 @@ def analytics_summary(days: int = 30):
         raise HTTPException(400, "days debe estar entre 1 y 120")
     conn = _db()
     try:
+        _ensure_schema(conn)
         return build_summary(conn, days)
     finally:
         conn.close()

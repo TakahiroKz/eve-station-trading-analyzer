@@ -113,6 +113,30 @@ def _seed_defaults(conn: sqlite3.Connection) -> None:
         )
 
 
+ANALYTICS_SCHEMA = """
+-- Métricas de uso con consentimiento (backend/api/analytics.py): sin IP ni user agent.
+CREATE TABLE IF NOT EXISTS analytics_visitor (
+    visitor_id   TEXT PRIMARY KEY,
+    first_seen   TEXT NOT NULL,
+    last_seen    TEXT NOT NULL,
+    visit_count  INTEGER NOT NULL DEFAULT 1,
+    lang         TEXT
+);
+CREATE TABLE IF NOT EXISTS analytics_visit (
+    visit_id        TEXT PRIMARY KEY,
+    visitor_id      TEXT NOT NULL,
+    started_at      TEXT NOT NULL,
+    last_ping_at    TEXT NOT NULL,
+    active_seconds  INTEGER NOT NULL DEFAULT 0,
+    pageviews       INTEGER NOT NULL DEFAULT 1,
+    landing_path    TEXT,
+    ref_host        TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_analytics_visit_visitor ON analytics_visit(visitor_id);
+CREATE INDEX IF NOT EXISTS idx_analytics_visit_started ON analytics_visit(started_at);
+"""
+
+
 def init_db(db_path: str) -> None:
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     conn = get_connection(db_path)
@@ -127,6 +151,7 @@ def init_db(db_path: str) -> None:
     try:
         _migrate_schema(conn)
         conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+        conn.executescript(ANALYTICS_SCHEMA)
         _migrate_classification_settings(conn)
         _seed_defaults(conn)
         conn.commit()
