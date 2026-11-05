@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Backup diario de storage/market.db a Oracle Object Storage vía Pre-Authenticated
-# Request (PAR) -- D10 en DEUDA_TECNICA.md. Corre en el HOST de la VM (no en un
+# Request (PAR) -- corre en el HOST de la VM (no en un
 # contenedor), disparado por cron -- ver OPERATIONS.md para cómo se armó el bucket/PAR
 # y la Lifecycle Policy que borra objetos de más de 60 días (la retención NO la
 # maneja este script, la maneja Oracle del lado del bucket).
@@ -69,7 +69,7 @@ gzip -f "$TMP_BACKUP"
 if ! curl -fsS -X PUT --data-binary "@${TMP_GZ}" "${ORACLE_BACKUP_PAR_URL}market-${DATE}.db.gz"; then
   echo "Falló la subida del backup del ${DATE} a Oracle Object Storage." >&2
   # Aviso por Telegram si está configurado -- un backup fallido en silencio no sirve
-  # de nada (ver D11 en DEUDA_TECNICA.md, monitoreo continuo, todavía sin resolver).
+  # de nada (el healthcheck de scripts/healthcheck.sh cubre el monitoreo continuo).
   if [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && [ -n "${TELEGRAM_CHAT_ID:-}" ]; then
     # El token va por stdin (--config -) y no en la línea de comandos, que `ps` muestra.
     curl -fsS -X POST --config - \

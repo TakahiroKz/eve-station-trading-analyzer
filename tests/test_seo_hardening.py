@@ -1,4 +1,4 @@
-"""Fase 0 de SEO_PLAN.md: docs apagadas, redirecciones canónicas, cabeceras de caché e
+"""SEO: docs apagadas, redirecciones canónicas, cabeceras de caché e
 indexación."""
 from backend.api.seo import IMMUTABLE_CACHE, cache_control_for, canonical_redirect
 

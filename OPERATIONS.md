@@ -88,8 +88,7 @@ Scope actual (`.env`, `ESI_SSO_SCOPES`): `esi-wallet.read_character_wallet.v1` (
 volumen por ítem) + `esi-markets.read_character_orders.v1` (undercut y órdenes
 completadas/expiradas/canceladas — alertas de Telegram) + `esi-ui.open_window.v1` (botón
 "Abrir en cliente EVE" en la PWA). Si cambiás `ESI_SSO_SCOPES`, corré `authorize.py` de
-nuevo para que el `refresh_token` cubra el scope nuevo. Ampliaciones futuras documentadas
-en [BACKLOG.md](BACKLOG.md) (sección Roadmap) — no pedir scopes nuevos hasta implementar
+nuevo para que el `refresh_token` cubra el scope nuevo. No pedir scopes nuevos hasta implementar
 la función correspondiente (autorización incremental).
 
 ## Notificaciones (opcionales, degradan sin bloquear el pipeline)

@@ -2,7 +2,7 @@
 /api/schedule, /api/items (filtros/orden/paginación), /api/categories,
 /api/items/{id} (detalle) y /api/status-changes. Ninguna de estas requiere el header
 de Cloudflare Access -- son justamente las que deben quedar visibles sin login
-(Screener + filtros + reloj, ver T14 en BACKLOG.md)."""
+(Screener + filtros + reloj)."""
 import sqlite3
 
 from tests.conftest import seed_item

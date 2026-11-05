@@ -39,9 +39,6 @@ frontend/app/              → PWA (React) que consume la API — instalable en 
 scripts/                    → autorización OAuth + registro de ambas tareas programadas de Windows
 ```
 
-Cada carpeta principal tiene su propio `AGENTS-*.md` con el contrato detallado de esa
-parte del sistema, y `AGENTS-Orquestador.md` describe el pipeline de 4 fases completo.
-
 ## Requisitos
 
 - Python 3.11+
@@ -150,5 +147,3 @@ npm --prefix frontend/app run build
 ## Documentación adicional
 
 - [OPERATIONS.md](OPERATIONS.md) — manual operativo día a día (comandos, logs, troubleshooting)
-- [BACKLOG.md](BACKLOG.md) — roadmap de scopes ESI futuros + tareas pendientes
-- `AGENTS-*.md` en cada carpeta — contrato detallado de cada componente del pipeline

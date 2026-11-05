@@ -1,5 +1,4 @@
-"""D6: spread.py no está enganchado a ningún endpoint/motor todavía (ver
-DEUDA_TECNICA.md), pero es una función pura sin efectos secundarios. La fórmula de
+"""D6: spread.py no está enganchado a ningún endpoint/motor todavía), pero es una función pura sin efectos secundarios. La fórmula de
 spread_bruto en sí ya tiene su propio test en test_eve_calculator.py -- acá se
 verifica el armado del resumen (filtrado, "última foto por ítem", orden)."""
 import pandas as pd

@@ -6,7 +6,7 @@ cada corrida (persistencia, clasificación, etc.) — funciona, pero mezcla "qu�
 llaman dispatch() una vez al final. La ventaja no es de comportamiento (las mismas
 notificaciones salen, en el mismo run) sino de forma: dispatch() es el único lugar que
 sabe de notifications/telegram_bot.py. El día que este proyecto necesite un bus de
-eventos de verdad (Redis/RabbitMQ, ver BACKLOG.md T5), ese cambio queda contenido acá
+eventos de verdad (Redis/RabbitMQ), ese cambio queda contenido acá
 adentro — publicar en vez de llamar notify_*() directo — sin tocar scheduler/run.py ni
 scheduler/orders_run.py.
 """

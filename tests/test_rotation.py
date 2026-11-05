@@ -1,5 +1,4 @@
-"""D6: rotation.py no está enganchado a ningún endpoint/motor todavía (ver
-DEUDA_TECNICA.md), pero es una función pura sin efectos secundarios."""
+"""D6: rotation.py no está enganchado a ningún endpoint/motor todavía), pero es una función pura sin efectos secundarios."""
 import pandas as pd
 
 from analytics.rotation import rotation_summary

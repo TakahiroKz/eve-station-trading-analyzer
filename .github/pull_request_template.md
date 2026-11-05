@@ -4,7 +4,7 @@ aprobación humana explícita). Completá lo que aplique, borrá el resto.
 -->
 
 ## Referencia
-<!-- T# de BACKLOG.md, D# de DEUDA_TECNICA.md, o una línea describiendo el pedido si no tiene número -->
+<!-- Issue o una línea describiendo el pedido -->
 
 ## Objetivo
 <!-- Qué problema resuelve este cambio, en una o dos líneas -->

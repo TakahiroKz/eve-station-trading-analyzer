@@ -1,4 +1,4 @@
-"""Páginas HTML públicas generadas en el servidor (Fase 1 de SEO_PLAN.md): una por ítem
+"""Páginas HTML públicas generadas en el servidor (SEO): una por ítem
 (`/items/{id}-{slug}`), un índice (`/items`) y el `sitemap.xml` dinámico.
 
 La PWA pinta todo con JavaScript desde /api/ (bloqueado en robots.txt), así que para los
