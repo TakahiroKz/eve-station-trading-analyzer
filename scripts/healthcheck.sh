@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Watchdog de la VM (D11 en DEUDA_TECNICA.md): detecta lo que un ping externo no ve --
+# Watchdog de la VM: detecta lo que un ping externo no ve --
 # la API responde pero los motores dejaron de correr, o cloudflared está caído. Corre
 # en el HOST de la VM por cron cada 10 min (ver scripts/setup_cron.sh). Complementa el
 # ping externo (UptimeRobot, ver OPERATIONS.md), que cubre VM entera/túnel/DNS caídos.

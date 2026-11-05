@@ -1,7 +1,7 @@
 """Rutas privadas: datos y acciones que no deben quedar visibles/accionables para
 un visitante anónimo (wallet, órdenes propias, ajustes de los motores). Montadas
 bajo /api/private, el único prefijo que la Cloudflare Access Application protege en
-el borde (ver T14 en BACKLOG.md) — más el chequeo liviano de deps.require_cf_access_header
+el borde — más el chequeo liviano de deps.require_cf_access_header
 como red de seguridad adicional. Nada de auth propia acá: la autenticación en sí la
 resuelve Cloudflare antes de que la request llegue a este proceso."""
 import logging

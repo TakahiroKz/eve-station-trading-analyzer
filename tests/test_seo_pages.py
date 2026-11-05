@@ -1,4 +1,4 @@
-"""Fase 1 de SEO_PLAN.md: páginas HTML por ítem, índice y sitemap dinámico."""
+"""SEO: páginas HTML por ítem, índice y sitemap dinámico."""
 
 from backend.api.pages import item_path, slugify
 from tests.conftest import seed_item

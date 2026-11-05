@@ -16,8 +16,8 @@ fix/<ID>-<descripcion>       # corrección de bug
 hotfix/<ID>-<descripcion>    # incidente crítico de producción
 ```
 
-`<ID>` es el T# de `BACKLOG.md` o el D# de `DEUDA_TECNICA.md` cuando el cambio viene
-de ahí (ej. `feature/T5-ci-cd`); si no tiene número, una descripción corta alcanza.
+`<ID>` es el número de issue cuando el cambio viene de uno (ej. `feature/12-ci-cd`);
+si no tiene número, una descripción corta alcanza.
 Nunca se commitea directo a una rama tipo `backend`/`frontend`/`qa` — cada cambio
 funcional tiene su propia rama, se mergea, se borra.
 
@@ -25,7 +25,7 @@ funcional tiene su propia rama, se mergea, se borra.
 
 **Importante:** GitHub Free no permite branch protection real (clásica ni Rulesets)
 en repos privados — pide GitHub Pro o el repo público. El usuario decidió mantener el
-repo privado y sin pagar Pro (ver DEUDA_TECNICA.md / decisión del 2026-09-22), así que
+repo privado y sin pagar Pro (decisión del 2026-09-22), así que
 esta regla **no está aplicada por GitHub**, es un compromiso que el agente sigue:
 
 - Nunca push directo a `main`.
@@ -116,7 +116,6 @@ aprobación humana para cambios de riesgo — el CD ya despliega apenas se merge
   nota en minutos si algo se rompe — se prefirió invertir ese esfuerzo en el health
   check post-deploy en vez de mantener una VM extra.
 - **Máquina de estados formal** (PLANNED→ASSIGNED→...→VERIFIED con board/automatización):
-  infraestructura de coordinación de equipo. `BACKLOG.md`/`DEUDA_TECNICA.md` con el
-  patrón "T# (hecho)" ya cumple ese rol de forma liviana para un solo desarrollador.
+  infraestructura de coordinación de equipo. los issues y los PR ya cumplen ese rol de forma liviana para un solo desarrollador.
 - **Simular roles Orchestrator/Backend/Frontend/QA** en la misma sesión: se descartó
   explícitamente por no aportar independencia real (ver sección QA arriba).

@@ -13,3 +13,12 @@ frontend/app/dist/
 *.log
 .claude/scheduled_tasks.lock
 logs/
+
+# Documentos de planificación y contexto IA: solo en el proyecto local
+AGENTS-*.md
+BACKLOG.md
+DEUDA_TECNICA.md
+SEO_PLAN.md
+SECURITY_AUDIT*.md
+PLAN_*.md
+docs-local/

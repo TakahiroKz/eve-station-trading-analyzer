@@ -119,7 +119,7 @@ def ingest(client: EsiClient, region_id: int, db_path: str, backfill: bool, max_
 
 
 def ingest_categories(client: EsiClient, db_path: str, type_ids: list[int], max_workers: int = 20) -> None:
-    """Cachea categoría/grupo por ítem (T2 del backlog: filtro por categoría).
+    """Cachea categoría/grupo por ítem (filtro por categoría).
 
     Caro solo la primera vez: no hay endpoint bulk para group_id por type_id, así que
     se pide uno por uno para los que todavía faltan en item_category. group_id -> grupo

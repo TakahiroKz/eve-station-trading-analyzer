@@ -1,4 +1,4 @@
-"""Endurecimiento de SEO a nivel de aplicación (Fase 0 de SEO_PLAN.md): redirecciones
+"""Endurecimiento de SEO a nivel de aplicación (SEO): redirecciones
 canónicas, cabeceras de caché y de indexación, y la documentación interactiva apagada.
 
 Cloudflare termina el TLS y entrega las requests por el túnel con `X-Forwarded-Proto`; el

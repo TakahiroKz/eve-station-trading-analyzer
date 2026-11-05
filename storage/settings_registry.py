@@ -137,6 +137,6 @@ SETTINGS: list[SettingDef] = [
 
 SETTINGS_BY_KEY: dict[str, SettingDef] = {s.key: s for s in SETTINGS}
 
-# Parámetros que nunca pueden apagarse en 0 (ver notas de T8 en BACKLOG.md) — el resto
+# Parámetros que nunca pueden apagarse en 0 — el resto
 # solo se valida como >= 0.
 STRICTLY_POSITIVE_KEYS = {"min_daily_order_count_7d", "sales_tax_factor", "buy_fee_factor"}

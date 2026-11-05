@@ -1,5 +1,5 @@
 """D6: demand.py no está enganchado a ningún endpoint/motor todavía (código listo
-para un ranking de demanda a futuro, ver DEUDA_TECNICA.md), pero es una función pura
+para un ranking de demanda a futuro), pero es una función pura
 sin efectos secundarios -- se testea igual que el resto de analytics/."""
 import pandas as pd
 import pytest
