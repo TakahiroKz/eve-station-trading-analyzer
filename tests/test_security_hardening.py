@@ -149,3 +149,23 @@ def test_rate_limit_window_slides():
     assert ratelimit.check_rate_limit("1.1.1.1", 2, now=2.0) is not None
     assert ratelimit.check_rate_limit("1.1.1.1", 2, now=61.0) is None
     ratelimit.reset()
+
+
+def test_issuer_with_trailing_slash_is_accepted_and_success_is_logged(client, monkeypatch, signing_key, caplog):
+    http, _ = client
+    monkeypatch.setenv("CF_ACCESS_AUD", AUD)
+    monkeypatch.setattr(security, "_last_ok_log", 0.0)
+    token = signing_key(iss=TEAM + "/")
+    with caplog.at_level("INFO", logger="uvicorn.error"):
+        assert http.get("/api/private/auth/ping", headers=_auth(token)).status_code == 200
+        assert http.get("/api/private/auth/ping", headers=_auth(token)).status_code == 200
+    assert caplog.text.count("Sesión de Cloudflare Access verificada") == 1  # rate-limited
+
+
+def test_unrecognised_issuer_failure_says_why(client, monkeypatch, signing_key, caplog):
+    http, _ = client
+    monkeypatch.setenv("CF_ACCESS_AUD", AUD)
+    with caplog.at_level("WARNING"):
+        http.get("/api/private/auth/ping", headers=_auth(signing_key(iss="https://otro.example.com")))
+    assert "emisor del token no reconocido" in caplog.text
+
