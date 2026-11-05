@@ -92,14 +92,10 @@ nuevo para que el `refresh_token` cubra el scope nuevo. Ampliaciones futuras doc
 en [BACKLOG.md](BACKLOG.md) (sección Roadmap) — no pedir scopes nuevos hasta implementar
 la función correspondiente (autorización incremental).
 
-## Notificaciones y sync externos (opcionales, degradan sin bloquear el pipeline)
+## Notificaciones (opcionales, degradan sin bloquear el pipeline)
 
 - **Telegram**: crear bot con @BotFather, poner `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID`
   en `.env`. Sin configurar, simplemente no se envían alertas.
-- **Google Sheets**: poner `GOOGLE_SERVICE_ACCOUNT_JSON` en `.env` apuntando a una
-  service account con acceso al Sheet "EveCalculator - Registro". Sin configurar, cada
-  fila queda pendiente en `reporting/pending_gsheets_sync.log` (nunca se pierde,
-  se puede sincronizar después).
 
 ## Backup de la base de datos (D10)
 

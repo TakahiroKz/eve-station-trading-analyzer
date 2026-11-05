@@ -286,13 +286,10 @@ Queda como mejora opcional, no urgente: el archivo sigue ocupando 1,3 GB (borrar
 no lo achica; un `VACUUM` con los motores parados lo reduciría) y un timeout explícito en
 las llamadas a la ESI evitaría otro cuelgue como el del motor de posiciones.
 
-### D20. Google Sheets no está configurado en la VM — **Baja**
-`credentials/` en la VM solo tiene el token de la ESI, no `google-service-account.json`,
-así que `reporting/gsheets_sync.py` degrada como está diseñado: cada fila POTENCIAL se
-anota en un log local (`reporting/pending_gsheets_sync`, dentro del contenedor, que es
-efímero) y los motores avisan con un WARNING. No rompe nada; el registro útil sigue
-siendo la base y las alertas de Telegram. Para activarlo hay que copiar el JSON de la
-service account a `credentials/` y compartir la hoja con ella.
+### D20. Google Sheets — **Resuelta (2026-11-05)**
+Nunca estuvo configurado en la VM; se eliminó la funcionalidad (`reporting/gsheets_sync.py`, `gspread`).
+El registro útil son la base, el Excel y las alertas de Telegram.
+
 ---
 
 ## Chequeado y sin deuda

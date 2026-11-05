@@ -32,7 +32,6 @@ from analytics.sanity import SanityConfig, is_price_sane
 from ingestion.esi_client import DEFAULT_BASE_URL, EsiClient
 from ingestion.wallet import get_current_wallet_balance
 from reporting.excel_writer import EveCalculatorRegistro
-from reporting.gsheets_sync import append_opportunity_row
 from notifications.events import NewOpportunity, dispatch
 from storage.db import (
     get_app_settings_dict,
@@ -329,19 +328,13 @@ def screen_opportunities(db_path: str, excel_path: str,
                 if status != previous_status:
                     insert_status_history(conn, row["type_id"], previous_status, status, now, reason)
 
-                # El registro Excel/Sheets es un log de OPORTUNIDADES detectadas, no de todos
+                # El registro Excel es un log de OPORTUNIDADES detectadas, no de todos
                 # los ítems evaluados — solo se anota lo clasificado como POTENCIAL.
                 if status == "POTENCIAL":
                     registro.append(
                         result.item, result.buy, result.sell,
                         result.volumen_deseado, result.volumen_diario_real,
                     )
-                    append_opportunity_row([
-                        result.item, result.buy, result.sell, result.volumen_deseado,
-                        result.volumen_diario_real, result.beneficio, f"{result.spread_bruto:.2%}",
-                        result.precio_min_venta, f"{result.roi:.2%}", result.evaluacion_spread,
-                        f"{result.posicion_vs_volumen:.2%}", result.liquidez, result.recomendacion,
-                    ])
                     if previous_status != "POTENCIAL":
                         events.append(NewOpportunity(result))
 
