@@ -12,6 +12,14 @@ from storage.db import init_db
 FAKE_CF_HEADER = {"Cf-Access-Jwt-Assertion": "header.payload.signature"}
 
 
+@pytest.fixture(autouse=True)
+def _no_rate_limit(monkeypatch):
+    from backend.api import ratelimit
+
+    ratelimit.reset()
+    monkeypatch.setenv("RATE_LIMIT_PER_MIN", "0")
+
+
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     db_path = str(tmp_path / "test.db")

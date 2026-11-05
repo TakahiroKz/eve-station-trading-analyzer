@@ -22,6 +22,7 @@ from backend.api.deps import ITEM_JOIN, ITEM_SELECT_COLS, _db
 from backend.api.indexnow import router as indexnow_router
 from backend.api.pages import router as pages_router
 from backend.api.private import router as private_router
+from backend.api.ratelimit import install_rate_limit
 from backend.api.seo import docs_kwargs, install_seo_middleware
 from backend.api.schemas import (
     CategoryOut,
@@ -41,6 +42,7 @@ load_dotenv()
 
 app = FastAPI(title="EveMarket Screener API", version="1.0.0", **docs_kwargs())
 install_seo_middleware(app)
+install_rate_limit(app)  # se registra después: corre antes que el resto y corta rápido
 
 app.add_middleware(
     CORSMiddleware,
