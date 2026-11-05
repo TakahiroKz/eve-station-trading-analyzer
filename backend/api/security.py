@@ -47,6 +47,9 @@ ALLOWED_ORIGIN_HOSTS = {CANONICAL_HOST, f"www.{CANONICAL_HOST}", "localhost", "1
 
 _CERTS_TTL = 3600.0
 _certs_lock = threading.Lock()
+_OK_LOG_EVERY = 600.0  # segundos entre avisos de "sesión verificada" (evita llenar el log)
+_last_ok_log = 0.0
+_ok_logger = logging.getLogger("uvicorn.error")  # el único logger que uvicorn deja en nivel INFO
 _certs_cache: dict[str, tuple[float, dict[str, str]]] = {}
 
 
@@ -100,7 +103,18 @@ def _issuer_team_url(claims_iss: str) -> str | None:
     if not configured:
         return None
     configured = configured if configured.startswith("https://") else f"https://{configured}"
-    return configured if claims_iss == configured else None
+    return configured if claims_iss.strip().rstrip("/") == configured else None
+
+
+def _log_verified() -> None:
+    """Deja constancia (como mucho cada 10 min) de que una sesión real pasó la verificación:
+    es la evidencia que hace falta para poner CF_ACCESS_ENFORCE=1 sin quedarse fuera."""
+    global _last_ok_log
+    now = time.monotonic()
+    if _last_ok_log and now - _last_ok_log < _OK_LOG_EVERY:
+        return
+    _last_ok_log = now
+    _ok_logger.info("Sesión de Cloudflare Access verificada")
 
 
 def verify_access_jwt(token: str) -> None:
@@ -124,8 +138,10 @@ def verify_access_jwt(token: str) -> None:
         token_aud = [token_aud] if isinstance(token_aud, str) else list(token_aud or [])
         if audience not in token_aud:
             raise ValueError("audiencia del token no coincide")
+        _log_verified()
     except Exception as exc:
-        logger.warning("Sesión de Cloudflare Access NO verificada (%s)%s", type(exc).__name__,
+        detail = f"{type(exc).__name__}: {exc}"[:120] if isinstance(exc, ValueError) else type(exc).__name__
+        logger.warning("Sesión de Cloudflare Access NO verificada (%s)%s", detail,
                        "" if enforce else " — modo observación, se permite")
         if enforce:
             raise HTTPException(401, "Acceso restringido (sesión de Cloudflare Access no válida).") from exc
