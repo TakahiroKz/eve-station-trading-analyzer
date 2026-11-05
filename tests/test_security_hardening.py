@@ -149,17 +149,3 @@ def test_rate_limit_window_slides():
     assert ratelimit.check_rate_limit("1.1.1.1", 2, now=2.0) is not None
     assert ratelimit.check_rate_limit("1.1.1.1", 2, now=61.0) is None
     ratelimit.reset()
-
-
-def test_sheets_unconfigured_warns_once_and_keeps_no_pending_file(tmp_path, monkeypatch, caplog):
-    from reporting import gsheets_sync
-
-    monkeypatch.delenv("GOOGLE_SERVICE_ACCOUNT_JSON", raising=False)
-    monkeypatch.setattr(gsheets_sync, "_worksheet_cache", None)
-    monkeypatch.setattr(gsheets_sync, "_warned_unconfigured", False)
-    monkeypatch.setattr(gsheets_sync, "PENDING_LOG_PATH", tmp_path / "pending.log")
-    with caplog.at_level("WARNING"):
-        for _ in range(5):
-            assert gsheets_sync.append_opportunity_row(["x"] * 13) is False
-    assert caplog.text.count("Google Sheets no configurado") == 1
-    assert not (tmp_path / "pending.log").exists()

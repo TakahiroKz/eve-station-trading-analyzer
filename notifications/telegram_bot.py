@@ -4,8 +4,8 @@ en tus órdenes activas (undercuts), ejecuciones (compra/venta) sobre tus órden
 
 Requiere un bot creado con @BotFather (TELEGRAM_BOT_TOKEN) y el chat_id del usuario
 (TELEGRAM_CHAT_ID, se obtiene enviándole /start al bot y consultando
-https://api.telegram.org/bot<token>/getUpdates). Igual que Google Sheets, degrada sin
-bloquear el pipeline si no está configurado.
+https://api.telegram.org/bot<token>/getUpdates). Degrada sin bloquear el pipeline
+si no está configurado.
 """
 import logging
 import os

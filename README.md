@@ -7,7 +7,7 @@ volatilidad y spread por ítem, aplica las fórmulas de **EveCalculator** para
 evaluar oportunidades de compra-venta en estación, y clasifica cada ítem en:
 
 - **POTENCIAL** — spread, liquidez y actividad real de mercado (7 días) cumplen. Se
-  registra automáticamente en Excel, Google Sheets y dispara una alerta de Telegram.
+  registra automáticamente en Excel y dispara una alerta de Telegram.
 - **POTENCIAL_SIN_ORDENES** — spread y liquidez cumplen, pero el histórico de
   transacciones ejecutadas es demasiado bajo (poco volumen o pocas operaciones/día):
   no hay evidencia de flujo real de compradores. No se registra como oportunidad.
@@ -30,7 +30,7 @@ ESI (esi.evetech.net)
 ingestion/                → cliente ESI + OAuth (EVE SSO) para leer wallet/órdenes del personaje
 storage/                   → SQLite (histórico, snapshots, clasificación vigente, órdenes propias)
 analytics/                 → métricas de mercado + motor EveCalculator + clasificación + posición de órdenes
-reporting/                 → registro Excel (fórmulas, append-only) + sync Google Sheets
+reporting/                 → registro Excel (fórmulas, append-only)
 notifications/             → alertas de Telegram (componente compartido por ambos motores)
 scheduler/run.py           → motor de MERCADO, cada 4h (ingesta → analítica → reporting)
 scheduler/orders_run.py    → motor de POSICIONES, cada 5 min (tus órdenes vs. libro de órdenes real)
@@ -129,15 +129,13 @@ scripts\setup_task_scheduler.ps1   # registra la tarea, corre cada 4 horas
 
 No superpone corridas (`MultipleInstances=IgnoreNew`). Logs diarios en
 `logs\scheduler_YYYY-MM-DD.log`. Ver [OPERATIONS.md](OPERATIONS.md) para comandos de
-consulta/parada y el resto del manual operativo (Telegram, Google Sheets, verificación).
+consulta/parada y el resto del manual operativo (Telegram, verificación).
 
-## Notificaciones y sync (opcionales)
+## Notificaciones (opcionales)
 
 - **Telegram**: bot vía @BotFather → `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` en `.env`.
-- **Google Sheets**: service account → `GOOGLE_SERVICE_ACCOUNT_JSON` en `.env`.
 
-Sin configurar, ambos degradan sin romper el pipeline (Sheets cae a un log local
-pendiente de sync).
+Sin configurar, Telegram degrada sin romper el pipeline.
 
 ## Verificación
 

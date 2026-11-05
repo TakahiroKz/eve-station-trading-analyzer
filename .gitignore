@@ -10,7 +10,6 @@ reporting/*.xlsx
 *.egg-info/
 frontend/app/node_modules/
 frontend/app/dist/
-reporting/pending_gsheets_sync.log
 *.log
 .claude/scheduled_tasks.lock
 logs/

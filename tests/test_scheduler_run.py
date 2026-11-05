@@ -186,7 +186,6 @@ def mocked_screening(monkeypatch):
     los side effects externos (ESI, Telegram, Excel local sigue siendo real -- es I/O
     de archivo, no red)."""
     monkeypatch.setattr("scheduler.run.get_current_wallet_balance", lambda: 5_000_000.0)
-    monkeypatch.setattr("scheduler.run.append_opportunity_row", lambda row: None)
     dispatched = []
     monkeypatch.setattr("scheduler.run.dispatch", lambda events: dispatched.append(list(events)))
     return dispatched
