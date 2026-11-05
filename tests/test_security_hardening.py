@@ -44,6 +44,7 @@ def test_cross_origin_post_to_private_routes_is_rejected(client):
 
 @pytest.fixture
 def signing_key(monkeypatch):
+    monkeypatch.setenv("CF_ACCESS_TEAM_DOMAIN", TEAM)
     public, private = rsa.newkeys(2048)
     pem_private = private.save_pkcs1("PEM")
     monkeypatch.setattr(
@@ -116,3 +117,49 @@ def test_json_ld_cannot_break_out_of_its_script_tag(client):
     assert "<img src=x" not in page
     assert page.count("</script>") == 1
     assert "<!--" not in page
+
+
+def test_unpinned_issuer_is_never_trusted(client, monkeypatch, signing_key):
+    http, _ = client
+    monkeypatch.setenv("CF_ACCESS_AUD", AUD)
+    token = signing_key()
+    assert http.get("/api/private/auth/ping", headers=_auth(token)).status_code == 200
+    monkeypatch.delenv("CF_ACCESS_TEAM_DOMAIN")  # sin dominio de equipo configurado: cerrado
+    assert http.get("/api/private/auth/ping", headers=_auth(token)).status_code == 401
+
+
+def test_rate_limit_returns_429_with_retry_after(client, monkeypatch):
+    http, _ = client
+    monkeypatch.setenv("RATE_LIMIT_PER_MIN", "3")
+    ip = {"CF-Connecting-IP": "203.0.113.7"}
+    assert [http.get("/api/summary", headers=ip).status_code for _ in range(3)] == [200, 200, 200]
+    blocked = http.get("/api/summary", headers=ip)
+    assert blocked.status_code == 429
+    assert int(blocked.headers["retry-after"]) >= 1
+    assert http.get("/api/summary", headers={"CF-Connecting-IP": "203.0.113.8"}).status_code == 200
+    assert http.get("/robots.txt", headers=ip).status_code != 429  # solo /api/*
+
+
+def test_rate_limit_window_slides():
+    from backend.api import ratelimit
+
+    ratelimit.reset()
+    assert ratelimit.check_rate_limit("1.1.1.1", 2, now=0.0) is None
+    assert ratelimit.check_rate_limit("1.1.1.1", 2, now=1.0) is None
+    assert ratelimit.check_rate_limit("1.1.1.1", 2, now=2.0) is not None
+    assert ratelimit.check_rate_limit("1.1.1.1", 2, now=61.0) is None
+    ratelimit.reset()
+
+
+def test_sheets_unconfigured_warns_once_and_keeps_no_pending_file(tmp_path, monkeypatch, caplog):
+    from reporting import gsheets_sync
+
+    monkeypatch.delenv("GOOGLE_SERVICE_ACCOUNT_JSON", raising=False)
+    monkeypatch.setattr(gsheets_sync, "_worksheet_cache", None)
+    monkeypatch.setattr(gsheets_sync, "_warned_unconfigured", False)
+    monkeypatch.setattr(gsheets_sync, "PENDING_LOG_PATH", tmp_path / "pending.log")
+    with caplog.at_level("WARNING"):
+        for _ in range(5):
+            assert gsheets_sync.append_opportunity_row(["x"] * 13) is False
+    assert caplog.text.count("Google Sheets no configurado") == 1
+    assert not (tmp_path / "pending.log").exists()

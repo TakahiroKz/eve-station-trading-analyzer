@@ -92,14 +92,15 @@ def _access_certs(team_url: str) -> dict[str, str]:
 
 
 def _issuer_team_url(claims_iss: str) -> str | None:
+    """Solo se acepta el emisor configurado: sin CF_ACCESS_TEAM_DOMAIN no se confía en ninguno
+    (antes se aceptaba cualquier *.cloudflareaccess.com leído del token sin verificar, y el
+    atacante con su propio equipo de Access podía firmar un token y hacer que el servidor
+    descargara las claves de ese equipo)."""
     configured = os.environ.get("CF_ACCESS_TEAM_DOMAIN", "").strip().rstrip("/")
-    if configured:
-        configured = configured if configured.startswith("https://") else f"https://{configured}"
-        return configured if claims_iss == configured else None
-    parsed = urlparse(claims_iss)
-    if parsed.scheme == "https" and (parsed.hostname or "").endswith(".cloudflareaccess.com"):
-        return f"https://{parsed.hostname}"
-    return None
+    if not configured:
+        return None
+    configured = configured if configured.startswith("https://") else f"https://{configured}"
+    return configured if claims_iss == configured else None
 
 
 def verify_access_jwt(token: str) -> None:

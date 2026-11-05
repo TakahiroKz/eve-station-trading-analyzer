@@ -56,7 +56,9 @@ def test_cache_control_policy():
     assert cache_control_for("/assets/index-abc.js", "text/javascript", 200) == IMMUTABLE_CACHE
     assert cache_control_for("/", "text/html; charset=utf-8", 200) == "no-cache"
     assert cache_control_for("/assets/index-abc.js", "text/javascript", 404) is None
-    assert cache_control_for("/api/summary", "application/json", 200) is None
+    assert cache_control_for("/api/summary", "application/json", 200) == "public, max-age=30"
+    assert cache_control_for("/api/private/wallet", "application/json", 200) is None
+    assert cache_control_for("/api/summary", "application/json", 500) is None
 
 
 def test_language_root_without_trailing_slash_redirects_in_one_hop(client):

@@ -19,6 +19,7 @@ HEADERS = [
 
 PENDING_LOG_PATH = Path("reporting/pending_gsheets_sync.log")
 
+_warned_unconfigured = False  # un solo aviso por proceso cuando Sheets no está configurado
 _worksheet_cache = None  # evita reabrir el Sheet por nombre (round-trip a la API) en cada fila
 
 
@@ -63,7 +64,11 @@ def append_opportunity_row(result_row: list) -> bool:
 
     worksheet = _get_worksheet()
     if worksheet is None:
-        _log_pending(row)
+        # Sin credenciales Sheets no está en uso: no se acumulan filas pendientes ni se avisa por fila.
+        global _warned_unconfigured
+        if not _warned_unconfigured:
+            _warned_unconfigured = True
+            logger.warning("Google Sheets no configurado (falta GOOGLE_SERVICE_ACCOUNT_JSON): se omite la sincronización")
         return False
 
     try:

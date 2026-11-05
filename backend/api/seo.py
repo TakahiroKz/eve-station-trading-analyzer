@@ -15,6 +15,7 @@ from backend.api.security import apply_security_headers
 CANONICAL_HOST = os.environ.get("CANONICAL_HOST", "evemarket-analyzer.online")
 
 IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
+PUBLIC_API_CACHE = "public, max-age=30"
 LANGUAGE_ROOTS = ("/es", "/de", "/fr", "/it")  # per-language home pages built by the frontend
 
 
@@ -48,6 +49,8 @@ def cache_control_for(path: str, content_type: str, status_code: int) -> str | N
         return None
     if path.startswith("/assets/"):
         return IMMUTABLE_CACHE  # archivos con hash en el nombre: nunca cambian
+    if path.startswith("/api/") and not path.startswith("/api/private")             and content_type.startswith("application/json"):
+        return PUBLIC_API_CACHE  # datos que el motor renueva cada 4 h; frena a quien repite pedidos
     if content_type.startswith("text/html"):
         return "no-cache"  # que el HTML siempre apunte a los assets vigentes
     return None
