@@ -10,7 +10,9 @@
 
 # Imágenes base fijadas por digest (reproducible y a salvo de un cambio de etiqueta). Para
 # actualizarlas: docker pull <imagen> y copiar el nuevo digest (docker inspect --format "{{index .RepoDigests 0}}").
-FROM node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202 AS frontend-builder
+# El frontend compilado (HTML/JS/CSS) no depende de la arquitectura: se construye una sola vez en la
+# plataforma del runner y se copia a la imagen amd64 y a la arm64 (en emulación QEMU tardaba más de una hora).
+FROM --platform=$BUILDPLATFORM node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202 AS frontend-builder
 WORKDIR /build/frontend/app
 COPY frontend/app/package.json frontend/app/package-lock.json ./
 RUN npm ci
