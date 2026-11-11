@@ -60,3 +60,22 @@ jobs:
 
       - name: Build (tsc + vite)
         run: npm run build
+
+  image-scan:
+    name: Image scan (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Build image
+        run: docker build -t eve-scan:ci .
+
+      # Trivy se ejecuta desde su imagen oficial fijada por digest (v0.58.1), sin acciones
+      # de terceros. Falla si hay vulnerabilidades HIGH/CRITICAL con parche disponible.
+      - name: Scan (HIGH/CRITICAL with a fix available)
+        run: >
+          docker run --rm
+          -v /var/run/docker.sock:/var/run/docker.sock
+          aquasec/trivy@sha256:ab70a02200597efa04748f210f793936eb647cbcdb0ea69cc30b226d6f5a22c7
+          image --no-progress --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed
+          --exit-code 1 eve-scan:ci
