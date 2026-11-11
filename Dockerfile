@@ -8,18 +8,29 @@
 # copia el resultado (dist/) a la imagen final de Python — así la imagen que corre
 # en producción no carga con Node ni node_modules.
 
-FROM node:22-alpine AS frontend-builder
+# Imágenes base fijadas por digest (reproducible y a salvo de un cambio de etiqueta). Para
+# actualizarlas: docker pull <imagen> y copiar el nuevo digest (docker inspect --format "{{index .RepoDigests 0}}").
+FROM node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202 AS frontend-builder
 WORKDIR /build/frontend/app
 COPY frontend/app/package.json frontend/app/package-lock.json ./
 RUN npm ci
 COPY frontend/app/ ./
 RUN npm run build
 
-FROM python:3.11-slim AS final
+FROM python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535 AS final
 WORKDIR /app
 
+# Parches de seguridad del sistema operativo publicados después de la imagen base.
+RUN apt-get update && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
+# Sin .pyc ni buffer de salida: el contenedor corre con el sistema de archivos de solo lectura.
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip uninstall -y setuptools wheel
 
 COPY analytics/ ./analytics/
 COPY backend/ ./backend/

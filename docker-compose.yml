@@ -13,8 +13,20 @@
 # los dos motores y la API acceden al mismo storage/market.db desde procesos
 # separados (busy_timeout ya configurado en storage/db.py y backend/api/main.py).
 
+# Endurecimiento del contenedor: sin root, sin capacidades de Linux, sistema de archivos de
+# solo lectura (solo se escribe en los volúmenes montados y en /tmp). no-new-privileges va en
+# cada servicio. APP_UID/APP_GID deben coincidir con el dueño de ./storage y ./credentials en el
+# host (en la VM de Oracle es el usuario ubuntu: ver .env.example).
+x-hardening: &hardening
+  user: "${APP_UID:-1000}:${APP_GID:-1000}"
+  read_only: true
+  cap_drop: [ALL]
+  tmpfs: ["/tmp"]
+  pids_limit: 512
+
 services:
   api:
+    <<: *hardening
     image: ghcr.io/takahirokz/eve-station-trading-analyzer:latest
     container_name: evemarket-api
     restart: unless-stopped
@@ -31,10 +43,13 @@ services:
       - ./credentials:/app/credentials
 
   engine-market:
+    <<: *hardening
     image: ghcr.io/takahirokz/eve-station-trading-analyzer:latest
     container_name: evemarket-engine-market
     command: ["python", "-m", "scheduler.run"]
     env_file: .env
+    environment:
+      EXCEL_REGISTRO_PATH: /tmp/eve-calculator-registro.xlsx
     security_opt:
       - no-new-privileges:true
     volumes:
@@ -43,6 +58,7 @@ services:
     profiles: ["cron"]
 
   engine-positions:
+    <<: *hardening
     image: ghcr.io/takahirokz/eve-station-trading-analyzer:latest
     container_name: evemarket-engine-positions
     command: ["python", "-m", "scheduler.orders_run"]
