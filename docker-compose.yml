@@ -23,6 +23,12 @@ x-hardening: &hardening
   cap_drop: [ALL]
   tmpfs: ["/tmp"]
   pids_limit: 512
+  # Los logs del contenedor (json-file) no tienen límite por defecto: 5 archivos de 10 MB.
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
 
 services:
   api:

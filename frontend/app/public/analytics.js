@@ -26,9 +26,22 @@
   function drop(store, key) { try { store.removeItem(key); } catch { /* storage blocked */ } }
 
   function lang() {
+    // Same priority as the app: language in the path (/es/) > ?lang= > saved choice > browser
+    // language > page language > English.
+    var fromPath = (location.pathname.split("/")[1] || "").toLowerCase();
+    if (TEXT[fromPath]) return fromPath;
+    var fromUrl = "";
+    try { fromUrl = (new URLSearchParams(location.search).get("lang") || "").toLowerCase(); } catch { fromUrl = ""; }
+    if (TEXT[fromUrl]) return fromUrl;
     var stored = read(window.localStorage, "lang");
-    var code = (stored || document.documentElement.lang || navigator.language || "en").slice(0, 2).toLowerCase();
-    return TEXT[code] ? code : "en";
+    if (stored && TEXT[stored.slice(0, 2).toLowerCase()]) return stored.slice(0, 2).toLowerCase();
+    var prefs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language];
+    for (var i = 0; i < prefs.length; i++) {
+      var code = String(prefs[i] || "").slice(0, 2).toLowerCase();
+      if (TEXT[code]) return code;
+    }
+    var page = (document.documentElement.lang || "").slice(0, 2).toLowerCase();
+    return TEXT[page] ? page : "en";
   }
 
   function randomId() {
