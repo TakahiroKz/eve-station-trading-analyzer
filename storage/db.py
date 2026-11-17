@@ -415,6 +415,70 @@ def insert_character_order_fill(conn: sqlite3.Connection, row: dict) -> None:
     )
 
 
+def _first_opportunity_id_since(conn: sqlite3.Connection, since_iso: str) -> int | None:
+    """Primer `id` de opportunity_log con evaluated_at >= since_iso, o None si no hay ninguno.
+    evaluated_at crece con el id (el log solo se anexa), así que se busca por bisección sobre la
+    clave primaria: no hace falta un índice nuevo sobre una tabla de millones de filas."""
+    bounds = conn.execute("SELECT MIN(id), MAX(id) FROM opportunity_log").fetchone()
+    lo, hi = bounds[0], bounds[1]
+    if lo is None:
+        return None
+
+    def satisfied(first_id: int) -> bool:
+        row = conn.execute(
+            "SELECT evaluated_at FROM opportunity_log WHERE id >= ? ORDER BY id LIMIT 1", (first_id,),
+        ).fetchone()
+        return row is not None and row[0] >= since_iso
+
+    if not satisfied(hi):
+        return None
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if satisfied(mid):
+            hi = mid
+        else:
+            lo = mid + 1
+    return lo
+
+
+def recent_opportunity_times(conn: sqlite3.Connection, since_iso: str) -> dict[int, str]:
+    """Último evaluated_at registrado por ítem desde `since_iso` (para no registrar un ítem
+    más de una vez por intervalo)."""
+    first = _first_opportunity_id_since(conn, since_iso)
+    if first is None:
+        return {}
+    rows = conn.execute(
+        "SELECT type_id, MAX(evaluated_at) FROM opportunity_log WHERE id >= ? GROUP BY type_id", (first,),
+    )
+    return {row[0]: row[1] for row in rows}
+
+
+def purge_opportunity_log(conn: sqlite3.Connection, keep_days: float, batch_size: int = 20000,
+                          max_batches: int = 10) -> int:
+    """Borra del log las filas más viejas que `keep_days` días, por rangos de id (sin índice
+    nuevo), en lotes con un commit por lote para no retener el lock de escritura. `max_batches`
+    acota el trabajo de cada ciclo: una acumulación grande se elimina en varios ciclos. Devuelve
+    las filas borradas."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=keep_days)).isoformat()
+    first_keep = _first_opportunity_id_since(conn, cutoff)
+    if first_keep is None:
+        top = conn.execute("SELECT MAX(id) FROM opportunity_log").fetchone()[0]
+        if top is None:
+            return 0
+        first_keep = top + 1
+    deleted = 0
+    for _ in range(max_batches):
+        lowest = conn.execute("SELECT MIN(id) FROM opportunity_log").fetchone()[0]
+        if lowest is None or lowest >= first_keep:
+            break
+        upper = min(lowest + batch_size, first_keep)
+        deleted += conn.execute(
+            "DELETE FROM opportunity_log WHERE id >= ? AND id < ?", (lowest, upper),
+        ).rowcount
+        conn.commit()
+    return deleted
+
+
 def insert_opportunity(conn: sqlite3.Connection, row: dict) -> None:
     conn.execute(
         """

@@ -19,7 +19,7 @@ import logging
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import httpx
 import pandas as pd
@@ -48,6 +48,8 @@ from storage.db import (
     insert_opportunity,
     insert_status_history,
     prune_old_snapshots,
+    purge_opportunity_log,
+    recent_opportunity_times,
     upsert_item_category,
     upsert_item_status,
     upsert_item_type,
@@ -61,6 +63,31 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 HISTORY_WINDOW = 30  # filas de histórico por ítem que usa el screening (ventana de 30 días)
+
+# opportunity_log: un ítem se registra como mucho una vez por intervalo (y siempre que cambie de
+# estado). Antes se insertaba una fila por ítem y por ciclo: con ciclos de 5 min eran ~4,7 millones
+# de filas al día. La app solo muestra la última recomendación del ítem.
+DEFAULT_LOG_INTERVAL_MINUTES = 60            # ítems en estados útiles
+DEFAULT_LOG_DISCARDED_INTERVAL_MINUTES = 720  # ítems DESCARTADO
+DEFAULT_LOG_RETENTION_DAYS = 3
+
+
+def _log_settings() -> tuple[float, float, float]:
+    return (
+        float(os.environ.get("OPPORTUNITY_LOG_INTERVAL_MIN", DEFAULT_LOG_INTERVAL_MINUTES)),
+        float(os.environ.get("OPPORTUNITY_LOG_DISCARDED_INTERVAL_MIN", DEFAULT_LOG_DISCARDED_INTERVAL_MINUTES)),
+        float(os.environ.get("OPPORTUNITY_LOG_RETENTION_DAYS", DEFAULT_LOG_RETENTION_DAYS)),
+    )
+
+
+def opportunity_log_due(status: str, previous_status: str | None, last_logged: str | None,
+                        now: datetime, interval_min: float, discarded_interval_min: float) -> bool:
+    """True si hay que registrar este ítem ahora: cambió de estado, nunca se registró o ya pasó
+    el intervalo que le toca a su estado."""
+    if previous_status is None or status != previous_status or last_logged is None:
+        return True
+    minutes = discarded_interval_min if status == "DESCARTADO" else interval_min
+    return last_logged < (now - timedelta(minutes=minutes)).isoformat()
 DEFAULT_SNAPSHOT_RETENTION_HOURS = 6
 
 
@@ -309,6 +336,11 @@ def screen_opportunities(db_path: str, excel_path: str,
 
         results = []
         events: list = []
+        log_interval, log_discarded_interval, log_retention_days = _log_settings()
+        run_start = datetime.now(timezone.utc)
+        last_logged = recent_opportunity_times(
+            conn, (run_start - timedelta(minutes=max(log_interval, log_discarded_interval))).isoformat(),
+        )
         with EveCalculatorRegistro(excel_path) as registro:
             for _, row in merged.iterrows():
                 volumen_deseado = resolve_volumen_deseado(
@@ -323,24 +355,8 @@ def screen_opportunities(db_path: str, excel_path: str,
                     config=eve_config,
                 )
                 results.append((row["type_id"], result))
-                now = datetime.now(timezone.utc).isoformat()
-
-                insert_opportunity(conn, {
-                    "type_id": row["type_id"],
-                    "evaluated_at": now,
-                    "buy": result.buy,
-                    "sell": result.sell,
-                    "volumen_deseado": result.volumen_deseado,
-                    "volumen_diario_real": result.volumen_diario_real,
-                    "beneficio": result.beneficio,
-                    "spread_bruto": result.spread_bruto,
-                    "precio_min_venta": result.precio_min_venta,
-                    "roi": result.roi,
-                    "evaluacion_spread": result.evaluacion_spread,
-                    "posicion_vs_volumen": result.posicion_vs_volumen,
-                    "liquidez": result.liquidez,
-                    "recomendacion": result.recomendacion,
-                })
+                now_dt = datetime.now(timezone.utc)
+                now = now_dt.isoformat()
 
                 # Recategorización: todo ítem queda clasificado, sin importar si termina
                 # registrado como oportunidad en Excel/Sheets o no.
@@ -385,6 +401,25 @@ def screen_opportunities(db_path: str, excel_path: str,
                 if status != previous_status:
                     insert_status_history(conn, row["type_id"], previous_status, status, now, reason)
 
+                if opportunity_log_due(status, previous_status, last_logged.get(row["type_id"]), now_dt,
+                                       log_interval, log_discarded_interval):
+                    insert_opportunity(conn, {
+                        "type_id": row["type_id"],
+                        "evaluated_at": now,
+                        "buy": result.buy,
+                        "sell": result.sell,
+                        "volumen_deseado": result.volumen_deseado,
+                        "volumen_diario_real": result.volumen_diario_real,
+                        "beneficio": result.beneficio,
+                        "spread_bruto": result.spread_bruto,
+                        "precio_min_venta": result.precio_min_venta,
+                        "roi": result.roi,
+                        "evaluacion_spread": result.evaluacion_spread,
+                        "posicion_vs_volumen": result.posicion_vs_volumen,
+                        "liquidez": result.liquidez,
+                        "recomendacion": result.recomendacion,
+                    })
+
                 # El registro Excel es un log de OPORTUNIDADES detectadas, no de todos
                 # los ítems evaluados — solo se anota lo clasificado como POTENCIAL.
                 if status == "POTENCIAL":
@@ -399,6 +434,9 @@ def screen_opportunities(db_path: str, excel_path: str,
                     conn.commit()  # visibilidad incremental para lectores (ej. la API) y checkpoint ante cortes
 
         conn.commit()
+        purged = purge_opportunity_log(conn, log_retention_days)
+        if purged:
+            logger.info("opportunity_log: %d filas de más de %g días borradas", purged, log_retention_days)
         dispatch(events)
         return pd.DataFrame([r.__dict__ for _, r in results])
     finally:

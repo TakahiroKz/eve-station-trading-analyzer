@@ -104,6 +104,14 @@ la función correspondiente (autorización incremental).
   reintentan en las siguientes corridas durante 30 min (máx. 5 intentos); después se descartan con
   una línea en el log. `SELECT COUNT(*) FROM notification_outbox` dice cuántos esperan.
 
+## Tamaño de la base de datos
+
+`opportunity_log` crecía una fila por ítem y por ciclo (~4,7 millones al día con ciclos de 5 min) hasta
+ocupar el 75 % de la base. Ahora cada ítem se anota como mucho una vez por hora (cada 12 h si está
+DESCARTADO) o al cambiar de estado, y se purga lo de más de 3 días (`OPPORTUNITY_LOG_*` en `.env`). El
+archivo no encoge solo al borrar filas: tras una purga grande hay que correr un `VACUUM` con los motores
+pausados (ver el procedimiento en el historial de la PR).
+
 ## Backup de la base de datos (D10)
 
 `scripts/backup_db.sh` corre por cron en la VM (03:17 UTC, ver `scripts/setup_cron.sh`)
