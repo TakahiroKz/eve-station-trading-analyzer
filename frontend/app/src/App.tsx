@@ -193,14 +193,21 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // Un visitante sin sesión no necesita repetir el chequeo: iniciar sesión pasa por
+    // /api/private/login, que recarga la página y vuelve a probar. Así cada visitante anónimo
+    // genera una sola petición (que Cloudflare Access redirige) en vez de una por minuto.
+    let hasSession = false;
     const checkAuth = () =>
       api
         .authPing()
-        .then(() => { setAuthenticated(true); setOwnerHint(true); writeOwnerHint(true); })
-        .catch(() => { setAuthenticated(false); setOwnerHint(false); writeOwnerHint(false); });
+        .then(() => { hasSession = true; setAuthenticated(true); setOwnerHint(true); writeOwnerHint(true); })
+        .catch(() => { hasSession = false; setAuthenticated(false); setOwnerHint(false); writeOwnerHint(false); });
     checkAuth();
-    // Repetido para notar una sesión de Access vencida sin necesidad de recargar.
-    const id = setInterval(checkAuth, 60_000);
+    // Con sesión, se repite (solo con la pestaña visible) para notar una sesión de Access vencida
+    // sin necesidad de recargar.
+    const id = setInterval(() => {
+      if (hasSession && document.visibilityState === "visible") checkAuth();
+    }, 60_000);
     return () => clearInterval(id);
   }, []);
 
