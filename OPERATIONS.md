@@ -137,16 +137,17 @@ Dos capas complementarias — ninguna reemplaza a la otra:
 `scripts/setup_cron.sh`; re-correr ese script para instalar la entrada). Detecta lo que
 un ping externo no ve: la API responde pero los motores dejaron de correr. Chequea:
 - la API responde en `http://127.0.0.1:8001/api/summary`;
-- `last_evaluated_at` (motor de mercado) tiene menos de 5 h;
+- `last_evaluated_at` (motor de mercado, ciclo de precios cada 10 min) tiene menos de 30 min;
 - el log de hoy del motor de posiciones se tocó hace menos de 20 min;
 - el servicio systemd `cloudflared` está activo;
-- el ciclo de mercado no dura demasiado: avisa si hay uno corriendo hace más de 20 min o si el último
-  tardó más de 20 min (un ciclo normal tarda unos 12; ver `MARKET_MAX_RUN_MIN`).
+- el ciclo de mercado no dura demasiado: avisa si hay uno corriendo hace más de 5 min o si el último
+  tardó más de 5 min (un ciclo de precios normal tarda unos 2; ver `MARKET_MAX_RUN_MIN`);
+- el histórico diario (`history_*.log`) se tocó hace menos de 36 h (`HISTORY_MAX_AGE_HOURS`).
 
 Avisa por Telegram (mismas variables del `.env` que el resto) solo cuando el estado
 cambia: falla nueva, cambio de motivo, o recuperación (✅). El último estado queda en
-`.healthcheck.state`. Umbrales sobreescribibles con `MARKET_MAX_AGE_HOURS`,
-`POSITIONS_MAX_AGE_MIN`, `MARKET_MAX_RUN_MIN`, `HEALTH_URL`. Para probarlo a mano: `./scripts/healthcheck.sh`
+`.healthcheck.state`. Umbrales sobreescribibles con `MARKET_MAX_AGE_MIN`,
+`POSITIONS_MAX_AGE_MIN`, `MARKET_MAX_RUN_MIN`, `HISTORY_MAX_AGE_HOURS`, `HEALTH_URL`. Para probarlo a mano: `./scripts/healthcheck.sh`
 (silencioso si todo está bien).
 
 **2. Ping externo — UptimeRobot (plan gratis, setup manual una sola vez).** Cubre lo que

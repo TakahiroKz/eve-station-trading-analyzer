@@ -3,10 +3,11 @@
 # equivalente Linux de scripts/setup_task_scheduler.ps1 (Windows). Corre en la VM,
 # no en la máquina de desarrollo.
 #
-# Motor de mercado (scheduler/run.py) cada 4h, motor de posiciones
-# (scheduler/orders_run.py) cada 5 min — mismos dos motores, misma cadencia que en
-# Windows, pero disparando contenedores de un solo uso (`docker compose run --rm`)
-# en vez de invocar python directo. Más el backup diario de la DB (D10, scripts/
+# Motor de mercado en dos procesos: ciclo de precios y cálculos (scheduler/run.py
+# --prices-only) cada 10 min, e histórico diario de ESI (--history-only) una vez al día
+# a las 11:35 UTC (ESI lo renueva a las 11:05). Motor de posiciones
+# (scheduler/orders_run.py) cada 5 min. Todos disparan contenedores de un solo uso
+# (`docker compose run --rm`) en vez de invocar python directo. Más el backup diario de la DB (D10, scripts/
 # backup_db.sh) a las 03:17 UTC — fuera de los :00 en punto para no coincidir con el
 # arranque del motor de mercado.
 #
@@ -22,8 +23,10 @@ APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 mkdir -p "$APP_DIR/logs"
 
 CRON_BLOCK=$(cat <<'CRONEOF'
-# evemarket-screener: motor de mercado, cada 4h
-0 */4 * * * cd __APP_DIR__ && flock -n .market.lock docker compose --profile cron run --rm engine-market >> logs/scheduler_$(date +\%Y-\%m-\%d).log 2>&1
+# evemarket-screener: motor de mercado (precios y cálculos), cada 10 min
+*/10 * * * * cd __APP_DIR__ && flock -n .market.lock docker compose --profile cron run --rm engine-market >> logs/scheduler_$(date +\%Y-\%m-\%d).log 2>&1
+# evemarket-screener: histórico diario de mercado (ESI lo renueva a las 11:05 UTC)
+35 11 * * * cd __APP_DIR__ && flock -n .history.lock docker compose --profile cron run --rm engine-history >> logs/history_$(date +\%Y-\%m-\%d).log 2>&1
 # evemarket-screener: motor de posiciones, cada 5 min
 */5 * * * * cd __APP_DIR__ && flock -n .positions.lock docker compose --profile cron run --rm engine-positions >> logs/orders_$(date +\%Y-\%m-\%d).log 2>&1
 # evemarket-screener: backup diario de la DB (D10)
@@ -39,7 +42,7 @@ CRON_BLOCK="${CRON_BLOCK//__APP_DIR__/$APP_DIR}"
 # grep: con set -e, un crontab vacío/inexistente hace que grep sin coincidencias
 # (exit 1, "nada que filtrar") aborte el script antes de llegar a escribir el nuevo
 # -- pasó en la práctica en la VM recién creada, sin crontab previo.
-{ crontab -l 2>/dev/null | grep -vE "evemarket-screener|engine-market|engine-positions|backup_db|healthcheck" || true; echo "$CRON_BLOCK"; } | crontab -
+{ crontab -l 2>/dev/null | grep -vE "evemarket-screener|engine-market|engine-history|engine-positions|backup_db|healthcheck" || true; echo "$CRON_BLOCK"; } | crontab -
 
 echo "Crontab instalado:"
 crontab -l

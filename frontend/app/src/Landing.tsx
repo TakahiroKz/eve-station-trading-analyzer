@@ -45,7 +45,7 @@ export function Stats({ t, opportunities, analyzed, nextRefresh }: {
       </div>
       <div className="stat-card">
         <span className="stat-label">{t("stats.refresh")}</span>
-        <span className="stat-value">{t("stats.every4h")}</span>
+        <span className="stat-value">{t("stats.refreshValue")}</span>
       </div>
       <div className="stat-card">
         <span className="stat-label">{t("stats.next")}</span>

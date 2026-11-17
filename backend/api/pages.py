@@ -283,10 +283,10 @@ def items_index() -> HTMLResponse:
         "<h1>EVE Online station trading: items worth trading in Jita</h1>"
         f"<p class=\"lede\">{len(rows):,} items in The Forge (Jita) whose spread, liquidity and "
         "recent trade history make them candidates for station trading, ranked by daily volume "
-        "within each category. Refreshed every 4 hours from the official ESI API. For live "
+        "within each category. Prices and calculations refreshed every 10 minutes from the official ESI API. For live "
         'filters and sorting use the <a href="/">interactive Screener</a>.</p>'
         f'<ul class="chips"><li><b>{len(rows):,}</b> items</li>'
-        f'<li><b>{len(by_category)}</b> categories</li><li>Updated every <b>4 h</b></li>'
+        f'<li><b>{len(by_category)}</b> categories</li><li>Updated every <b>10 min</b></li>'
         "<li>ROI after fees</li></ul>"
         '<div class="tools"><input class="search" id="q" type="search" hidden '
         'placeholder="Search an item, e.g. Tritanium or Insignia" aria-label="Search items" '
@@ -297,7 +297,7 @@ def items_index() -> HTMLResponse:
     title = "EVE Online station trading items in Jita | EveMarket Screener"
     description = (
         f"{len(rows)} EVE Online items worth station trading in Jita, with ROI, spread and "
-        "liquidity, refreshed every 4 hours."
+        "liquidity, refreshed every 10 minutes."
     )
     ld = _json_ld(title, "/items", [("Screener", "/"), ("All items", "/items")], None)
     return _html(_page(title, description, "/items", body, "index, follow", ld,
@@ -392,7 +392,7 @@ def item_page(item_ref: str):
         shown = evaluated[:16].replace("T", " ")
         evaluated_html = (
             f'<p class="muted">Last evaluated <time datetime="{_e(evaluated)}">{_e(shown)} UTC</time>. '
-            "The market engine refreshes every 4 hours.</p>"
+            "The market engine refreshes prices and calculations every 10 minutes.</p>"
         )
 
     summary = (

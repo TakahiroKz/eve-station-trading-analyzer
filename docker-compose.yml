@@ -52,7 +52,7 @@ services:
     <<: *hardening
     image: ghcr.io/takahirokz/eve-station-trading-analyzer:latest
     container_name: evemarket-engine-market
-    command: ["python", "-m", "scheduler.run"]
+    command: ["python", "-m", "scheduler.run", "--prices-only"]
     env_file: .env
     environment:
       EXCEL_REGISTRO_PATH: /tmp/eve-calculator-registro.xlsx

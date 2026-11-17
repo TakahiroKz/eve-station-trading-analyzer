@@ -6,15 +6,18 @@
 #
 # Chequea:
 #   1. La API responde en HEALTH_URL (el contenedor `api` está vivo).
-#   2. `last_evaluated_at` (motor de mercado, ciclo de 4h) tiene menos de
-#      MARKET_MAX_AGE_HOURS horas (default 5: 4h de ciclo + margen).
+#   2. `last_evaluated_at` (motor de mercado, ciclo de precios cada 10 min) tiene menos de
+#      MARKET_MAX_AGE_MIN minutos (default 30: 3 ciclos perdidos).
 #   3. Hay una corrida reciente del motor de posiciones (mtime del log de hoy,
 #      ciclo de 5 min) -- menos de POSITIONS_MAX_AGE_MIN minutos (default 20).
 #   4. El servicio systemd `cloudflared` está activo.
 #   5. Duración del ciclo de mercado: avisa si hay un ciclo corriendo hace más de
-#      MARKET_MAX_RUN_MIN minutos (default 20; un ciclo normal tarda ~12) o si el último
+#      MARKET_MAX_RUN_MIN minutos (default 5; un ciclo de precios normal tarda ~2) o si el último
 #      que terminó ("Pipeline completo en Ns") tardó más que eso. Salta el chequeo del
 #      ciclo en marcha si no hay `docker` (CHECK_CYCLE_RUNTIME=0 lo apaga).
+#   6. Histórico diario de mercado: su log (history_*.log) se tocó hace menos de
+#      HISTORY_MAX_AGE_HOURS horas (default 36). Si todavía no existe ningún log del
+#      histórico (primer día tras instalar el cron), no avisa.
 #
 # Anti-spam: guarda el último estado en STATE_FILE y avisa por Telegram solo cuando
 # cambia (OK -> falla, cambia el motivo, o falla -> recuperado), no en cada corrida.
@@ -36,12 +39,13 @@ _env_get() {
 }
 
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8001/api/summary}"
-MARKET_MAX_AGE_HOURS="${MARKET_MAX_AGE_HOURS:-5}"
+MARKET_MAX_AGE_MIN="${MARKET_MAX_AGE_MIN:-30}"
 POSITIONS_MAX_AGE_MIN="${POSITIONS_MAX_AGE_MIN:-20}"
 LOG_DIR="${LOG_DIR:-$APP_DIR/logs}"
 STATE_FILE="${STATE_FILE:-$APP_DIR/.healthcheck.state}"
 CHECK_CLOUDFLARED="${CHECK_CLOUDFLARED:-1}"
-MARKET_MAX_RUN_MIN="${MARKET_MAX_RUN_MIN:-20}"
+MARKET_MAX_RUN_MIN="${MARKET_MAX_RUN_MIN:-5}"
+HISTORY_MAX_AGE_HOURS="${HISTORY_MAX_AGE_HOURS:-36}"
 CHECK_CYCLE_RUNTIME="${CHECK_CYCLE_RUNTIME:-1}"
 TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-$(_env_get TELEGRAM_BOT_TOKEN)}"
 TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-$(_env_get TELEGRAM_CHAT_ID)}"
@@ -52,7 +56,7 @@ failures=()
 if ! body="$(curl -fsS --max-time 15 "$HEALTH_URL" 2>/dev/null)"; then
   failures+=("la API no responde en ${HEALTH_URL}")
 else
-  age_h="$(python3 - "$body" <<'PYEOF'
+  age_min="$(python3 - "$body" <<'PYEOF'
 import json
 import sys
 from datetime import datetime, timezone
@@ -65,17 +69,19 @@ try:
         dt = datetime.fromisoformat(last.replace("Z", "+00:00"))
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
-        print(f"{(datetime.now(timezone.utc) - dt).total_seconds() / 3600:.1f}")
+        print(f"{(datetime.now(timezone.utc) - dt).total_seconds() / 60:.1f}")
 except Exception:
     print("error")
 PYEOF
 )"
-  case "$age_h" in
+  case "$age_min" in
     none|error)
       failures+=("no se pudo leer last_evaluated_at de la API") ;;
     *)
-      if python3 -c "import sys; sys.exit(0 if float('$age_h') <= float('$MARKET_MAX_AGE_HOURS') else 1)"; then :; else
-        failures+=("el motor de mercado no corre hace ${age_h}h (máx ${MARKET_MAX_AGE_HOURS}h)")
+      if python3 -c "import sys; sys.exit(0 if float('$age_min') <= float('$MARKET_MAX_AGE_MIN') else 1)"; then :; else
+        # Sin la antigüedad exacta en el texto: si cambiara en cada corrida, el anti-spam
+        # lo tomaría por un aviso nuevo cada 10 min.
+        failures+=("el motor de mercado no corre hace más de ${MARKET_MAX_AGE_MIN} min")
       fi ;;
   esac
 fi
@@ -88,6 +94,15 @@ else
   stale="$(find "$latest_orders_log" -mmin +"$POSITIONS_MAX_AGE_MIN" 2>/dev/null)"
   if [ -n "$stale" ]; then
     failures+=("el motor de posiciones no corre hace más de ${POSITIONS_MAX_AGE_MIN} min")
+  fi
+fi
+
+# 6: histórico diario -- solo si ya hay un log (el cron crea el archivo al empezar cada corrida).
+latest_history_log="$(ls -t "$LOG_DIR"/history_*.log 2>/dev/null | head -n1 || true)"
+if [ -n "$latest_history_log" ]; then
+  stale_history="$(find "$latest_history_log" -mmin +"$(( HISTORY_MAX_AGE_HOURS * 60 ))" 2>/dev/null)"
+  if [ -n "$stale_history" ]; then
+    failures+=("el histórico diario no corre hace más de ${HISTORY_MAX_AGE_HOURS} h")
   fi
 fi
 

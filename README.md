@@ -16,7 +16,7 @@ evaluar oportunidades de compra-venta en estación, y clasifica cada ítem en:
   contaminado por una orden basura.
 
 Dos motores separados, cada uno con su propia tarea programada de Windows: el de
-**mercado** corre cada 4 horas (ingesta + screening); el de **posiciones** corre cada
+**mercado** corre cada 10 minutos en producción (órdenes + screening; el histórico diario de ESI va en un proceso aparte, una vez al día) y cada 4 horas en el modo local de Windows; el de **posiciones** corre cada
 5 minutos (revisa tus órdenes activas contra el libro de órdenes real y notifica solo
 cuando cambia tu posición). Se puede consultar por consola, por una API REST, o por
 una PWA instalable en el teléfono.
@@ -32,7 +32,7 @@ storage/                   → SQLite (histórico, snapshots, clasificación vig
 analytics/                 → métricas de mercado + motor EveCalculator + clasificación + posición de órdenes
 reporting/                 → registro Excel (fórmulas, append-only)
 notifications/             → alertas de Telegram (componente compartido por ambos motores)
-scheduler/run.py           → motor de MERCADO, cada 4h (ingesta → analítica → reporting)
+scheduler/run.py           → motor de MERCADO: precios y cálculos cada 10 min (--prices-only), histórico diario (--history-only)
 scheduler/orders_run.py    → motor de POSICIONES, cada 5 min (tus órdenes vs. libro de órdenes real)
 backend/api/               → API REST de solo lectura (FastAPI) sobre la SQLite
 frontend/app/              → PWA (React) que consume la API — instalable en el teléfono
