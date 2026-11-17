@@ -1,8 +1,11 @@
+import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 
 DEFAULT_BASE_URL = "https://esi.evetech.net/latest"
+DEFAULT_ORDERS_WORKERS = 8
 
 
 class EsiClient:
@@ -11,12 +14,19 @@ class EsiClient:
     Respeta el rate limit de error de la ESI (X-Esi-Error-Limit-Remain) y reintenta
     ante 5xx/timeouts con backoff exponencial. No requiere autenticación para los
     endpoints públicos de mercado usados en este proyecto.
+
+    `orders_workers` es cuántas páginas del libro de órdenes de una región se piden a la vez
+    (ESI_ORDERS_WORKERS; 1 = una tras otra). The Forge son ~416 páginas: pedidas en serie eran
+    ~80 s de cada ciclo de precios.
     """
 
     def __init__(self, base_url: str = DEFAULT_BASE_URL, user_agent: str = "eve-market-screener",
-                 max_retries: int = 5, timeout: float = 15.0):
+                 max_retries: int = 5, timeout: float = 15.0, orders_workers: int | None = None):
         self.base_url = base_url.rstrip("/")
         self.max_retries = max_retries
+        if orders_workers is None:
+            orders_workers = int(os.environ.get("ESI_ORDERS_WORKERS", DEFAULT_ORDERS_WORKERS))
+        self.orders_workers = max(1, orders_workers)
         self._client = httpx.Client(
             headers={"User-Agent": user_agent, "Accept": "application/json"},
             timeout=timeout,
@@ -76,18 +86,30 @@ class EsiClient:
         Con `type_id`, la ESI filtra server-side a un solo ítem: se usa para traer el
         libro de órdenes real de un ítem puntual (motor de posiciones) sin descargar
         la región entera, que es lo que hace la llamada sin `type_id` (motor de mercado)."""
-        orders: list[dict] = []
-        page = 1
-        while True:
-            params = {"order_type": order_type, "page": page}
-            if type_id is not None:
-                params["type_id"] = type_id
-            response = self._get(f"/markets/{region_id}/orders/", params=params)
-            orders.extend(response.json())
-            total_pages = int(response.headers.get("X-Pages", 1))
-            if page >= total_pages:
-                break
-            page += 1
+        base_params: dict = {"order_type": order_type}
+        if type_id is not None:
+            base_params["type_id"] = type_id
+        path = f"/markets/{region_id}/orders/"
+
+        first = self._get(path, params={**base_params, "page": 1})
+        orders: list[dict] = list(first.json())
+        total_pages = int(first.headers.get("X-Pages", 1))
+        if total_pages <= 1:
+            return orders
+
+        def fetch(page: int) -> list[dict]:
+            return self._get(path, params={**base_params, "page": page}).json()
+
+        remaining = range(2, total_pages + 1)
+        workers = min(self.orders_workers, len(remaining))
+        if workers <= 1:
+            for page in remaining:
+                orders.extend(fetch(page))
+        else:
+            # `map` devuelve los resultados en el orden de las páginas, aunque lleguen desordenados.
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                for page_orders in pool.map(fetch, remaining):
+                    orders.extend(page_orders)
         return orders
 
     def get_history(self, region_id: int, type_id: int) -> list[dict]:
