@@ -73,7 +73,7 @@ def get_wallet():
 @router.get("/items/{type_id}/recommendation", response_model=OpportunityOut | None)
 def get_item_recommendation(type_id: int):
     """Recalcula la recomendación de sizing al vuelo contra el wallet en vivo (no
-    depende de un snapshot de hasta 10 min de antigüedad del motor de mercado) — movido
+    depende de un snapshot de hasta 5 min de antigüedad del motor de mercado) — movido
     tal cual desde el antiguo bloque live_recommendation de get_item_detail()."""
     conn = _db()
     try:
@@ -251,7 +251,7 @@ def list_app_settings():
     categorizados. Agregar uno nuevo es agregar una entrada en
     storage/settings_registry.py — este endpoint no necesita tocarse. Los motores los
     leen de acá en cada corrida, así que un cambio tarda hasta la próxima corrida en
-    reflejarse (cada 10 min para el motor de mercado, cada 5 min para el de posiciones)."""
+    reflejarse (cada 5 min para los dos motores)."""
     conn = _db()
     try:
         return [AppSettingOut(**dict(r)) for r in get_app_settings(conn)]

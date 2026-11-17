@@ -3,14 +3,14 @@ import type { Messages } from "./en";
 export const de: Messages = {
   "meta.title": "EveMarket Screener — Station Trading in EVE Online (Jita)",
   "meta.description":
-    "Kostenloser Station-Trading-Screener für EVE Online: Items mit dem besten ROI, Spread und der besten Liquidität in The Forge (Jita), alle 10 Minuten aktualisiert.",
+    "Kostenloser Station-Trading-Screener für EVE Online: Items mit dem besten ROI, Spread und der besten Liquidität in The Forge (Jita), alle 5 Minuten aktualisiert.",
   "meta.ogDescription":
-    "Finde heraus, welche Items sich in Jita zu handeln lohnen: ROI, Spread und Liquidität, alle 10 Minuten aktualisiert.",
+    "Finde heraus, welche Items sich in Jita zu handeln lohnen: ROI, Spread und Liquidität, alle 5 Minuten aktualisiert.",
 
   "nav.wallet": "WALLET",
   "nav.notAuthorized": "nicht autorisiert",
   "nav.local": "Lokal",
-  "nav.market": "Markt (10 Min.)",
+  "nav.market": "Markt (5 Min.)",
   "nav.positions": "Positionen (5min)",
   "nav.screener": "Screener",
   "nav.orders": "Meine Orders",
@@ -105,7 +105,7 @@ export const de: Messages = {
 
   "settings.title": "Einstellungen",
   "settings.intro":
-    "Alle Parameter, die die Engines für Analyse und Klassifizierung verwenden. Eine Änderung gilt ab dem nächsten Lauf jeder Engine (Markt alle 10 Min., Positionen alle 5 Min.) — sie wirkt nicht rückwirkend.",
+    "Alle Parameter, die die Engines für Analyse und Klassifizierung verwenden. Eine Änderung gilt ab dem nächsten Lauf jeder Engine (Markt alle 5 Min., Positionen alle 5 Min.) — sie wirkt nicht rückwirkend.",
   "settings.invalid": "Alle Werte müssen Zahlen größer oder gleich 0 sein.",
   "settings.noChanges": "Es gibt keine Änderungen zu speichern.",
   "settings.savedOne": "Gespeichert ({n} Parameter). Gilt ab dem nächsten Lauf jeder Engine.",
@@ -213,14 +213,14 @@ export const de: Messages = {
   "hero.eyebrow": "STATION TRADING · THE FORGE (JITA)",
   "hero.title": "Finde heraus, was sich in Jita zu handeln lohnt",
   "hero.subtitle":
-    "Kostenloser Screener, der Marktgüter nach ROI, Spread und echtem Volumen sortiert. Offizielle ESI-Daten, alle 10 Minuten aktualisiert.",
+    "Kostenloser Screener, der Marktgüter nach ROI, Spread und echtem Volumen sortiert. Offizielle ESI-Daten, alle 5 Minuten aktualisiert.",
   "hero.cta": "Chancen ansehen",
   "hero.ctaHow": "So funktioniert's",
 
   "stats.opportunities": "Aktuelle Chancen",
   "stats.analyzed": "Analysierte Items",
   "stats.refresh": "Aktualisierung",
-  "stats.refreshValue": "alle 10 Min.",
+  "stats.refreshValue": "alle 5 Min.",
   "stats.next": "Nächste Aktualisierung",
 
   "best.title": "Aktuell die Besten",
@@ -238,7 +238,7 @@ export const de: Messages = {
   "how.step2.title": "Filtern und sortieren",
   "how.step2.body": "Nach ROI, Spread, Preis oder Tagesvolumen – passend zu deinem Kapital und deinem Stil.",
   "how.step3.title": "Kaufen und weiterverkaufen",
-  "how.step3.body": "Preise und Berechnungen werden alle 10 Minuten aus der ESI, der offiziellen API von CCP Games, aktualisiert; die Tagesvolumina einmal täglich.",
+  "how.step3.body": "Preise und Berechnungen werden alle 5 Minuten aus der ESI, der offiziellen API von CCP Games, aktualisiert; die Tagesvolumina einmal täglich.",
   "how.statesTitle": "Was die Status bedeuten",
   "how.stateBody.POTENCIAL":
     "Spread, Liquidität und tatsächliche Marktaktivität der letzten 7 Tage erfüllen die Kriterien.",

@@ -50,7 +50,7 @@ def cache_control_for(path: str, content_type: str, status_code: int) -> str | N
     if path.startswith("/assets/"):
         return IMMUTABLE_CACHE  # archivos con hash en el nombre: nunca cambian
     if path.startswith("/api/") and not path.startswith("/api/private")             and content_type.startswith("application/json"):
-        return PUBLIC_API_CACHE  # datos que el motor renueva cada 10 min; frena a quien repite pedidos
+        return PUBLIC_API_CACHE  # datos que el motor renueva cada 5 min; frena a quien repite pedidos
     if content_type.startswith("text/html"):
         return "no-cache"  # que el HTML siempre apunte a los assets vigentes
     return None

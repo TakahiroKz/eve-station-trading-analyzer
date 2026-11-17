@@ -1,6 +1,6 @@
 # EveMarket Screener
 
-> Free station-trading screener for EVE Online. Shows which items in The Forge (Jita) market are worth trading, ranked by ROI, spread and liquidity, with prices and calculations refreshed every 10 minutes (daily volumes once a day).
+> Free station-trading screener for EVE Online. Shows which items in The Forge (Jita) market are worth trading, ranked by ROI, spread and liquidity, with prices and calculations refreshed every 5 minutes (daily volumes once a day).
 > Available in English (default), Spanish, German, French and Italian, each at its own URL (`/es/`, `/de/`, `/fr/`, `/it/`).
 
 The public Screener requires no account. The "My Orders" and "Settings" sections are private, for the site owner's personal use, and are not public content.
@@ -23,6 +23,6 @@ The public Screener requires no account. The "My Orders" and "Settings" sections
 ## Data and limits
 - Source: the ESI, CCP Games' official API for EVE Online (not scraping).
 - Region covered: The Forge (Jita).
-- Frequency: the prices-and-calculations cycle runs every 10 minutes; market history (daily volumes) updates once a day.
+- Frequency: the prices-and-calculations cycle runs every 5 minutes; market history (daily volumes) updates once a day.
 - Informational tool, not investment advice nor an in-game purchase recommendation.
 - Independent site, not affiliated with CCP Games. EVE Online is a trademark of CCP hf.
