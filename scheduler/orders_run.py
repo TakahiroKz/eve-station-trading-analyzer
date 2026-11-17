@@ -19,7 +19,7 @@ from analytics.order_position import compute_position
 from ingestion.esi_client import DEFAULT_BASE_URL, EsiClient
 from ingestion.session import get_valid_session
 from ingestion.wallet import get_current_wallet_balance
-from notifications.events import OrderClosed, OrderFilled, PositionChanged, dispatch
+from notifications.events import OrderClosed, OrderFilled, PositionChanged, dispatch, flush_notifications
 from storage.db import (
     delete_character_order,
     get_active_character_order_ids,
@@ -229,6 +229,7 @@ def main() -> int:
     _init_db_with_retry(db_path)
     with EsiClient(base_url=base_url, user_agent=user_agent) as client:
         check_character_orders(client, db_path)
+    flush_notifications()
     return 0
 
 

@@ -37,7 +37,7 @@ from analytics.sanity import SanityConfig, is_price_sane
 from ingestion.esi_client import DEFAULT_BASE_URL, EsiClient
 from ingestion.wallet import get_current_wallet_balance
 from reporting.excel_writer import EveCalculatorRegistro
-from notifications.events import NewOpportunity, dispatch
+from notifications.events import NewOpportunity, dispatch, flush_notifications
 from storage.db import (
     get_app_settings_dict,
     get_cached_category_type_ids,
@@ -471,6 +471,8 @@ def main() -> int:
     screen_opportunities(db_path, excel_path, args.volumen_deseado_fallback)
 
     logger.info("Pipeline completo en %.1fs", time.time() - start)
+    # Después del log: la duración del ciclo no incluye la espera a Telegram.
+    flush_notifications()
     return 0
 
 

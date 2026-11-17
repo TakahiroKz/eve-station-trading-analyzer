@@ -94,7 +94,15 @@ la función correspondiente (autorización incremental).
 ## Notificaciones (opcionales, degradan sin bloquear el pipeline)
 
 - **Telegram**: crear bot con @BotFather, poner `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID`
-  en `.env`. Sin configurar, simplemente no se envían alertas.
+  en `.env`. Sin configurar, simplemente no se envían alertas. Qué se avisa, siempre solo cuando
+  hay novedades y sin horario fijo: (1) el estado de tus órdenes de compra y venta (te
+  undercutearon, recuperaste la primera posición, ejecuciones, completadas/expiradas/canceladas) y
+  (2) fallas del servicio y su recuperación (watchdog, ver más abajo). Los avisos de oportunidades
+  nuevas están suspendidos: `TELEGRAM_NOTIFY_OPPORTUNITIES=1` los reactiva.
+  Los avisos de los motores se envían en segundo plano (el ciclo no espera a Telegram): timeouts
+  de 3 a 5 s y un reintento. Si aun así no salen, quedan en la tabla `notification_outbox` y se
+  reintentan en las siguientes corridas durante 30 min (máx. 5 intentos); después se descartan con
+  una línea en el log. `SELECT COUNT(*) FROM notification_outbox` dice cuántos esperan.
 
 ## Backup de la base de datos (D10)
 

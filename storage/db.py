@@ -113,6 +113,20 @@ def _seed_defaults(conn: sqlite3.Connection) -> None:
         )
 
 
+NOTIFICATION_OUTBOX_SCHEMA = """
+-- Avisos de Telegram que no se pudieron enviar (notifications/outbox.py): se reintentan en las
+-- corridas siguientes de los motores.
+CREATE TABLE IF NOT EXISTS notification_outbox (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    text        TEXT NOT NULL,
+    context     TEXT NOT NULL,
+    created_at  TEXT NOT NULL,
+    attempts    INTEGER NOT NULL DEFAULT 0,
+    claimed_at  TEXT,
+    last_error  TEXT
+);
+"""
+
 ANALYTICS_SCHEMA = """
 -- Métricas de uso con consentimiento (backend/api/analytics.py): sin IP ni user agent.
 CREATE TABLE IF NOT EXISTS analytics_visitor (
@@ -152,6 +166,7 @@ def init_db(db_path: str) -> None:
         _migrate_schema(conn)
         conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
         conn.executescript(ANALYTICS_SCHEMA)
+        conn.executescript(NOTIFICATION_OUTBOX_SCHEMA)
         _migrate_classification_settings(conn)
         _seed_defaults(conn)
         conn.commit()
