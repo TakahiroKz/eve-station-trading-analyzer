@@ -14,7 +14,7 @@ programados) — scheduler/run.py (mercado, cada 5 min) y scheduler/orders_run.p
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -88,6 +88,7 @@ def get_schedule():
 def list_items(
     status: str | None = None,
     category_id: int | None = None,
+    q: str | None = Query(default=None, max_length=100),
     min_roi: float | None = None,
     max_roi: float | None = None,
     min_spread: float | None = None,
@@ -124,6 +125,13 @@ def list_items(
     if category_id is not None:
         filters.append("c.category_id = ?")
         params.append(category_id)
+    name_query = (q or "").strip()
+    if name_query:
+        # Búsqueda por nombre: contiene el texto, sin distinguir mayúsculas (LIKE de SQLite es
+        # insensible a mayúsculas para ASCII). Se escapan % _ y \ para que valgan como texto.
+        escaped = name_query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        filters.append("i.name LIKE ? ESCAPE '\\'")
+        params.append(f"%{escaped}%")
     for column, value in [
         ("s.roi", min_roi), ("s.spread_bruto", min_spread), ("s.best_buy", min_buy),
         ("s.best_sell", min_sell), ("s.volumen_diario_real", min_volume),

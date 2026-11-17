@@ -92,6 +92,7 @@ export interface ItemDetail {
 export interface ItemFilters {
   status?: Status;
   categoryId?: number;
+  q?: string;
   minRoi?: number;
   maxRoi?: number;
   minSpread?: number;
@@ -202,6 +203,7 @@ function buildQuery(filters: ItemFilters): string {
   const params = new URLSearchParams();
   if (filters.status) params.set("status", filters.status);
   if (filters.categoryId != null) params.set("category_id", String(filters.categoryId));
+  if (filters.q) params.set("q", filters.q);
   if (filters.minRoi != null) params.set("min_roi", String(filters.minRoi));
   if (filters.maxRoi != null) params.set("max_roi", String(filters.maxRoi));
   if (filters.minSpread != null) params.set("min_spread", String(filters.minSpread));

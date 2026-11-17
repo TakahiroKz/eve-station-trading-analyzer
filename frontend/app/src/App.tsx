@@ -55,6 +55,7 @@ const SORT_VALUES = [
 ];
 
 interface FilterForm {
+  q: string;
   categoryId: string;
   minRoi: string;
   maxRoi: string;
@@ -69,7 +70,7 @@ interface FilterForm {
 }
 
 const EMPTY_FILTERS: FilterForm = {
-  categoryId: "", minRoi: "", maxRoi: "", minSpread: "", maxSpread: "",
+  q: "", categoryId: "", minRoi: "", maxRoi: "", minSpread: "", maxSpread: "",
   minBuy: "", maxBuy: "", minSell: "", maxSell: "", minVolume: "", maxVolume: "",
 };
 
@@ -91,6 +92,7 @@ function formatCountdown(target: string | null, now: Date, t: TFunction): string
 function toFilters(form: FilterForm): Partial<ItemFilters> {
   const num = (s: string) => (s.trim() === "" ? undefined : Number(s));
   return {
+    q: form.q.trim() || undefined,
     categoryId: num(form.categoryId),
     minRoi: num(form.minRoi) != null ? num(form.minRoi)! / 100 : undefined,
     maxRoi: num(form.maxRoi) != null ? num(form.maxRoi)! / 100 : undefined,
@@ -359,6 +361,22 @@ export default function App() {
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false));
   }, [tab, appliedFilters, sortField, sortOrder, page]);
+
+  // Name search: applied on its own 300 ms after the last keystroke (one request per pause, not per letter).
+  useEffect(() => {
+    const q = filterForm.q.trim();
+    if ((appliedFilters.q ?? "") === q) return;
+    const id = setTimeout(() => {
+      setAppliedFilters((prev) => {
+        const next = { ...prev };
+        if (q) next.q = q;
+        else delete next.q;
+        return next;
+      });
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(id);
+  }, [filterForm.q, appliedFilters.q]);
 
   function openItem(typeId: number) {
     setOpenWindowMsg(null);
@@ -844,6 +862,16 @@ export default function App() {
       </nav>
 
       <div className="filter-bar">
+        <input
+          className="filter-quick filter-search"
+          type="search"
+          maxLength={100}
+          autoComplete="off"
+          placeholder={t("filters.searchName")}
+          aria-label={t("filters.searchName")}
+          value={filterForm.q}
+          onChange={(e) => setFilterForm({ ...filterForm, q: e.target.value })}
+        />
         <select
           className="filter-quick"
           aria-label={t("filters.category")}

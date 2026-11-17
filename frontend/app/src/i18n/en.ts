@@ -228,6 +228,7 @@ export const en = {
   "screener.title": "All opportunities",
   "screener.colSpread": "SPREAD/U",
   "screener.colOps": "TRADES/DAY",
+  "filters.searchName": "Search by item name",
   "filters.minRoiShort": "Min ROI %",
   "filters.minVolumeShort": "Min volume",
   "screener.pricesInIsk": "Prices in ISK",
