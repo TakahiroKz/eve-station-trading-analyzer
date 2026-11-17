@@ -1,40 +1,104 @@
-"""Notificaciones vía Telegram: nuevas oportunidades POTENCIAL, cambios de posición
-en tus órdenes activas (undercuts), ejecuciones (compra/venta) sobre tus órdenes, y
-órdenes tuyas que se completaron/expiraron/cancelaron.
+"""Notificaciones vía Telegram: cambios de posición en tus órdenes activas (undercuts),
+ejecuciones (compra/venta) sobre tus órdenes, y órdenes tuyas que se completaron/expiraron/
+canceladas. Las nuevas oportunidades POTENCIAL están suspendidas por defecto (ver
+notifications/events.py, TELEGRAM_NOTIFY_OPPORTUNITIES); las alertas de servicio las envía el
+watchdog (scripts/healthcheck.sh) solo cuando hay una falla y cuando se recupera. Todo se avisa
+solo si hay novedades, sin horario fijo.
 
 Requiere un bot creado con @BotFather (TELEGRAM_BOT_TOKEN) y el chat_id del usuario
 (TELEGRAM_CHAT_ID, se obtiene enviándole /start al bot y consultando
 https://api.telegram.org/bot<token>/getUpdates). Degrada sin bloquear el pipeline
 si no está configurado.
+
+El envío es corto y acotado (timeouts de pocos segundos y un único reintento ante un error de
+red, un 5xx o un 429). Si aun así falla, el aviso pasa a la cola duradera (notifications/outbox.py)
+y se reintenta en las siguientes corridas en lugar de perderse. `notifications/events.py` hace
+estos envíos en segundo plano para que un Telegram lento no alargue el ciclo.
 """
 import logging
 import os
+import time
 
 import httpx
 
+from notifications import outbox
+
 logger = logging.getLogger(__name__)
 
-API_BASE = "https://api.telegram.org"
+API_BASE = "https://api.telegram.org"  # se puede cambiar con TELEGRAM_API_BASE (pruebas)
+SEND_TIMEOUT = httpx.Timeout(connect=3.0, read=5.0, write=5.0, pool=3.0)
+MAX_RETRY_WAIT_SECONDS = 5.0
+RETRY_PAUSE_SECONDS = 0.5
 
 
-def _send_message(text: str, context: str) -> bool:
+def _api_base() -> str:
+    return os.environ.get("TELEGRAM_API_BASE", API_BASE).rstrip("/")
+
+
+def deliver(text: str) -> bool:
+    """Un envío con como mucho un reintento. True si Telegram lo aceptó; False si falló por algo
+    pasajero (red, 5xx, 429). Un 4xx (token o chat mal configurados) lanza `PermanentError`."""
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     if not token or not chat_id:
+        raise PermanentError("Telegram no configurado")
+
+    last_error = "sin respuesta"
+    for attempt in (1, 2):
+        try:
+            response = httpx.post(
+                f"{_api_base()}/bot{token}/sendMessage",
+                json={"chat_id": chat_id, "text": text},
+                timeout=SEND_TIMEOUT,
+            )
+        except httpx.TransportError as exc:
+            last_error = f"{type(exc).__name__}"
+            if attempt == 1:
+                time.sleep(RETRY_PAUSE_SECONDS)
+            continue
+
+        if response.status_code == 429 or response.status_code >= 500:
+            last_error = f"HTTP {response.status_code}"
+            if attempt == 1:
+                time.sleep(min(_retry_after(response), MAX_RETRY_WAIT_SECONDS))
+            continue
+        if response.status_code >= 400:
+            raise PermanentError(f"HTTP {response.status_code}")
+        return True
+
+    logger.debug("Telegram no respondió tras reintentar: %s", last_error)
+    return False
+
+
+class PermanentError(Exception):
+    """Fallo que reintentar no arregla (token/chat inválidos o sin configurar)."""
+
+
+def _retry_after(response: httpx.Response) -> float:
+    try:
+        return float(response.json().get("parameters", {}).get("retry_after", RETRY_PAUSE_SECONDS))
+    except Exception:
+        return RETRY_PAUSE_SECONDS
+
+
+def _send_message(text: str, context: str) -> bool:
+    if not os.environ.get("TELEGRAM_BOT_TOKEN") or not os.environ.get("TELEGRAM_CHAT_ID"):
         logger.debug("Telegram no configurado; sin notificación (%s)", context)
         return False
-
     try:
-        response = httpx.post(
-            f"{API_BASE}/bot{token}/sendMessage",
-            json={"chat_id": chat_id, "text": text},
-            timeout=10.0,
-        )
-        response.raise_for_status()
-        return True
+        if deliver(text):
+            return True
+    except PermanentError as exc:
+        logger.error("Fallo al enviar notificación de Telegram (%s): %s", context, exc)
+        return False
     except Exception:
         logger.exception("Fallo al enviar notificación de Telegram (%s)", context)
         return False
+
+    # Falló por algo pasajero: no se pierde, se reintenta en las siguientes corridas.
+    logger.error("Fallo al enviar notificación de Telegram (%s): se reintentará", context)
+    outbox.enqueue(text, context)
+    return False
 
 
 def notify_new_opportunity(result) -> bool:
