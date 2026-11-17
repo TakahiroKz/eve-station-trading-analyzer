@@ -302,3 +302,38 @@ def test_init_db_enables_wal_mode(tmp_path):
     mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
     conn.close()
     assert mode == "wal"
+
+
+def test_prune_old_snapshots_by_hours_keeps_the_recent_window_per_item(tmp_path):
+    from storage.db import prune_old_snapshots
+
+    path = str(tmp_path / "prune_hours.db")
+    init_db(path)
+    conn = get_connection(path)
+    for type_id in (34, 35):
+        conn.execute("INSERT INTO item_type (type_id, name) VALUES (?, ?)", (type_id, f"item{type_id}"))
+        for hours_ago in (0, 1, 5, 7, 30):
+            conn.execute(
+                "INSERT INTO market_snapshot (type_id, captured_at, best_buy, best_sell, buy_volume, "
+                "sell_volume, buy_order_count, sell_order_count) "
+                f"VALUES ({type_id}, datetime('now', '-{hours_ago} hours'), 1, 2, 1, 1, 1, 1)",
+            )
+    conn.commit()
+
+    deleted = prune_old_snapshots(conn, keep_hours=6)
+    per_type = dict(conn.execute("SELECT type_id, COUNT(*) FROM market_snapshot GROUP BY type_id").fetchall())
+    conn.close()
+
+    assert deleted == 4  # las de 7 h y 30 h de cada ítem
+    assert per_type == {34: 3, 35: 3}
+
+
+def test_prune_old_snapshots_requires_a_retention_window(tmp_path):
+    from storage.db import prune_old_snapshots
+
+    path = str(tmp_path / "prune_none.db")
+    init_db(path)
+    conn = get_connection(path)
+    with pytest.raises(ValueError):
+        prune_old_snapshots(conn)
+    conn.close()

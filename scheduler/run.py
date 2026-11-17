@@ -1,5 +1,8 @@
 """Motor Analizador de Mercado: ingesta ESI -> SQLite -> analítica -> screening
-EveCalculator -> reporting. Corre cada 4 horas (ver scripts/setup_task_scheduler.ps1).
+EveCalculator -> reporting. Sin flags corre el pipeline completo (modo local/Windows, ver
+scripts/setup_task_scheduler.ps1). En producción se parte en dos procesos independientes:
+`--prices-only` (órdenes -> snapshots -> screening, cada pocos minutos) y `--history-only`
+(histórico diario de ESI, una vez al día).
 
 No toca tus órdenes de personaje — eso lo hace el motor de posiciones
 (scheduler/orders_run.py), separado y con una cadencia mucho más ágil (cada 5 min).
@@ -7,7 +10,9 @@ Ambos motores comparten el mismo componente de notificación (notifications/tele
 
 Uso:
     python -m scheduler.run --backfill      # primera ejecución: histórico completo
-    python -m scheduler.run                 # ejecución periódica (snapshot + history del día)
+    python -m scheduler.run                 # pipeline completo (snapshot + history del día + screening)
+    python -m scheduler.run --prices-only   # ciclo rápido: órdenes y cálculos con el histórico ya guardado
+    python -m scheduler.run --history-only  # proceso diario: solo el histórico de mercado de ESI
 """
 import argparse
 import logging
@@ -56,10 +61,25 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 HISTORY_WINDOW = 30  # filas de histórico por ítem que usa el screening (ventana de 30 días)
-DEFAULT_SNAPSHOT_RETENTION_DAYS = 7
+DEFAULT_SNAPSHOT_RETENTION_HOURS = 6
 
 
-def ingest(client: EsiClient, region_id: int, db_path: str, backfill: bool, max_workers: int = 20) -> list[int]:
+def snapshot_retention_hours() -> float:
+    """Horas de snapshots de órdenes que se conservan. SNAPSHOT_RETENTION_HOURS manda; si solo
+    está el SNAPSHOT_RETENTION_DAYS de versiones anteriores, se respeta (días * 24)."""
+    hours = os.environ.get("SNAPSHOT_RETENTION_HOURS")
+    if hours:
+        return float(hours)
+    days = os.environ.get("SNAPSHOT_RETENTION_DAYS")
+    if days:
+        return float(days) * 24
+    return DEFAULT_SNAPSHOT_RETENTION_HOURS
+
+
+def ingest_orders(client: EsiClient, region_id: int, db_path: str) -> list[int]:
+    """Parte rápida de la ingesta: tipos activos, libro de órdenes de la región y snapshots.
+    Los nombres solo se piden para los tipos que todavía no están en `item_type` (o quedaron con
+    el nombre provisional `type_N`): ya no se resuelven los ~19.500 en cada ciclo."""
     conn = get_connection(db_path)
     captured_at = datetime.now(timezone.utc).isoformat()
 
@@ -70,19 +90,36 @@ def ingest(client: EsiClient, region_id: int, db_path: str, backfill: bool, max_
         orders = client.get_orders(region_id)
         orders_by_type = build_orders_by_type(orders)
 
-        names = client.get_type_names_bulk(type_ids)
+        known_names = {
+            row["type_id"]: row["name"]
+            for row in conn.execute("SELECT type_id, name FROM item_type")
+            if not str(row["name"]).startswith("type_")
+        }
+        missing = [t for t in type_ids if t not in known_names]
+        new_names = client.get_type_names_bulk(missing) if missing else {}
         for type_id in type_ids:
-            upsert_item_type(conn, type_id, names.get(type_id, f"type_{type_id}"))
+            name = known_names.get(type_id) or new_names.get(type_id, f"type_{type_id}")
+            upsert_item_type(conn, type_id, name)
             snapshot = orders_by_type.get(type_id, {})
             upsert_market_snapshot(conn, type_id, captured_at, snapshot)
         conn.commit()
-        logger.info("Nombres e snapshot de órdenes cargados para %d tipos", len(type_ids))
+        logger.info("Snapshot de órdenes cargado para %d tipos (%d nombres nuevos)", len(type_ids), len(missing))
 
-        keep_days = int(os.environ.get("SNAPSHOT_RETENTION_DAYS", DEFAULT_SNAPSHOT_RETENTION_DAYS))
-        deleted = prune_old_snapshots(conn, keep_days)
+        keep_hours = snapshot_retention_hours()
+        deleted = prune_old_snapshots(conn, keep_hours=keep_hours)
         if deleted:
-            logger.info("Snapshots de más de %d días borrados: %d filas", keep_days, deleted)
+            logger.info("Snapshots de más de %g h borrados: %d filas", keep_hours, deleted)
+        return type_ids
+    finally:
+        conn.close()
 
+
+def ingest_history(client: EsiClient, region_id: int, db_path: str, type_ids: list[int],
+                   backfill: bool = False, max_workers: int = 20) -> None:
+    """Parte lenta de la ingesta: el histórico diario de mercado de cada tipo (una petición por
+    tipo). Solo cambia una vez al día, así que en producción corre en su propio proceso."""
+    conn = get_connection(db_path)
+    try:
         done = 0
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
             futures = {pool.submit(client.get_history, region_id, type_id): type_id for type_id in type_ids}
@@ -112,10 +149,17 @@ def ingest(client: EsiClient, region_id: int, db_path: str, backfill: bool, max_
                     logger.info("Histórico procesado: %d/%d", done, len(type_ids))
 
         conn.commit()
-        logger.info("Ingesta completada para %d tipos", len(type_ids))
-        return type_ids
+        logger.info("Histórico completado para %d tipos", len(type_ids))
     finally:
         conn.close()
+
+
+def ingest(client: EsiClient, region_id: int, db_path: str, backfill: bool, max_workers: int = 20) -> list[int]:
+    """Ingesta completa (órdenes + histórico): lo que corre sin flags."""
+    type_ids = ingest_orders(client, region_id, db_path)
+    ingest_history(client, region_id, db_path, type_ids, backfill=backfill, max_workers=max_workers)
+    logger.info("Ingesta completada para %d tipos", len(type_ids))
+    return type_ids
 
 
 def ingest_categories(client: EsiClient, db_path: str, type_ids: list[int], max_workers: int = 20) -> None:
@@ -361,7 +405,20 @@ def main() -> int:
         "--rescreen-only", action="store_true",
         help="Salta la ingesta ESI y recalcula el screening sobre los datos ya guardados en SQLite",
     )
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
+        "--prices-only", action="store_true",
+        help="Ciclo rápido: órdenes -> snapshots -> screening con el histórico ya guardado (sin bajar histórico)",
+    )
+    mode.add_argument(
+        "--history-only", action="store_true",
+        help="Solo baja el histórico de mercado de ESI (proceso diario); no recalcula el screening",
+    )
     args = parser.parse_args()
+    if args.backfill and args.prices_only:
+        parser.error("--backfill descarga histórico: no se combina con --prices-only")
+    if args.rescreen_only and args.history_only:
+        parser.error("--rescreen-only no se combina con --history-only")
 
     region_id = int(os.environ.get("ESI_REGION_ID", 10000002))
     base_url = os.environ.get("ESI_BASE_URL", DEFAULT_BASE_URL)
@@ -379,12 +436,20 @@ def main() -> int:
 
     start = time.time()
     with EsiClient(base_url=base_url, user_agent=user_agent) as client:
+        if args.history_only:
+            type_ids = client.get_active_type_ids(region_id)
+            ingest_history(client, region_id, db_path, type_ids, backfill=args.backfill, max_workers=max_workers)
+            logger.info("Histórico completo en %.1fs", time.time() - start)
+            return 0
+
         if args.rescreen_only:
             conn = get_connection(db_path)
             try:
                 type_ids = [r["type_id"] for r in conn.execute("SELECT type_id FROM item_type").fetchall()]
             finally:
                 conn.close()
+        elif args.prices_only:
+            type_ids = ingest_orders(client, region_id, db_path)
         else:
             type_ids = ingest(client, region_id, db_path, backfill=args.backfill, max_workers=max_workers)
 
