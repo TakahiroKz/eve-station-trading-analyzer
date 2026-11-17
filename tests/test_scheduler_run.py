@@ -457,3 +457,45 @@ def test_main_rejects_incompatible_flags(run_main):
                   ("--history-only", "--rescreen-only")):
         with pytest.raises(SystemExit):
             run(*flags)
+
+
+def test_ingest_history_does_not_hold_the_write_lock_while_waiting_for_esi(db_path):
+    """Con un solo escritor en SQLite, una transacción abierta durante la espera a ESI deja sin
+    escribir al ciclo de precios que corre a la vez (falló con "database is locked" en producción)."""
+    import sqlite3
+
+    from scheduler.run import ingest_history
+
+    conn = get_connection(db_path)
+    conn.executemany("INSERT INTO item_type (type_id, name) VALUES (?, ?)", [(t, f"item{t}") for t in range(1, 121)])
+    conn.commit()
+    conn.close()
+    probe = {}
+
+    class _Client:
+        def __init__(self):
+            self.calls = 0
+
+        def get_history(self, region_id, type_id):
+            self.calls += 1
+            if self.calls == 60:  # a mitad del primer lote de 100, con resultados ya recibidos
+                other = sqlite3.connect(db_path, timeout=0.2)
+                try:
+                    other.execute("INSERT INTO item_type (type_id, name) VALUES (999999, 'probe')")
+                    other.commit()
+                    probe["ok"] = True
+                except sqlite3.OperationalError as exc:
+                    probe["ok"] = False
+                    probe["error"] = str(exc)
+                finally:
+                    other.close()
+            return [{"date": "2026-09-02", "average": 4.1, "highest": 4.3, "lowest": 3.9, "volume": 120,
+                     "order_count": 4}]
+
+    ingest_history(_Client(), 10000002, db_path, list(range(1, 121)), max_workers=1)
+
+    assert probe == {"ok": True}
+    conn = get_connection(db_path)
+    stored = conn.execute("SELECT COUNT(*) FROM market_history").fetchone()[0]
+    conn.close()
+    assert stored == 120  # el buffer se escribe completo, incluido el último lote parcial
