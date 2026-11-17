@@ -6,13 +6,13 @@
 #
 # Chequea:
 #   1. La API responde en HEALTH_URL (el contenedor `api` está vivo).
-#   2. `last_evaluated_at` (motor de mercado, ciclo de precios cada 10 min) tiene menos de
-#      MARKET_MAX_AGE_MIN minutos (default 30: 3 ciclos perdidos).
+#   2. `last_evaluated_at` (motor de mercado, ciclo de precios cada 5 min) tiene menos de
+#      MARKET_MAX_AGE_MIN minutos (default 15: 3 ciclos perdidos).
 #   3. Hay una corrida reciente del motor de posiciones (mtime del log de hoy,
 #      ciclo de 5 min) -- menos de POSITIONS_MAX_AGE_MIN minutos (default 20).
 #   4. El servicio systemd `cloudflared` está activo.
 #   5. Duración del ciclo de mercado: avisa si hay un ciclo corriendo hace más de
-#      MARKET_MAX_RUN_MIN minutos (default 5; un ciclo de precios normal tarda ~2) o si el último
+#      MARKET_MAX_RUN_MIN minutos (default 4, para no pisar al siguiente de 5 min; un ciclo de precios normal tarda ~35 s) o si el último
 #      que terminó ("Pipeline completo en Ns") tardó más que eso. Salta el chequeo del
 #      ciclo en marcha si no hay `docker` (CHECK_CYCLE_RUNTIME=0 lo apaga).
 #   6. Histórico diario de mercado: su log (history_*.log) se tocó hace menos de
@@ -39,12 +39,12 @@ _env_get() {
 }
 
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8001/api/summary}"
-MARKET_MAX_AGE_MIN="${MARKET_MAX_AGE_MIN:-30}"
+MARKET_MAX_AGE_MIN="${MARKET_MAX_AGE_MIN:-15}"
 POSITIONS_MAX_AGE_MIN="${POSITIONS_MAX_AGE_MIN:-20}"
 LOG_DIR="${LOG_DIR:-$APP_DIR/logs}"
 STATE_FILE="${STATE_FILE:-$APP_DIR/.healthcheck.state}"
 CHECK_CLOUDFLARED="${CHECK_CLOUDFLARED:-1}"
-MARKET_MAX_RUN_MIN="${MARKET_MAX_RUN_MIN:-5}"
+MARKET_MAX_RUN_MIN="${MARKET_MAX_RUN_MIN:-4}"
 HISTORY_MAX_AGE_HOURS="${HISTORY_MAX_AGE_HOURS:-36}"
 CHECK_CYCLE_RUNTIME="${CHECK_CYCLE_RUNTIME:-1}"
 TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-$(_env_get TELEGRAM_BOT_TOKEN)}"

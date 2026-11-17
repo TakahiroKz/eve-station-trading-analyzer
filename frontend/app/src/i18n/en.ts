@@ -3,14 +3,14 @@
 export const en = {
   "meta.title": "EveMarket Screener — Station trading in EVE Online (Jita)",
   "meta.description":
-    "Free station trading screener for EVE Online: items with the best ROI, spread and liquidity in The Forge (Jita), refreshed every 10 minutes.",
+    "Free station trading screener for EVE Online: items with the best ROI, spread and liquidity in The Forge (Jita), refreshed every 5 minutes.",
   "meta.ogDescription":
-    "Find which items are worth trading in Jita: ROI, spread and liquidity, refreshed every 10 minutes.",
+    "Find which items are worth trading in Jita: ROI, spread and liquidity, refreshed every 5 minutes.",
 
   "nav.wallet": "WALLET",
   "nav.notAuthorized": "not authorized",
   "nav.local": "Local",
-  "nav.market": "Market (10 min)",
+  "nav.market": "Market (5 min)",
   "nav.positions": "Positions (5min)",
   "nav.screener": "Screener",
   "nav.orders": "My Orders",
@@ -105,7 +105,7 @@ export const en = {
 
   "settings.title": "Settings",
   "settings.intro":
-    "All the parameters the engines use for analysis and classification. A change applies on the next run of each engine (market every 10 min, positions every 5 min) — it is not retroactive.",
+    "All the parameters the engines use for analysis and classification. A change applies on the next run of each engine (market every 5 min, positions every 5 min) — it is not retroactive.",
   "settings.invalid": "All values must be numbers greater than or equal to 0.",
   "settings.noChanges": "There are no changes to save.",
   "settings.savedOne": "Saved ({n} parameter). It applies on the next run of each engine.",
@@ -213,14 +213,14 @@ export const en = {
   "hero.eyebrow": "STATION TRADING · THE FORGE (JITA)",
   "hero.title": "Find what to trade in Jita",
   "hero.subtitle":
-    "Free screener that ranks market items by ROI, spread and real volume. Official ESI data, refreshed every 10 minutes.",
+    "Free screener that ranks market items by ROI, spread and real volume. Official ESI data, refreshed every 5 minutes.",
   "hero.cta": "See opportunities",
   "hero.ctaHow": "How it works",
 
   "stats.opportunities": "Opportunities now",
   "stats.analyzed": "Items analyzed",
   "stats.refresh": "Refreshed",
-  "stats.refreshValue": "every 10 min",
+  "stats.refreshValue": "every 5 min",
   "stats.next": "Next refresh",
 
   "best.title": "Best right now",
@@ -238,7 +238,7 @@ export const en = {
   "how.step2.title": "Filter and sort",
   "how.step2.body": "By ROI, spread, price or daily volume, to fit your capital and your style.",
   "how.step3.title": "Buy and resell",
-  "how.step3.body": "Prices and calculations are refreshed every 10 minutes from the ESI, CCP Games' official API; daily volumes update once a day.",
+  "how.step3.body": "Prices and calculations are refreshed every 5 minutes from the ESI, CCP Games' official API; daily volumes update once a day.",
   "how.statesTitle": "What each status means",
   "how.stateBody.POTENCIAL":
     "Spread, liquidity and real market activity over the last 7 days meet the criteria.",

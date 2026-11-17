@@ -1,6 +1,6 @@
 """Motor de posiciones: revisa tus órdenes activas contra el libro de órdenes REAL
 de cada ítem (no un agregado) y notifica solo cuando cambia tu posición. Pensado para
-correr cada 5 minutos — separado del motor de mercado (scheduler/run.py, cada 10 min) para
+correr cada 5 minutos — separado del motor de mercado (scheduler/run.py, cada 5 min) para
 que la revisión de tus propias órdenes tenga una cadencia mucho más ágil que el
 screening completo de la región.
 

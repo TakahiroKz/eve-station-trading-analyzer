@@ -19,7 +19,7 @@ def test_next_clock_boundary_crosses_day_boundary():
 
 
 def test_next_clock_boundary_exactly_on_a_boundary_still_advances():
-    """A las 20:00:00 en punto, el próximo disparo de */10 es a las 20:10, no ahora mismo
+    """A las 20:00:00 en punto, el próximo disparo de */5 es a las 20:05, no ahora mismo
     -- cron no vuelve a disparar en el mismo minuto en que ya disparó."""
     now = datetime(2026, 9, 22, 20, 0, 0, tzinfo=timezone.utc)
     assert _next_clock_boundary(now, 10) == datetime(2026, 9, 22, 20, 10, tzinfo=timezone.utc)
@@ -32,3 +32,10 @@ def test_get_next_run_times_cron_returns_both_as_iso_strings():
     # No debe tirar -- confirma que son ISO 8601 parseables.
     datetime.fromisoformat(result["market_next_run"])
     datetime.fromisoformat(result["positions_next_run"])
+
+
+def test_market_and_positions_engines_share_the_five_minute_cadence():
+    from ingestion.schedule import _MARKET_INTERVAL_MINUTES, _POSITIONS_INTERVAL_MINUTES
+
+    assert _MARKET_INTERVAL_MINUTES == 5
+    assert _POSITIONS_INTERVAL_MINUTES == 5

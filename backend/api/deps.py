@@ -13,7 +13,7 @@ def _db() -> sqlite3.Connection:
     db_path = os.environ.get("DB_PATH", "./storage/market.db")
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
-    # Los motores (mercado cada 10 min, posiciones cada 5min) escriben al mismo archivo
+    # Los motores (mercado cada 5 min, posiciones cada 5min) escriben al mismo archivo
     # desde procesos separados — sin esto, un PUT (ej. Ajustes) que choca con una
     # escritura en curso tira "database is locked" al toque en vez de esperar.
     conn.execute("PRAGMA busy_timeout = 5000")
