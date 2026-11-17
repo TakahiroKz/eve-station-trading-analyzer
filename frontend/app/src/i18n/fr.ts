@@ -3,14 +3,14 @@ import type { Messages } from "./en";
 export const fr: Messages = {
   "meta.title": "EveMarket Screener — Station trading sur EVE Online (Jita)",
   "meta.description":
-    "Screener gratuit de station trading pour EVE Online : les objets avec le meilleur ROI, spread et liquidité à The Forge (Jita), actualisé toutes les 4 heures.",
+    "Screener gratuit de station trading pour EVE Online : les objets avec le meilleur ROI, spread et liquidité à The Forge (Jita), actualisé toutes les 10 minutes.",
   "meta.ogDescription":
-    "Trouvez quels objets valent la peine d'être échangés à Jita : ROI, spread et liquidité, actualisé toutes les 4 heures.",
+    "Trouvez quels objets valent la peine d'être échangés à Jita : ROI, spread et liquidité, actualisé toutes les 10 minutes.",
 
   "nav.wallet": "WALLET",
   "nav.notAuthorized": "non autorisé",
   "nav.local": "Local",
-  "nav.market": "Marché (4h)",
+  "nav.market": "Marché (10 min)",
   "nav.positions": "Positions (5min)",
   "nav.screener": "Screener",
   "nav.orders": "Mes ordres",
@@ -105,7 +105,7 @@ export const fr: Messages = {
 
   "settings.title": "Réglages",
   "settings.intro":
-    "Tous les paramètres que les moteurs utilisent pour l'analyse et la classification. Une modification s'applique à la prochaine exécution de chaque moteur (marché toutes les 4h, positions toutes les 5 min) — elle n'est pas rétroactive.",
+    "Tous les paramètres que les moteurs utilisent pour l'analyse et la classification. Une modification s'applique à la prochaine exécution de chaque moteur (marché toutes les 10 min, positions toutes les 5 min) — elle n'est pas rétroactive.",
   "settings.invalid": "Toutes les valeurs doivent être des nombres supérieurs ou égaux à 0.",
   "settings.noChanges": "Aucune modification à enregistrer.",
   "settings.savedOne": "Enregistré ({n} paramètre). S'applique à la prochaine exécution de chaque moteur.",
@@ -213,14 +213,14 @@ export const fr: Messages = {
   "hero.eyebrow": "STATION TRADING · THE FORGE (JITA)",
   "hero.title": "Trouvez quoi échanger à Jita",
   "hero.subtitle":
-    "Screener gratuit qui classe les objets du marché par ROI, spread et volume réel. Données officielles de l'ESI, actualisées toutes les 4 heures.",
+    "Screener gratuit qui classe les objets du marché par ROI, spread et volume réel. Données officielles de l'ESI, actualisées toutes les 10 minutes.",
   "hero.cta": "Voir les opportunités",
   "hero.ctaHow": "Comment ça marche",
 
   "stats.opportunities": "Opportunités actuelles",
   "stats.analyzed": "Objets analysés",
   "stats.refresh": "Actualisation",
-  "stats.every4h": "toutes les 4 h",
+  "stats.refreshValue": "toutes les 10 min",
   "stats.next": "Prochaine actualisation",
 
   "best.title": "Les meilleures en ce moment",
@@ -238,7 +238,7 @@ export const fr: Messages = {
   "how.step2.title": "Filtrez et triez",
   "how.step2.body": "Par ROI, spread, prix ou volume quotidien, selon votre capital et votre style.",
   "how.step3.title": "Achetez et revendez",
-  "how.step3.body": "Les données sont actualisées toutes les 4 heures depuis l'ESI, l'API officielle de CCP Games.",
+  "how.step3.body": "Les prix et les calculs sont actualisés toutes les 10 minutes depuis l'ESI, l'API officielle de CCP Games ; les volumes quotidiens, une fois par jour.",
   "how.statesTitle": "Ce que signifie chaque statut",
   "how.stateBody.POTENCIAL":
     "Le spread, la liquidité et l'activité réelle du marché sur 7 jours respectent les critères.",

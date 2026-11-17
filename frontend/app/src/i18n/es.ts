@@ -3,14 +3,14 @@ import type { Messages } from "./en";
 export const es: Messages = {
   "meta.title": "EveMarket Screener — Station trading en EVE Online (Jita)",
   "meta.description":
-    "Screener gratuito de station trading para EVE Online: ítems con mejor ROI, spread y liquidez en The Forge (Jita), actualizado cada 4 horas.",
+    "Screener gratuito de station trading para EVE Online: ítems con mejor ROI, spread y liquidez en The Forge (Jita), actualizado cada 10 minutos.",
   "meta.ogDescription":
-    "Encontrá qué ítems conviene comerciar en Jita: ROI, spread y liquidez, actualizado cada 4 horas.",
+    "Encontrá qué ítems conviene comerciar en Jita: ROI, spread y liquidez, actualizado cada 10 minutos.",
 
   "nav.wallet": "WALLET",
   "nav.notAuthorized": "sin autorizar",
   "nav.local": "Local",
-  "nav.market": "Mercado (4h)",
+  "nav.market": "Mercado (10 min)",
   "nav.positions": "Posiciones (5min)",
   "nav.screener": "Screener",
   "nav.orders": "Mis Órdenes",
@@ -105,7 +105,7 @@ export const es: Messages = {
 
   "settings.title": "Ajustes",
   "settings.intro":
-    "Todos los parámetros que usan los motores para el análisis y la clasificación. Un cambio se aplica en la próxima corrida de cada motor (mercado cada 4h, posiciones cada 5 min) — no es retroactivo.",
+    "Todos los parámetros que usan los motores para el análisis y la clasificación. Un cambio se aplica en la próxima corrida de cada motor (mercado cada 10 min, posiciones cada 5 min) — no es retroactivo.",
   "settings.invalid": "Todos los valores deben ser números mayores o iguales a 0.",
   "settings.noChanges": "No hay cambios para guardar.",
   "settings.savedOne": "Guardado ({n} parámetro). Se aplica en la próxima corrida de cada motor.",
@@ -213,14 +213,14 @@ export const es: Messages = {
   "hero.eyebrow": "STATION TRADING · THE FORGE (JITA)",
   "hero.title": "Encuentra qué comerciar en Jita",
   "hero.subtitle":
-    "Screener gratuito que ordena los ítems del mercado por ROI, spread y volumen real. Datos oficiales de la ESI, actualizados cada 4 horas.",
+    "Screener gratuito que ordena los ítems del mercado por ROI, spread y volumen real. Datos oficiales de la ESI, actualizados cada 10 minutos.",
   "hero.cta": "Ver oportunidades",
   "hero.ctaHow": "Cómo funciona",
 
   "stats.opportunities": "Oportunidades ahora",
   "stats.analyzed": "Ítems analizados",
   "stats.refresh": "Se actualiza",
-  "stats.every4h": "cada 4 h",
+  "stats.refreshValue": "cada 10 min",
   "stats.next": "Próxima actualización",
 
   "best.title": "Mejores ahora",
@@ -238,7 +238,7 @@ export const es: Messages = {
   "how.step2.title": "Filtra y ordena",
   "how.step2.body": "Por ROI, spread, precio o volumen diario, según tu capital y tu estilo.",
   "how.step3.title": "Compra y revende",
-  "how.step3.body": "Los datos se renuevan cada 4 horas desde la ESI, la API oficial de CCP Games.",
+  "how.step3.body": "Los precios y cálculos se renuevan cada 10 minutos desde la ESI, la API oficial de CCP Games; los volúmenes diarios, una vez al día.",
   "how.statesTitle": "Qué significa cada estado",
   "how.stateBody.POTENCIAL":
     "Spread, liquidez y actividad real de mercado de los últimos 7 días cumplen los criterios.",

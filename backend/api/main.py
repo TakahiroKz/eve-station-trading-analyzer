@@ -8,7 +8,7 @@ Uso:
 
 Consumida por la PWA (frontend) y disponible para consultas ad-hoc. No dispara
 ingesta ni screening: eso lo hacen los dos motores por separado (on-demand o
-programados) — scheduler/run.py (mercado, cada 4h) y scheduler/orders_run.py
+programados) — scheduler/run.py (mercado, cada 10 min) y scheduler/orders_run.py
 (posiciones de tus órdenes, cada 5 min). Mayormente se lee lo que ya calcularon.
 """
 from pathlib import Path

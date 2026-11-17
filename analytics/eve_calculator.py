@@ -145,7 +145,7 @@ def resolve_volumen_deseado(buy_price: float, wallet_balance: float | None, posi
                              fallback: float) -> float:
     """10% (o el % configurado) del ISK del wallet, convertido a unidades al precio de compra
     del ítem. Si no hay wallet disponible (SSO sin autorizar todavía), usa el fallback fijo.
-    Compartida entre el motor de mercado (scheduler/run.py, una vez por corrida de 4h) y la
+    Compartida entre el motor de mercado (scheduler/run.py, una vez por corrida del ciclo de mercado) y la
     API (backend/api/main.py, en cada consulta de detalle de ítem) — esta última la llama con
     un wallet recién pedido a la ESI para que la recomendación mostrada nunca dependa de un
     snapshot de hace horas.

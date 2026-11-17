@@ -8,21 +8,21 @@ def test_next_clock_boundary_rounds_up_to_next_5_minute_mark():
     assert _next_clock_boundary(now, 5) == datetime(2026, 9, 22, 19, 50, tzinfo=timezone.utc)
 
 
-def test_next_clock_boundary_rounds_up_to_next_4_hour_mark():
+def test_next_clock_boundary_rounds_up_to_next_10_minute_mark():
     now = datetime(2026, 9, 22, 19, 47, 30, tzinfo=timezone.utc)
-    assert _next_clock_boundary(now, 4 * 60) == datetime(2026, 9, 22, 20, 0, tzinfo=timezone.utc)
+    assert _next_clock_boundary(now, 10) == datetime(2026, 9, 22, 19, 50, tzinfo=timezone.utc)
 
 
 def test_next_clock_boundary_crosses_day_boundary():
-    now = datetime(2026, 9, 22, 23, 5, 0, tzinfo=timezone.utc)
-    assert _next_clock_boundary(now, 4 * 60) == datetime(2026, 9, 23, 0, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 9, 22, 23, 55, 0, tzinfo=timezone.utc)
+    assert _next_clock_boundary(now, 10) == datetime(2026, 9, 23, 0, 0, tzinfo=timezone.utc)
 
 
 def test_next_clock_boundary_exactly_on_a_boundary_still_advances():
-    """A las 20:00:00 en punto, el próximo disparo de */4 es a las 00:00, no ahora mismo
+    """A las 20:00:00 en punto, el próximo disparo de */10 es a las 20:10, no ahora mismo
     -- cron no vuelve a disparar en el mismo minuto en que ya disparó."""
     now = datetime(2026, 9, 22, 20, 0, 0, tzinfo=timezone.utc)
-    assert _next_clock_boundary(now, 4 * 60) == datetime(2026, 9, 23, 0, 0, tzinfo=timezone.utc)
+    assert _next_clock_boundary(now, 10) == datetime(2026, 9, 22, 20, 10, tzinfo=timezone.utc)
 
 
 def test_get_next_run_times_cron_returns_both_as_iso_strings():

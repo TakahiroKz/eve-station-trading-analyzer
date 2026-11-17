@@ -1212,7 +1212,7 @@
   font-family: var(--mono);
   font-size: 1.3rem;
   font-weight: 500;
-  /* "toutes les 4 h" is longer than the number cards: let it wrap instead of overflowing. */
+  /* "toutes les 10 min" is longer than the number cards: let it wrap instead of overflowing. */
   overflow-wrap: anywhere;
 }
 

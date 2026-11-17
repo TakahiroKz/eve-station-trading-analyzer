@@ -8,7 +8,7 @@ relativo a CUÁNDO se registró (`-Once -At (Get-Date)`), no a una hora fija del
 estimarlo desde actividad de la app daría un valor incorrecto ahí.
 
 Linux (VM de producción, scripts/setup_cron.sh): a diferencia de Windows, el cron que
-instala ese script SÍ está anclado a límites fijos del reloj (`0 */4 * * *`, `*/5 * * *
+instala ese script SÍ está anclado a límites fijos del reloj (`*/10 * * * *`, `*/5 * * *
 *`) — no depende de cuándo se instaló el crontab. Eso permite calcularlo con
 aritmética pura, sin depender de ningún comando externo (cron no tiene un
 equivalente directo a Get-ScheduledTaskInfo consultable fácilmente desde Python).
@@ -35,7 +35,7 @@ _PS_SCRIPT = (
     "} | ConvertTo-Json -Compress"
 )
 
-_MARKET_INTERVAL_MINUTES = 4 * 60
+_MARKET_INTERVAL_MINUTES = 10
 _POSITIONS_INTERVAL_MINUTES = 5
 
 
