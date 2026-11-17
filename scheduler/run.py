@@ -117,8 +117,22 @@ def ingest_orders(client: EsiClient, region_id: int, db_path: str) -> list[int]:
 def ingest_history(client: EsiClient, region_id: int, db_path: str, type_ids: list[int],
                    backfill: bool = False, max_workers: int = 20) -> None:
     """Parte lenta de la ingesta: el histórico diario de mercado de cada tipo (una petición por
-    tipo). Solo cambia una vez al día, así que en producción corre en su propio proceso."""
+    tipo). Solo cambia una vez al día, así que en producción corre en su propio proceso.
+
+    Las filas se acumulan en memoria y se escriben en ráfagas cortas cada 100 tipos. Abrir la
+    transacción al llegar la primera respuesta y cerrarla 100 tipos después la dejaba abierta
+    casi todo el tiempo (la mayor parte se va esperando a ESI): como SQLite solo admite un
+    escritor, el ciclo de precios que corre al mismo tiempo no conseguía escribir y fallaba con
+    "database is locked" aun con el busy_timeout de 30 s."""
     conn = get_connection(db_path)
+    pending: list[tuple[int, dict]] = []
+
+    def flush() -> None:
+        for pending_type_id, pending_row in pending:
+            upsert_market_history(conn, pending_type_id, pending_row)
+        conn.commit()
+        pending.clear()
+
     try:
         done = 0
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
@@ -138,17 +152,16 @@ def ingest_history(client: EsiClient, region_id: int, db_path: str, type_ids: li
                     history = []
 
                 if backfill:
-                    for row in history:
-                        upsert_market_history(conn, type_id, row)
+                    pending.extend((type_id, row) for row in history)
                 elif history:
-                    upsert_market_history(conn, type_id, history[-1])
+                    pending.append((type_id, history[-1]))
 
                 done += 1
                 if done % 100 == 0:
-                    conn.commit()
+                    flush()
                     logger.info("Histórico procesado: %d/%d", done, len(type_ids))
 
-        conn.commit()
+        flush()
         logger.info("Histórico completado para %d tipos", len(type_ids))
     finally:
         conn.close()
