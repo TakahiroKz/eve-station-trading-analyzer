@@ -220,27 +220,35 @@ def upsert_market_snapshot(conn: sqlite3.Connection, type_id: int, captured_at: 
     )
 
 
-def prune_old_snapshots(conn: sqlite3.Connection, keep_days: int, batch_size: int = 20000) -> int:
-    """Borra snapshots de órdenes más viejos que `keep_days` días (solo el último de
-    cada ítem alimenta al screening y a la API; el resto es historial que crecía sin
-    límite -- 1,3 GB en la VM de 1 GB de RAM). Borra por lotes de `batch_size` filas, un
-    commit por lote, para no mantener un lock de escritura largo sobre la SQLite
-    compartida con la API (un único DELETE gigante, o uno por captured_at -- que no está
-    al frente de la PK (type_id, captured_at) y recorre toda la tabla cada vez, no el
-    índice -- dejó la API tirando "database is locked" en producción).
+def prune_old_snapshots(conn: sqlite3.Connection, keep_days: float | None = None,
+                        batch_size: int = 20000, keep_hours: float | None = None) -> int:
+    """Borra snapshots de órdenes más viejos que `keep_hours` horas (o `keep_days` días): solo
+    el último de cada ítem alimenta al screening y a la API; el resto es historial que crecía
+    sin límite -- 1,3 GB en la VM de 1 GB de RAM.
+
+    Borra ítem por ítem con `type_id = ? AND datetime(captured_at) < datetime(?)`: la PK (type_id,
+    captured_at) resuelve el ítem y `datetime()` compara bien aunque los formatos de fecha difieran
+    (con "T" o con espacio). Un `WHERE captured_at < ?` solo (la columna no está al frente de la PK)
+    recorre toda la tabla cada vez, y con un ciclo cada pocos minutos eso pesa; un único
+    DELETE gigante dejó antes a la API tirando "database is locked" en producción. Los ítems
+    se procesan en lotes de `batch_size`, un commit por lote, para no mantener un lock de
+    escritura largo sobre la SQLite compartida con la API.
     No hace VACUUM: las páginas liberadas se reutilizan. Devuelve las filas borradas."""
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=keep_days)).isoformat()
+    if keep_hours is None:
+        if keep_days is None:
+            raise ValueError("indicá keep_hours o keep_days")
+        keep_hours = keep_days * 24
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=keep_hours)).isoformat()
+    type_ids = [row[0] for row in conn.execute("SELECT DISTINCT type_id FROM market_snapshot")]
     deleted = 0
-    while True:
-        count = conn.execute(
-            "DELETE FROM market_snapshot WHERE rowid IN "
-            "(SELECT rowid FROM market_snapshot WHERE captured_at < ? LIMIT ?)",
-            (cutoff, batch_size),
+    for start in range(0, len(type_ids), batch_size):
+        batch = type_ids[start:start + batch_size]
+        deleted += conn.executemany(
+            "DELETE FROM market_snapshot WHERE type_id = ? AND datetime(captured_at) < datetime(?)",
+            [(type_id, cutoff) for type_id in batch],
         ).rowcount
         conn.commit()
-        if count <= 0:
-            return deleted
-        deleted += count
+    return deleted
 
 
 def get_item_status(conn: sqlite3.Connection, type_id: int) -> sqlite3.Row | None:

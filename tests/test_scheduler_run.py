@@ -319,3 +319,141 @@ def test_ingest_prunes_snapshots_older_than_the_retention_window(db_path, monkey
     remaining = conn.execute("SELECT COUNT(*) FROM market_snapshot WHERE type_id = 34").fetchone()[0]
     conn.close()
     assert remaining == 1  # solo el snapshot nuevo; el de hace 30 días se borró
+
+
+class _TrackingClient(_FakeMarketClient):
+    """Registra qué pide cada modo: nombres solicitados e histórico consultado."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.names_requested = []
+        self.history_calls = []
+
+    def get_type_names_bulk(self, type_ids):
+        self.names_requested.append(list(type_ids))
+        return {t: self._names[t] for t in type_ids}
+
+    def get_history(self, region_id, type_id):
+        self.history_calls.append(type_id)
+        return super().get_history(region_id, type_id)
+
+
+def test_ingest_orders_does_not_fetch_history_and_only_asks_for_unknown_names(db_path):
+    from scheduler.run import ingest_orders
+
+    conn = get_connection(db_path)
+    conn.execute("INSERT INTO item_type (type_id, name) VALUES (34, 'Tritanium')")
+    conn.execute("INSERT INTO item_type (type_id, name) VALUES (36, 'type_36')")  # nombre provisional
+    conn.commit()
+    conn.close()
+    client = _TrackingClient(
+        type_ids=[34, 35, 36],
+        orders=[{"type_id": 34, "is_buy_order": False, "volume_remain": 10, "price": 4.5}],
+        names={34: "Tritanium", 35: "Pyerite", 36: "Mexallon"},
+    )
+
+    result = ingest_orders(client, region_id=10000002, db_path=db_path)
+
+    assert result == [34, 35, 36]
+    assert client.history_calls == []
+    assert client.names_requested == [[35, 36]]  # el 34 ya tenía nombre real
+    conn = get_connection(db_path)
+    names = {r["type_id"]: r["name"] for r in conn.execute("SELECT * FROM item_type").fetchall()}
+    snapshots = conn.execute("SELECT COUNT(*) FROM market_snapshot").fetchone()[0]
+    conn.close()
+    assert names == {34: "Tritanium", 35: "Pyerite", 36: "Mexallon"}
+    assert snapshots == 3
+
+
+def test_ingest_orders_skips_the_names_request_when_every_type_is_known(db_path):
+    from scheduler.run import ingest_orders
+
+    conn = get_connection(db_path)
+    conn.execute("INSERT INTO item_type (type_id, name) VALUES (34, 'Tritanium')")
+    conn.commit()
+    conn.close()
+    client = _TrackingClient(type_ids=[34], orders=[], names={34: "Tritanium"})
+
+    ingest_orders(client, region_id=10000002, db_path=db_path)
+
+    assert client.names_requested == []
+
+
+def test_snapshot_retention_hours_reads_the_new_variable_then_the_legacy_days(monkeypatch):
+    from scheduler.run import DEFAULT_SNAPSHOT_RETENTION_HOURS, snapshot_retention_hours
+
+    monkeypatch.delenv("SNAPSHOT_RETENTION_HOURS", raising=False)
+    monkeypatch.delenv("SNAPSHOT_RETENTION_DAYS", raising=False)
+    assert snapshot_retention_hours() == DEFAULT_SNAPSHOT_RETENTION_HOURS
+    monkeypatch.setenv("SNAPSHOT_RETENTION_DAYS", "2")
+    assert snapshot_retention_hours() == 48
+    monkeypatch.setenv("SNAPSHOT_RETENTION_HOURS", "3")
+    assert snapshot_retention_hours() == 3
+
+
+@pytest.fixture
+def run_main(db_path, monkeypatch):
+    """Ejecuta scheduler.run.main() con un cliente falso y el screening/categorías espiados."""
+    import sys
+
+    import scheduler.run as run_module
+
+    calls = {"screen": 0, "categories": 0}
+    client = _TrackingClient(type_ids=[34], orders=[], names={34: "Tritanium"})
+
+    class _CM:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return client
+
+        def __exit__(self, *exc):
+            return False
+
+    monkeypatch.setattr(run_module, "EsiClient", _CM)
+    monkeypatch.setattr(run_module, "screen_opportunities", lambda *a, **k: calls.__setitem__("screen", calls["screen"] + 1))
+    monkeypatch.setattr(run_module, "ingest_categories", lambda *a, **k: calls.__setitem__("categories", calls["categories"] + 1))
+    monkeypatch.setenv("DB_PATH", db_path)
+
+    def _run(*flags):
+        monkeypatch.setattr(sys, "argv", ["scheduler.run", *flags])
+        return run_module.main()
+
+    return _run, client, calls
+
+
+def test_main_prices_only_screens_without_downloading_history(run_main):
+    run, client, calls = run_main
+
+    assert run("--prices-only") == 0
+
+    assert client.history_calls == []
+    assert calls == {"screen": 1, "categories": 1}
+
+
+def test_main_history_only_downloads_history_without_screening(run_main):
+    run, client, calls = run_main
+
+    assert run("--history-only") == 0
+
+    assert client.history_calls == [34]
+    assert calls == {"screen": 0, "categories": 0}
+
+
+def test_main_without_flags_runs_the_full_pipeline(run_main):
+    run, client, calls = run_main
+
+    assert run() == 0
+
+    assert client.history_calls == [34]
+    assert calls == {"screen": 1, "categories": 1}
+
+
+def test_main_rejects_incompatible_flags(run_main):
+    run, _, _ = run_main
+
+    for flags in (("--prices-only", "--history-only"), ("--prices-only", "--backfill"),
+                  ("--history-only", "--rescreen-only")):
+        with pytest.raises(SystemExit):
+            run(*flags)

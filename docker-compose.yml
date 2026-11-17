@@ -63,6 +63,21 @@ services:
       - ./credentials:/app/credentials
     profiles: ["cron"]
 
+  # Proceso diario del histórico de mercado de ESI (una petición por tipo, ~10 min): solo cambia una
+  # vez al día, así que va aparte del ciclo de precios. No recalcula el screening ni escribe el .xlsx.
+  engine-history:
+    <<: *hardening
+    image: ghcr.io/takahirokz/eve-station-trading-analyzer:latest
+    container_name: evemarket-engine-history
+    command: ["python", "-m", "scheduler.run", "--history-only"]
+    env_file: .env
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./storage:/app/storage
+      - ./credentials:/app/credentials
+    profiles: ["cron"]
+
   engine-positions:
     <<: *hardening
     image: ghcr.io/takahirokz/eve-station-trading-analyzer:latest
