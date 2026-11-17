@@ -156,3 +156,69 @@ def test_status_changes_returns_recent_changes(client):
     assert len(body) == 1
     assert body[0]["new_status"] == "POTENCIAL"
     assert body[0]["name"] == "Tritanium"
+
+
+def test_items_list_filters_by_name_ignoring_case(client):
+    api_client, db_path = client
+    seed_item(db_path, type_id=34, name="Tritanium")
+    seed_item(db_path, type_id=35, name="Pyerite")
+    seed_item(db_path, type_id=36, name="Compressed Tritanium")
+
+    body = api_client.get("/api/items", params={"q": "TRITA"}).json()
+
+    assert body["total"] == 2
+    assert {item["name"] for item in body["items"]} == {"Tritanium", "Compressed Tritanium"}
+
+
+def test_items_list_name_filter_trims_spaces_and_blank_means_no_filter(client):
+    api_client, db_path = client
+    seed_item(db_path, type_id=34, name="Tritanium")
+    seed_item(db_path, type_id=35, name="Pyerite")
+
+    assert api_client.get("/api/items", params={"q": "  pyer  "}).json()["total"] == 1
+    assert api_client.get("/api/items", params={"q": "   "}).json()["total"] == 2
+    assert api_client.get("/api/items", params={"q": ""}).json()["total"] == 2
+
+
+def test_items_list_name_filter_treats_wildcards_as_plain_text(client):
+    api_client, db_path = client
+    seed_item(db_path, type_id=34, name="Tritanium")
+    seed_item(db_path, type_id=35, name="100% Pure_Ore")
+    seed_item(db_path, type_id=36, name="100X PureXOre")
+
+    assert api_client.get("/api/items", params={"q": "%"}).json()["total"] == 1
+    assert api_client.get("/api/items", params={"q": "_"}).json()["total"] == 1
+    assert api_client.get("/api/items", params={"q": "Pure_Ore"}).json()["total"] == 1
+    assert api_client.get("/api/items", params={"q": "\\"}).json()["total"] == 0
+
+
+def test_items_list_name_filter_combines_with_status_and_pagination(client):
+    api_client, db_path = client
+    for n in range(1, 6):
+        seed_item(db_path, type_id=100 + n, name=f"Mutaplasmid {n}", status="POTENCIAL")
+    seed_item(db_path, type_id=200, name="Mutaplasmid Old", status="DESCARTADO")
+    seed_item(db_path, type_id=201, name="Tritanium", status="POTENCIAL")
+
+    body = api_client.get(
+        "/api/items", params={"q": "mutaplasmid", "status": "POTENCIAL", "limit": 2, "offset": 2},
+    ).json()
+
+    assert body["total"] == 5  # el descartado y el otro ítem quedan fuera
+    assert len(body["items"]) == 2
+
+
+def test_items_list_rejects_a_name_query_longer_than_100_characters(client):
+    api_client, _ = client
+
+    assert api_client.get("/api/items", params={"q": "a" * 101}).status_code == 422
+    assert api_client.get("/api/items", params={"q": "a" * 100}).status_code == 200
+
+
+def test_items_list_name_filter_is_safe_against_sql_injection_text(client):
+    api_client, db_path = client
+    seed_item(db_path, type_id=34, name="Tritanium")
+
+    response = api_client.get("/api/items", params={"q": "x' OR '1'='1"})
+
+    assert response.status_code == 200
+    assert response.json()["total"] == 0

@@ -228,6 +228,7 @@ export const it: Messages = {
   "screener.title": "Tutte le opportunità",
   "screener.colSpread": "SPREAD/U",
   "screener.colOps": "OPER./GIORNO",
+  "filters.searchName": "Cerca per nome dell'oggetto",
   "filters.minRoiShort": "ROI min. %",
   "filters.minVolumeShort": "Volume min.",
   "screener.pricesInIsk": "Prezzi in ISK",
