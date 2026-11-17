@@ -139,12 +139,14 @@ un ping externo no ve: la API responde pero los motores dejaron de correr. Chequ
 - la API responde en `http://127.0.0.1:8001/api/summary`;
 - `last_evaluated_at` (motor de mercado) tiene menos de 5 h;
 - el log de hoy del motor de posiciones se tocó hace menos de 20 min;
-- el servicio systemd `cloudflared` está activo.
+- el servicio systemd `cloudflared` está activo;
+- el ciclo de mercado no dura demasiado: avisa si hay uno corriendo hace más de 20 min o si el último
+  tardó más de 20 min (un ciclo normal tarda unos 12; ver `MARKET_MAX_RUN_MIN`).
 
 Avisa por Telegram (mismas variables del `.env` que el resto) solo cuando el estado
 cambia: falla nueva, cambio de motivo, o recuperación (✅). El último estado queda en
 `.healthcheck.state`. Umbrales sobreescribibles con `MARKET_MAX_AGE_HOURS`,
-`POSITIONS_MAX_AGE_MIN`, `HEALTH_URL`. Para probarlo a mano: `./scripts/healthcheck.sh`
+`POSITIONS_MAX_AGE_MIN`, `MARKET_MAX_RUN_MIN`, `HEALTH_URL`. Para probarlo a mano: `./scripts/healthcheck.sh`
 (silencioso si todo está bien).
 
 **2. Ping externo — UptimeRobot (plan gratis, setup manual una sola vez).** Cubre lo que
