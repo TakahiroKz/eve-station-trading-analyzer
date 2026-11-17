@@ -34,7 +34,13 @@ from ingestion.esi_client import DEFAULT_BASE_URL, EsiClient
 from ingestion.session import get_valid_session
 from ingestion.wallet import get_current_wallet_balance
 from scheduler.orders_run import check_character_orders
-from storage.db import get_app_settings, get_app_settings_dict, reset_app_settings, update_app_setting
+from storage.db import (
+    DEFAULT_MARKET,
+    get_app_settings,
+    get_app_settings_dict,
+    reset_app_settings,
+    update_app_setting,
+)
 from storage.settings_registry import SETTINGS_BY_KEY, STRICTLY_POSITIVE_KEYS
 
 router = APIRouter(prefix="/api/private", dependencies=[Depends(require_cf_access_header)])
@@ -78,16 +84,16 @@ def get_item_recommendation(type_id: int):
     conn = _db()
     try:
         status_row = conn.execute(
-            f"SELECT {ITEM_SELECT_COLS} {ITEM_JOIN} WHERE s.type_id = ?",
-            (type_id,),
+            f"SELECT {ITEM_SELECT_COLS} {ITEM_JOIN} WHERE s.market_id = ? AND s.type_id = ?",
+            (DEFAULT_MARKET, type_id),
         ).fetchone()
         if status_row is None:
             raise HTTPException(404, "Ítem no encontrado o sin clasificar todavía")
 
         snapshot_row = conn.execute(
-            "SELECT best_buy, best_sell FROM market_snapshot WHERE type_id = ? "
+            "SELECT best_buy, best_sell FROM market_snapshot WHERE market_id = ? AND type_id = ? "
             "ORDER BY captured_at DESC LIMIT 1",
-            (type_id,),
+            (DEFAULT_MARKET, type_id),
         ).fetchone()
 
         if snapshot_row is None or not snapshot_row["best_buy"] or not snapshot_row["best_sell"]:

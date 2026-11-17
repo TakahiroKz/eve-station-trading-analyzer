@@ -6,6 +6,24 @@ from storage.settings_registry import SETTINGS
 
 SCHEMA_PATH = Path(__file__).parent / "schema.sql"
 
+DEFAULT_MARKET = "jita"
+
+# Los cinco hubs comerciales principales de EVE. Cada mercado es su REGIÓN (como Jita desde el
+# principio). (market_id, nombre, region_id, system_id del hub, orden, activo por defecto)
+MARKETS_SEED = (
+    ("jita", "Jita", 10000002, 30000142, 1, 1),
+    ("amarr", "Amarr", 10000043, 30002187, 2, 0),
+    ("dodixie", "Dodixie", 10000032, 30002659, 3, 0),
+    ("rens", "Rens", 10000030, 30002510, 4, 0),
+    ("hek", "Hek", 10000042, 30002053, 5, 0),
+)
+
+# Tablas que pasan a tener market_id en la clave (ver _migrate_to_multimarket).
+MULTIMARKET_TABLES = (
+    "market_history", "market_snapshot", "item_status", "item_status_history", "opportunity_log",
+)
+PRE_MARKET_SUFFIX = "_pre_market"
+
 
 def get_connection(db_path: str) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path)
@@ -71,6 +89,124 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
             conn.execute("ALTER TABLE character_order ADD COLUMN best_price REAL")
 
     conn.commit()
+
+
+def _split_statements(script: str) -> list[str]:
+    """Separa un script SQL en sentencias completas (executescript haría COMMIT y rompería la
+    atomicidad de la migración)."""
+    statements, buffer = [], ""
+    for line in script.splitlines(keepends=True):
+        buffer += line
+        if sqlite3.complete_statement(buffer):
+            statement = buffer.strip()
+            if statement and not all(part.strip().startswith("--") or not part.strip()
+                                     for part in statement.splitlines()):
+                statements.append(statement)
+            buffer = ""
+    return statements
+
+
+def _needs_multimarket_migration(conn: sqlite3.Connection) -> bool:
+    return any(
+        _table_sql(conn, table) is not None and not _column_exists(conn, table, "market_id")
+        for table in MULTIMARKET_TABLES
+    )
+
+
+def _migrate_to_multimarket(conn: sqlite3.Connection) -> None:
+    """Pasa las cinco tablas por mercado del esquema de un solo mercado al normalizado (market_id
+    en la clave). SQLite no deja cambiar una clave primaria con ALTER: las tablas viejas se
+    renombran a *_pre_market, se crean las nuevas y se copia todo con market_id = 'jita'.
+    Es atómica (el DDL de SQLite es transaccional): si algo falla, o los conteos no coinciden,
+    se revierte y la base queda como estaba. Las tablas *_pre_market se conservan hasta que
+    alguien las borre a mano con drop_pre_market_tables() tras verificar."""
+    if not _needs_multimarket_migration(conn):
+        return
+    conn.commit()
+    conn.execute("PRAGMA foreign_keys = OFF")
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        legacy = [t for t in MULTIMARKET_TABLES
+                  if _table_sql(conn, t) is not None and not _column_exists(conn, t, "market_id")]
+        for index in ("idx_history_type", "idx_snapshot_type", "idx_opportunity_type", "idx_status_history_type"):
+            conn.execute(f"DROP INDEX IF EXISTS {index}")
+        for table in legacy:
+            conn.execute(f"ALTER TABLE {table} RENAME TO {table}{PRE_MARKET_SUFFIX}")
+        for statement in _split_statements(SCHEMA_PATH.read_text(encoding="utf-8")):
+            conn.execute(statement)
+        _seed_markets(conn)
+
+        copies = {
+            "market_history": (
+                "market_id, type_id, date, avg_price, highest, lowest, volume, order_count",
+                "'jita', type_id, date, avg_price, highest, lowest, volume, order_count"),
+            "market_snapshot": (
+                "market_id, type_id, captured_at, best_buy, best_sell, buy_volume, sell_volume, "
+                "buy_order_count, sell_order_count",
+                "'jita', type_id, captured_at, best_buy, best_sell, buy_volume, sell_volume, "
+                "buy_order_count, sell_order_count"),
+            "item_status": (
+                "market_id, type_id, status, reason, spread_bruto, evaluacion_spread, liquidez, roi, "
+                "best_buy, best_sell, volumen_diario_real, buy_order_count, sell_order_count, "
+                "avg_daily_volume_7d, avg_daily_order_count_7d, last_evaluated_at",
+                "'jita', type_id, status, reason, spread_bruto, evaluacion_spread, liquidez, roi, "
+                "best_buy, best_sell, volumen_diario_real, buy_order_count, sell_order_count, "
+                "avg_daily_volume_7d, avg_daily_order_count_7d, last_evaluated_at"),
+            "item_status_history": (
+                "id, market_id, type_id, previous_status, new_status, changed_at, reason",
+                "id, 'jita', type_id, previous_status, new_status, changed_at, reason"),
+            "opportunity_log": (
+                "id, market_id, type_id, evaluated_at, buy, sell, volumen_deseado, volumen_diario_real, "
+                "beneficio, spread_bruto, precio_min_venta, roi, evaluacion_spread, posicion_vs_volumen, "
+                "liquidez, recomendacion",
+                "id, 'jita', type_id, evaluated_at, buy, sell, volumen_deseado, volumen_diario_real, "
+                "beneficio, spread_bruto, precio_min_venta, roi, evaluacion_spread, posicion_vs_volumen, "
+                "liquidez, recomendacion"),
+        }
+        for table in legacy:
+            target, source = copies[table]
+            conn.execute(
+                f"INSERT INTO {table} ({target}) SELECT {source} FROM {table}{PRE_MARKET_SUFFIX}"
+            )
+            old = conn.execute(f"SELECT COUNT(*) FROM {table}{PRE_MARKET_SUFFIX}").fetchone()[0]
+            new = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            if old != new:
+                raise RuntimeError(f"Migración multi-mercado: {table} tenía {old} filas y quedó con {new}")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.execute("PRAGMA foreign_keys = ON")
+
+
+def pre_market_tables(conn: sqlite3.Connection) -> list[str]:
+    return [t for t in MULTIMARKET_TABLES if _table_sql(conn, t + PRE_MARKET_SUFFIX) is not None]
+
+
+def drop_pre_market_tables(conn: sqlite3.Connection) -> list[str]:
+    """Borra las copias *_pre_market que deja la migración (hacerlo solo tras verificar los datos).
+    Devuelve las tablas borradas. Después conviene un VACUUM para devolver el espacio al disco."""
+    dropped = pre_market_tables(conn)
+    for table in dropped:
+        conn.execute(f"DROP TABLE {table}{PRE_MARKET_SUFFIX}")
+    conn.commit()
+    return dropped
+
+
+def _seed_markets(conn: sqlite3.Connection) -> None:
+    """Siembra los mercados la primera vez; después solo refresca nombre/región/sistema/orden y
+    NO toca `enabled` (lo decide quien opera el sistema)."""
+    for market_id, name, region_id, system_id, sort_order, enabled in MARKETS_SEED:
+        conn.execute(
+            "INSERT OR IGNORE INTO market (market_id, name, region_id, system_id, kind, enabled, sort_order) "
+            "VALUES (?, ?, ?, ?, 'region', ?, ?)",
+            (market_id, name, region_id, system_id, enabled, sort_order),
+        )
+        conn.execute(
+            "UPDATE market SET name = ?, region_id = ?, system_id = ?, sort_order = ? WHERE market_id = ?",
+            (name, region_id, system_id, sort_order, market_id),
+        )
 
 
 def _migrate_classification_settings(conn: sqlite3.Connection) -> None:
@@ -164,7 +300,9 @@ def init_db(db_path: str) -> None:
         pass
     try:
         _migrate_schema(conn)
+        _migrate_to_multimarket(conn)
         conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+        _seed_markets(conn)
         conn.executescript(ANALYTICS_SCHEMA)
         conn.executescript(NOTIFICATION_OUTBOX_SCHEMA)
         _migrate_classification_settings(conn)
@@ -182,13 +320,14 @@ def upsert_item_type(conn: sqlite3.Connection, type_id: int, name: str) -> None:
     )
 
 
-def upsert_market_history(conn: sqlite3.Connection, type_id: int, row: dict) -> None:
+def upsert_market_history(conn: sqlite3.Connection, type_id: int, row: dict,
+                          market_id: str = DEFAULT_MARKET) -> None:
     conn.execute(
         """
         INSERT INTO market_history
-            (type_id, date, avg_price, highest, lowest, volume, order_count)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(type_id, date) DO UPDATE SET
+            (market_id, type_id, date, avg_price, highest, lowest, volume, order_count)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(market_id, type_id, date) DO UPDATE SET
             avg_price = excluded.avg_price,
             highest = excluded.highest,
             lowest = excluded.lowest,
@@ -196,6 +335,7 @@ def upsert_market_history(conn: sqlite3.Connection, type_id: int, row: dict) -> 
             order_count = excluded.order_count
         """,
         (
+            market_id,
             type_id,
             row["date"],
             row["average"],
@@ -207,14 +347,15 @@ def upsert_market_history(conn: sqlite3.Connection, type_id: int, row: dict) -> 
     )
 
 
-def upsert_market_snapshot(conn: sqlite3.Connection, type_id: int, captured_at: str, row: dict) -> None:
+def upsert_market_snapshot(conn: sqlite3.Connection, type_id: int, captured_at: str, row: dict,
+                           market_id: str = DEFAULT_MARKET) -> None:
     conn.execute(
         """
         INSERT INTO market_snapshot
-            (type_id, captured_at, best_buy, best_sell, buy_volume, sell_volume,
+            (market_id, type_id, captured_at, best_buy, best_sell, buy_volume, sell_volume,
              buy_order_count, sell_order_count)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(type_id, captured_at) DO UPDATE SET
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(market_id, type_id, captured_at) DO UPDATE SET
             best_buy = excluded.best_buy,
             best_sell = excluded.best_sell,
             buy_volume = excluded.buy_volume,
@@ -223,6 +364,7 @@ def upsert_market_snapshot(conn: sqlite3.Connection, type_id: int, captured_at: 
             sell_order_count = excluded.sell_order_count
         """,
         (
+            market_id,
             type_id,
             captured_at,
             row.get("best_buy"),
@@ -236,7 +378,8 @@ def upsert_market_snapshot(conn: sqlite3.Connection, type_id: int, captured_at: 
 
 
 def prune_old_snapshots(conn: sqlite3.Connection, keep_days: float | None = None,
-                        batch_size: int = 20000, keep_hours: float | None = None) -> int:
+                        batch_size: int = 20000, keep_hours: float | None = None,
+                        market_id: str = DEFAULT_MARKET) -> int:
     """Borra snapshots de órdenes más viejos que `keep_hours` horas (o `keep_days` días): solo
     el último de cada ítem alimenta al screening y a la API; el resto es historial que crecía
     sin límite -- 1,3 GB en la VM de 1 GB de RAM.
@@ -254,33 +397,36 @@ def prune_old_snapshots(conn: sqlite3.Connection, keep_days: float | None = None
             raise ValueError("indicá keep_hours o keep_days")
         keep_hours = keep_days * 24
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=keep_hours)).isoformat()
-    type_ids = [row[0] for row in conn.execute("SELECT DISTINCT type_id FROM market_snapshot")]
+    type_ids = [row[0] for row in conn.execute(
+        "SELECT DISTINCT type_id FROM market_snapshot WHERE market_id = ?", (market_id,))]
     deleted = 0
     for start in range(0, len(type_ids), batch_size):
         batch = type_ids[start:start + batch_size]
         deleted += conn.executemany(
-            "DELETE FROM market_snapshot WHERE type_id = ? AND datetime(captured_at) < datetime(?)",
-            [(type_id, cutoff) for type_id in batch],
+            "DELETE FROM market_snapshot WHERE market_id = ? AND type_id = ? "
+            "AND datetime(captured_at) < datetime(?)",
+            [(market_id, type_id, cutoff) for type_id in batch],
         ).rowcount
         conn.commit()
     return deleted
 
 
-def get_item_status(conn: sqlite3.Connection, type_id: int) -> sqlite3.Row | None:
+def get_item_status(conn: sqlite3.Connection, type_id: int,
+                    market_id: str = DEFAULT_MARKET) -> sqlite3.Row | None:
     return conn.execute(
-        "SELECT * FROM item_status WHERE type_id = ?", (type_id,)
+        "SELECT * FROM item_status WHERE market_id = ? AND type_id = ?", (market_id, type_id)
     ).fetchone()
 
 
-def upsert_item_status(conn: sqlite3.Connection, row: dict) -> None:
+def upsert_item_status(conn: sqlite3.Connection, row: dict, market_id: str = DEFAULT_MARKET) -> None:
     conn.execute(
         """
         INSERT INTO item_status
-            (type_id, status, reason, spread_bruto, evaluacion_spread, liquidez, roi,
+            (market_id, type_id, status, reason, spread_bruto, evaluacion_spread, liquidez, roi,
              best_buy, best_sell, volumen_diario_real, buy_order_count, sell_order_count,
              avg_daily_volume_7d, avg_daily_order_count_7d, last_evaluated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(type_id) DO UPDATE SET
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(market_id, type_id) DO UPDATE SET
             status = excluded.status,
             reason = excluded.reason,
             spread_bruto = excluded.spread_bruto,
@@ -297,7 +443,7 @@ def upsert_item_status(conn: sqlite3.Connection, row: dict) -> None:
             last_evaluated_at = excluded.last_evaluated_at
         """,
         (
-            row["type_id"], row["status"], row["reason"], row["spread_bruto"],
+            market_id, row["type_id"], row["status"], row["reason"], row["spread_bruto"],
             row["evaluacion_spread"], row["liquidez"], row["roi"],
             row["best_buy"], row["best_sell"],
             row["volumen_diario_real"], row["buy_order_count"], row["sell_order_count"],
@@ -336,13 +482,14 @@ def get_cached_group(conn: sqlite3.Connection, group_id: int) -> sqlite3.Row | N
 
 
 def insert_status_history(conn: sqlite3.Connection, type_id: int, previous_status: str | None,
-                           new_status: str, changed_at: str, reason: str) -> None:
+                           new_status: str, changed_at: str, reason: str,
+                           market_id: str = DEFAULT_MARKET) -> None:
     conn.execute(
         """
-        INSERT INTO item_status_history (type_id, previous_status, new_status, changed_at, reason)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO item_status_history (market_id, type_id, previous_status, new_status, changed_at, reason)
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
-        (type_id, previous_status, new_status, changed_at, reason),
+        (market_id, type_id, previous_status, new_status, changed_at, reason),
     )
 
 
@@ -441,14 +588,16 @@ def _first_opportunity_id_since(conn: sqlite3.Connection, since_iso: str) -> int
     return lo
 
 
-def recent_opportunity_times(conn: sqlite3.Connection, since_iso: str) -> dict[int, str]:
+def recent_opportunity_times(conn: sqlite3.Connection, since_iso: str,
+                             market_id: str = DEFAULT_MARKET) -> dict[int, str]:
     """Último evaluated_at registrado por ítem desde `since_iso` (para no registrar un ítem
     más de una vez por intervalo)."""
     first = _first_opportunity_id_since(conn, since_iso)
     if first is None:
         return {}
     rows = conn.execute(
-        "SELECT type_id, MAX(evaluated_at) FROM opportunity_log WHERE id >= ? GROUP BY type_id", (first,),
+        "SELECT type_id, MAX(evaluated_at) FROM opportunity_log WHERE id >= ? AND market_id = ? "
+        "GROUP BY type_id", (first, market_id),
     )
     return {row[0]: row[1] for row in rows}
 
@@ -479,16 +628,17 @@ def purge_opportunity_log(conn: sqlite3.Connection, keep_days: float, batch_size
     return deleted
 
 
-def insert_opportunity(conn: sqlite3.Connection, row: dict) -> None:
+def insert_opportunity(conn: sqlite3.Connection, row: dict, market_id: str = DEFAULT_MARKET) -> None:
     conn.execute(
         """
         INSERT INTO opportunity_log
-            (type_id, evaluated_at, buy, sell, volumen_deseado, volumen_diario_real,
+            (market_id, type_id, evaluated_at, buy, sell, volumen_deseado, volumen_diario_real,
              beneficio, spread_bruto, precio_min_venta, roi, evaluacion_spread,
              posicion_vs_volumen, liquidez, recomendacion)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
+            market_id,
             row["type_id"],
             row["evaluated_at"],
             row["buy"],

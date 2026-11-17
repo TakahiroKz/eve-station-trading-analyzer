@@ -1,3 +1,17 @@
+-- Mercados (hubs) que analiza el sistema. Hoy cada uno es una REGIÓN de EVE (igual que Jita desde el
+-- principio: órdenes de toda la región, histórico regional de la ESI). `kind = 'system'` y `system_id`
+-- quedan para mercados de un solo sistema o estación más adelante (arbitraje entre sistemas) sin
+-- cambiar el esquema: todas las tablas por mercado cuelgan de market_id.
+CREATE TABLE IF NOT EXISTS market (
+    market_id   TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    region_id   INTEGER NOT NULL,
+    system_id   INTEGER,
+    kind        TEXT NOT NULL DEFAULT 'region' CHECK (kind IN ('region', 'system')),
+    enabled     INTEGER NOT NULL DEFAULT 0,
+    sort_order  INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS item_type (
     type_id     INTEGER PRIMARY KEY,
     name        TEXT NOT NULL
@@ -18,6 +32,7 @@ CREATE TABLE IF NOT EXISTS item_category (
 
 -- Histórico diario por ítem, fuente de rotación/volatilidad (ESI /markets/{region_id}/history/)
 CREATE TABLE IF NOT EXISTS market_history (
+    market_id   TEXT NOT NULL DEFAULT 'jita',
     type_id     INTEGER NOT NULL,
     date        TEXT NOT NULL,
     avg_price   REAL NOT NULL,
@@ -25,12 +40,14 @@ CREATE TABLE IF NOT EXISTS market_history (
     lowest      REAL NOT NULL,
     volume      INTEGER NOT NULL,
     order_count INTEGER NOT NULL,
-    PRIMARY KEY (type_id, date),
+    PRIMARY KEY (market_id, type_id, date),
+    FOREIGN KEY (market_id) REFERENCES market(market_id),
     FOREIGN KEY (type_id) REFERENCES item_type(type_id)
-);
+) WITHOUT ROWID;
 
 -- Foto de órdenes activas, fuente del spread actual (ESI /markets/{region_id}/orders/)
 CREATE TABLE IF NOT EXISTS market_snapshot (
+    market_id        TEXT NOT NULL DEFAULT 'jita',
     type_id          INTEGER NOT NULL,
     captured_at      TEXT NOT NULL,
     best_buy         REAL,
@@ -39,13 +56,15 @@ CREATE TABLE IF NOT EXISTS market_snapshot (
     sell_volume      INTEGER,
     buy_order_count  INTEGER NOT NULL DEFAULT 0,
     sell_order_count INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY (type_id, captured_at),
+    PRIMARY KEY (market_id, type_id, captured_at),
+    FOREIGN KEY (market_id) REFERENCES market(market_id),
     FOREIGN KEY (type_id) REFERENCES item_type(type_id)
-);
+) WITHOUT ROWID;
 
 -- Reflejo local de cada oportunidad de station trade evaluada por EveCalculator
 CREATE TABLE IF NOT EXISTS opportunity_log (
     id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+    market_id               TEXT NOT NULL DEFAULT 'jita',
     type_id                 INTEGER NOT NULL,
     evaluated_at            TEXT NOT NULL,
     buy                     REAL NOT NULL,
@@ -60,6 +79,7 @@ CREATE TABLE IF NOT EXISTS opportunity_log (
     posicion_vs_volumen     REAL NOT NULL,
     liquidez                TEXT NOT NULL,
     recomendacion           TEXT NOT NULL,
+    FOREIGN KEY (market_id) REFERENCES market(market_id),
     FOREIGN KEY (type_id) REFERENCES item_type(type_id)
 );
 
@@ -68,7 +88,8 @@ CREATE TABLE IF NOT EXISTS opportunity_log (
 -- ejecutadas (últimos 7 días, no el libro de órdenes abiertas) no muestra flujo real
 -- (poco volumen/día o pocas operaciones/día — posible orden única de una ballena).
 CREATE TABLE IF NOT EXISTS item_status (
-    type_id                   INTEGER PRIMARY KEY,
+    market_id                 TEXT NOT NULL DEFAULT 'jita',
+    type_id                   INTEGER NOT NULL,
     status                    TEXT NOT NULL CHECK (
         status IN ('POTENCIAL', 'POTENCIAL_SIN_ORDENES', 'DESCARTADO', 'EN_OBSERVACION')
     ),
@@ -85,18 +106,22 @@ CREATE TABLE IF NOT EXISTS item_status (
     avg_daily_volume_7d       REAL NOT NULL DEFAULT 0,
     avg_daily_order_count_7d  REAL NOT NULL DEFAULT 0,
     last_evaluated_at         TEXT NOT NULL,
+    PRIMARY KEY (market_id, type_id),
+    FOREIGN KEY (market_id) REFERENCES market(market_id),
     FOREIGN KEY (type_id) REFERENCES item_type(type_id)
-);
+) WITHOUT ROWID;
 
 -- Historial append-only de cambios de estado, para auditar cómo evoluciona cada ítem
 -- entre recategorizaciones sucesivas (ej. de EN_OBSERVACION a POTENCIAL).
 CREATE TABLE IF NOT EXISTS item_status_history (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    market_id       TEXT NOT NULL DEFAULT 'jita',
     type_id         INTEGER NOT NULL,
     previous_status TEXT,
     new_status      TEXT NOT NULL,
     changed_at      TEXT NOT NULL,
     reason          TEXT NOT NULL,
+    FOREIGN KEY (market_id) REFERENCES market(market_id),
     FOREIGN KEY (type_id) REFERENCES item_type(type_id)
 );
 
@@ -167,10 +192,10 @@ CREATE TABLE IF NOT EXISTS app_settings (
     updated_at     TEXT NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_history_type ON market_history(type_id);
-CREATE INDEX IF NOT EXISTS idx_snapshot_type ON market_snapshot(type_id);
-CREATE INDEX IF NOT EXISTS idx_opportunity_type ON opportunity_log(type_id);
-CREATE INDEX IF NOT EXISTS idx_status_history_type ON item_status_history(type_id);
+-- Las claves primarias de market_history, market_snapshot e item_status ya cubren (market_id, type_id, ...).
+CREATE INDEX IF NOT EXISTS idx_status_market_status ON item_status(market_id, status);
+CREATE INDEX IF NOT EXISTS idx_opportunity_market_type ON opportunity_log(market_id, type_id);
+CREATE INDEX IF NOT EXISTS idx_status_history_market_type ON item_status_history(market_id, type_id);
 CREATE INDEX IF NOT EXISTS idx_category_category_id ON item_category(category_id);
 CREATE INDEX IF NOT EXISTS idx_character_order_type ON character_order(type_id);
 CREATE INDEX IF NOT EXISTS idx_character_order_fill_type ON character_order_fill(type_id);
