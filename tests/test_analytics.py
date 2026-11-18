@@ -172,3 +172,35 @@ def test_api_creates_the_analytics_tables_when_no_engine_has_run_init_db(tmp_pat
     http = TestClient(app)
     assert _ping(http).status_code == 204
     assert http.get("/api/private/analytics/summary", headers=FAKE_CF_HEADER).json()["total_visits"] == 1
+
+
+def test_ping_answers_503_with_retry_after_when_the_database_stays_locked(client, monkeypatch):
+    import sqlite3
+
+    http, _ = client
+
+    def locked(conn):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr("backend.api.analytics._ensure_schema", locked)
+
+    response = _ping(http)
+
+    assert response.status_code == 503
+    assert response.headers["retry-after"] == "15"
+
+
+def test_ping_does_not_swallow_other_database_errors(client, monkeypatch):
+    import sqlite3
+
+    import pytest
+
+    http, _ = client
+
+    def broken(conn):
+        raise sqlite3.OperationalError("no such table: analytics_visit")
+
+    monkeypatch.setattr("backend.api.analytics._ensure_schema", broken)
+
+    with pytest.raises(sqlite3.OperationalError):
+        _ping(http)

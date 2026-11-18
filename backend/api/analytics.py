@@ -7,7 +7,9 @@ Los datos se conservan 395 días (13 meses) y después se borran solos.
 
 El informe vive bajo /api/private (Cloudflare Access): GET /api/private/analytics/summary.
 """
+import logging
 import re
+import sqlite3
 import threading
 import time
 from datetime import datetime, timedelta, timezone
@@ -20,6 +22,8 @@ from pydantic import BaseModel, Field
 from backend.api.deps import _db, require_cf_access_header
 from backend.api.security import CANONICAL_HOST, check_same_origin
 from storage.db import ANALYTICS_SCHEMA
+
+log = logging.getLogger(__name__)
 
 RETENTION_DAYS = 395
 MAX_ACTIVE_SECONDS = 4 * 3600
@@ -140,6 +144,13 @@ def ping(body: PingIn, request: Request) -> Response:
             )
         _maybe_purge(conn)
         conn.commit()
+    except sqlite3.OperationalError as exc:
+        # The market engine writes in large batches every 5 minutes; a ping that waits longer than
+        # the busy timeout (5 s) is answered with a retryable 503 instead of an unhandled 500.
+        if "locked" not in str(exc).lower():
+            raise
+        log.warning("analytics ping skipped, database busy: %s", exc)
+        raise HTTPException(503, "Base de datos ocupada, reintenta.", headers={"Retry-After": "15"}) from exc
     finally:
         conn.close()
     return Response(status_code=204)
