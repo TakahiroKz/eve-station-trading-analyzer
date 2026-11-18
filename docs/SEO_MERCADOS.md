@@ -77,6 +77,9 @@ indexadas y hay impresiones crecientes. Elegir la fase 3 antes que la 2 si las c
 
 ## Fase 3: ficha de ítem con los 5 hubs (pendiente)
 
+**Plan detallado: `docs/PLAN_FASE_3_FICHA_5_HUBS.md`.** Adelantada respecto a la fase 2 tras revisar Search Console (2026-11-18):
+el tráfico llega por fichas de ítem y hay ~1.100 URLs sin indexar.
+
 - Una página por ítem (las mismas ~1.800 de Jita o las del top de liquidez global) que compara en los
   cinco mercados: mejor compra/venta, spread, ROI, operaciones/día y tendencia 7 d. Contenido
   genuinamente distinto de las fichas por mercado, y base visual del futuro arbitraje.
