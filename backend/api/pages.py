@@ -394,9 +394,14 @@ def _hubs_section(name: str, hubs) -> tuple[str, str]:
     )
     sentence = ""
     if len(fresh) >= 2:
-        best_roi = max(fresh, key=lambda h: h["roi"] or 0)
+        # Only hubs that classify the item as a candidate can be named for ROI: the ROI of a thin or
+        # discarded market (a few trades a day) can be an outlier that is not worth recommending.
+        candidates = [h for h in fresh if h["status"] in INDEXABLE_STATUSES]
         busiest = max(fresh, key=lambda h: h["trades"] or 0)
-        if (best_roi["roi"] or 0) > 0 and (busiest["trades"] or 0) > 0:
+        best_roi = max(candidates, key=lambda h: h["roi"] or 0) if candidates else None
+        if best_roi is None:
+            sentence = f"No hub currently classifies {name} as a candidate for station trading."
+        elif (best_roi["roi"] or 0) > 0 and (busiest["trades"] or 0) > 0:
             if best_roi["market_id"] == busiest["market_id"]:
                 sentence = (
                     f"Right now {best_roi['name']} leads for {name} on both ROI ({_pct(best_roi['roi'])}) "
