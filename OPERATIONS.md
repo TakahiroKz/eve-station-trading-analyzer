@@ -136,6 +136,15 @@ aislados (si uno falla, los demás siguen y el fallo queda en el log). Para suma
    `sqlite3`). Desde ahí entra en cada ciclo y la API lo acepta con `?market=amarr`.
    Para desactivarlo, `enabled = 0` (los datos se conservan).
 
+### Estado y medidas (2026-11-18)
+
+Los cinco mercados están activos. Medido en producción (VM A1, 12 GB): relleno de histórico de 120 días
+8,4 min (Amarr), 7 min (Dodixie), 5,5 min (Rens), 6,2 min (Hek); ciclo de precios por mercado: Jita ~35 s,
+Amarr ~14 s, Dodixie ~10 s, Rens ~7 s, Hek ~9 s, es decir ~80 s con los cinco (el watchdog avisa por encima
+de 4 min). La base pasó de 991 MB a 1,05 GB con el histórico de los cuatro mercados nuevos. El watchdog
+(`scripts/healthcheck.sh`, chequeo 2b) revisa además `last_evaluated_at` de cada mercado activo en
+`/api/markets` y avisa cuáles se atrasan.
+
 ## Tamaño de la base de datos
 
 `opportunity_log` crecía una fila por ítem y por ciclo (~4,7 millones al día con ciclos de 5 min) hasta
