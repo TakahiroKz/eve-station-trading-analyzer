@@ -188,6 +188,7 @@ export const en = {
   "setting.cat.trend": "Price trend",
   "setting.trend_noise_multiplier": "Noise multiple per item",
   "setting.trend_min_change_pct": "Minimum change (fraction, 0.05 = 5%)",
+  "setting.trend_alert_min_ops_per_day": "Minimum operations to alert on Telegram",
   "setting.trend_min_ops_per_day": "Minimum operations per day",
   "setting.cat.junk": "Junk order filter",
 

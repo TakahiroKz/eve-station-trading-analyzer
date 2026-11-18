@@ -36,24 +36,28 @@ from analytics.eve_calculator import (
 from analytics.market_aggregation import build_orders_by_type
 from analytics.sanity import SanityConfig, is_price_sane
 from analytics.trend import TrendConfig, compute_price_trends
+from analytics.trend_alerts import TrendAlertState, advance
 from ingestion.esi_client import DEFAULT_BASE_URL, EsiClient
 from ingestion.markets import Market, UnknownMarketError, list_markets
 from ingestion.wallet import get_current_wallet_balance
 from reporting.excel_writer import EveCalculatorRegistro
-from notifications.events import NewOpportunity, dispatch, flush_notifications
+from notifications.events import NewOpportunity, TrendChanged, dispatch, flush_notifications
 from storage.db import (
     DEFAULT_MARKET,
+    active_order_sides,
     get_app_settings_dict,
     get_cached_category_type_ids,
     get_cached_group,
     get_connection,
     get_item_status,
+    get_trend_alert_state,
     init_db,
     insert_opportunity,
     insert_status_history,
     prune_old_snapshots,
     purge_opportunity_log,
     recent_opportunity_times,
+    save_trend_alert_state,
     upsert_item_category,
     upsert_item_status,
     upsert_item_type,
@@ -340,6 +344,11 @@ def screen_opportunities(db_path: str, excel_path: str,
         )
 
         trends = compute_price_trends(history, trend_config)
+        reading_date = str(history["date"].max()) if not history.empty else None
+        market_row = conn.execute("SELECT name, region_id FROM market WHERE market_id = ?", (market_id,)).fetchone()
+        market_name = market_row["name"] if market_row else market_id
+        my_orders = active_order_sides(conn, market_row["region_id"]) if market_row else {}
+        trend_alert_min_ops = settings["trend_alert_min_ops_per_day"]
 
         merged = latest_snapshot.merge(recent_volume, on="type_id", how="inner")
         merged = merged.merge(reference_price, on="type_id", how="inner")
@@ -420,6 +429,22 @@ def screen_opportunities(db_path: str, excel_path: str,
                         else float(trend["price_trend_threshold"])
                     ),
                 }, market_id=market_id)
+                if (trend is not None and reading_date and int(row["type_id"]) in my_orders
+                        and avg_daily_order_count_7d >= trend_alert_min_ops):
+                    prev_state = get_trend_alert_state(conn, market_id, int(row["type_id"]))
+                    state, alert = advance(
+                        TrendAlertState(**prev_state) if prev_state else None,
+                        str(trend["price_trend_label"]), reading_date,
+                    )
+                    save_trend_alert_state(conn, market_id, int(row["type_id"]), state.__dict__)
+                    if alert and not pd.isna(trend["price_trend"]):
+                        events.append(TrendChanged(
+                            item_name=row["name"], market_name=market_name,
+                            label=str(trend["price_trend_label"]), change=float(trend["price_trend"]),
+                            threshold=float(trend["price_trend_threshold"]),
+                            ops_per_day=avg_daily_order_count_7d,
+                            sides=tuple(sorted(my_orders[int(row["type_id"])])),
+                        ))
                 if status != previous_status:
                     insert_status_history(conn, row["type_id"], previous_status, status, now, reason,
                                           market_id=market_id)
