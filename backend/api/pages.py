@@ -653,6 +653,13 @@ def sitemap() -> Response:
         latest = conn.execute(
             "SELECT MAX(last_evaluated_at) FROM item_status WHERE market_id = ?", (DEFAULT_MARKET,),
         ).fetchone()[0]
+        # An item page's lastmod is its last classification change, not the last evaluation:
+        # every item is re-evaluated each cycle, so that date would always be "today" and
+        # crawlers would learn to ignore the field. No history row, no <lastmod>.
+        status_changed = dict(conn.execute(
+            "SELECT type_id, MAX(changed_at) FROM item_status_history WHERE market_id = ? "
+            "GROUP BY type_id", (DEFAULT_MARKET,),
+        ).fetchall())
     finally:
         conn.close()
 
@@ -680,7 +687,7 @@ def sitemap() -> Response:
     parts += sitemap_market_urls(url, lastmod)
     parts.append(url(f"{BASE_URL}/items", lastmod(latest)))
     parts += [
-        url(f"{BASE_URL}{item_path(r['type_id'], r['name'])}", lastmod(r["last_evaluated_at"]))
+        url(f"{BASE_URL}{item_path(r['type_id'], r['name'])}", lastmod(status_changed.get(r["type_id"])))
         for r in rows
     ]
     xml = (
