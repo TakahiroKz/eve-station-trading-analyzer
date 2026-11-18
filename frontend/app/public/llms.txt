@@ -22,7 +22,7 @@ The public Screener requires no account. The "My Orders" and "Settings" sections
 
 ## Data and limits
 - Source: the ESI, CCP Games' official API for EVE Online (not scraping).
-- Markets covered: Jita (The Forge), Amarr (Domain), Dodixie (Sinq Laison), Rens (Heimatar) and Hek (Metropolis), each as a whole region. The per-item plain HTML pages cover Jita only.
+- Markets covered: Jita (The Forge), Amarr (Domain), Dodixie (Sinq Laison), Rens (Heimatar) and Hek (Metropolis), each as a whole region. Each market has its own plain HTML page (`/jita/`, `/amarr/`, `/dodixie/`, `/rens/`, `/hek/`; localized under `/es/`, `/de/`, `/fr/`, `/it/`) with its top candidates. The per-item plain HTML pages cover Jita only.
 - Frequency: the prices-and-calculations cycle runs every 5 minutes; market history (daily volumes) updates once a day.
 - Informational tool, not investment advice nor an in-game purchase recommendation.
 - Independent site, not affiliated with CCP Games. EVE Online is a trademark of CCP hf.
