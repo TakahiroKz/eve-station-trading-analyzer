@@ -1451,6 +1451,60 @@
   border-color: rgba(61, 220, 132, 0.35);
 }
 
+.markets .section-heading,
+.faq .section-heading {
+  margin-bottom: 12px;
+  font-size: 1.4rem;
+}
+
+.markets-intro {
+  margin: 0 0 14px;
+  max-width: 68ch;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--ink-dim);
+}
+
+.markets-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.markets-links a {
+  display: block;
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.markets-links a:hover {
+  border-color: rgba(63, 208, 255, 0.45);
+}
+
+.faq-item {
+  margin-bottom: 14px;
+}
+
+.faq-item h3 {
+  margin: 0 0 4px;
+  font-size: 1.02rem;
+}
+
+.faq-item p {
+  margin: 0;
+  max-width: 68ch;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--ink-dim);
+}
+
 .how-state.is-potential b {
   color: var(--positive);
 }

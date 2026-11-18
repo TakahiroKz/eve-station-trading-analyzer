@@ -7,7 +7,7 @@ import { en } from './src/i18n/en'
 import { es } from './src/i18n/es'
 import { fr } from './src/i18n/fr'
 import { it } from './src/i18n/it'
-import { DEFAULT_LANG, LANGS, LOCALES, langPath, type Lang } from './src/i18n/langs'
+import { DEFAULT_LANG, LANGS, LOCALES, MARKET_PAGES, langPath, marketPagePath, type Lang } from './src/i18n/langs'
 
 const SITE = 'https://evemarket-analyzer.online'
 const DICTS: Record<Lang, Record<string, string>> = { en, es, de, fr, it }
@@ -34,6 +34,10 @@ function noscriptBlock(lang: Lang): string {
   const states = ['POTENCIAL', 'POTENCIAL_SIN_ORDENES', 'EN_OBSERVACION', 'DESCARTADO'].map(
     (status) => `<h3>${text(`tab.${status}`)}</h3><p>${text(`how.stateBody.${status}`)}</p>`,
   )
+  const marketLinks = MARKET_PAGES.map(
+    ({ id, name }) => `<li><a href="${marketPagePath(lang, id)}">${text('markets.link').replace('{market}', name)}</a></li>`,
+  ).join('')
+  const faq = [1, 2, 3, 4].map((n) => `<h3>${text(`faq.q${n}`)}</h3><p>${text(`faq.a${n}`)}</p>`)
   const languageLinks = LANGS.map(({ code, label }) => `<a href="${langPath(code)}">${label}</a>`).join(' · ')
   return [
     `<h1>${text('hero.title')}</h1>`,
@@ -43,6 +47,11 @@ function noscriptBlock(lang: Lang): string {
     ...steps,
     `<h2>${text('how.statesTitle')}</h2>`,
     ...states,
+    `<h2>${text('markets.title')}</h2>`,
+    `<p>${text('markets.intro')}</p>`,
+    `<ul>${marketLinks}</ul>`,
+    `<h2>${text('faq.title')}</h2>`,
+    ...faq,
     `<p>${text('footer.disclaimer')}</p>`,
     `<p>${languageLinks}</p>`,
   ].join('\n      ')

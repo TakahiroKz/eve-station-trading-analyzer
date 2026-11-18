@@ -134,3 +134,13 @@ def test_sitemap_lists_market_pages_only_for_active_markets_with_candidates(clie
         assert f"<loc>https://evemarket-analyzer.online{lang_path}</loc>" in xml
     assert "/rens/" not in xml and "/dodixie/" not in xml and "/hek/" not in xml
     assert 'hreflang="de" href="https://evemarket-analyzer.online/de/amarr/"' in xml
+
+
+def test_every_server_page_links_to_all_market_pages_in_its_language(client):
+    http, db_path = client
+    seed_item(db_path, 34, "Tritanium", "POTENCIAL")
+
+    for path, prefix in (("/items", ""), ("/items/34-tritanium", ""), ("/es/jita/", "/es")):
+        page = http.get(path).text
+        for slug in MARKET_SLUGS:
+            assert f'<a href="{prefix}/{slug}/">' in page, (path, slug)

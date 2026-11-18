@@ -6,7 +6,7 @@ import { it } from "./it";
 import { DEFAULT_LANG, type Lang } from "./langs";
 
 export type { MessageKey };
-export { DEFAULT_LANG, LANGS, LOCALES, langPath, type Lang } from "./langs";
+export { DEFAULT_LANG, LANGS, LOCALES, MARKET_PAGES, langPath, marketPagePath, type Lang } from "./langs";
 
 const DICTS: Record<Lang, Messages> = { en, es, de, fr, it };
 const STORAGE_KEY = "lang";

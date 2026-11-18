@@ -1,6 +1,6 @@
 import type { ItemStatus, Status } from "./api";
 import { DONATE_URL } from "./config";
-import { LANGS, langPath, type Lang, type MessageKey, type TFunction } from "./i18n";
+import { LANGS, MARKET_PAGES, langPath, marketPagePath, type Lang, type MessageKey, type TFunction } from "./i18n";
 
 // The public landing around the Screener (design B): what the site is, live numbers, the best
 // opportunities, how to read the statuses, a donation prompt and the footer. Every text comes
@@ -107,6 +107,37 @@ export function HowItWorks({ t }: { t: TFunction }) {
           </div>
         ))}
       </div>
+    </section>
+  );
+}
+
+/** Plain links to every hub's public page: real <a href> so crawlers can follow them. */
+export function MarketsSection({ t, lang }: { t: TFunction; lang: Lang }) {
+  return (
+    <section id="markets" className="markets" aria-labelledby="markets-title">
+      <h2 id="markets-title" className="section-heading">{t("markets.title")}</h2>
+      <p className="markets-intro">{t("markets.intro")}</p>
+      <ul className="markets-links">
+        {MARKET_PAGES.map(({ id, name }) => (
+          <li key={id}>
+            <a href={marketPagePath(lang, id)}>{t("markets.link", { market: name })}</a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+export function FaqSection({ t }: { t: TFunction }) {
+  return (
+    <section id="faq" className="faq" aria-labelledby="faq-title">
+      <h2 id="faq-title" className="section-heading">{t("faq.title")}</h2>
+      {[1, 2, 3, 4].map((n) => (
+        <div key={n} className="faq-item">
+          <h3>{t(`faq.q${n}` as MessageKey)}</h3>
+          <p>{t(`faq.a${n}` as MessageKey)}</p>
+        </div>
+      ))}
     </section>
   );
 }
