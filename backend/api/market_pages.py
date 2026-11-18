@@ -16,6 +16,7 @@ from backend.api.pages import (
     _STATUS_PLACEHOLDERS, BASE_URL, CHROME_EN, INDEXABLE_STATUSES, SITEMAP_LANGS, _e, _html,
     _isk, _json_ld, _not_found, _page, _pct, item_path, lang_path,
 )
+from backend.api.pages import parse_ts as _parse_ts
 from storage.db import DEFAULT_MARKET, MARKETS_SEED
 
 router = APIRouter()
@@ -130,16 +131,6 @@ def market_path(lang: str, slug: str) -> str:
     return f"/{slug}/" if lang == "en" else f"/{lang}/{slug}/"
 
 
-def _parse_ts(value: str | None) -> datetime | None:
-    try:
-        parsed = datetime.fromisoformat(value) if value else None
-    except ValueError:
-        return None
-    if parsed is not None and parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed
-
-
 def _alternates(slug: str) -> str:
     links = "".join(
         f'<link rel="alternate" hreflang="{lang}" href="{BASE_URL}{market_path(lang, slug)}">\n'
@@ -163,11 +154,13 @@ def _render(lang: str, slug: str) -> HTMLResponse:
             "SELECT MAX(last_evaluated_at) FROM item_status WHERE market_id = ?", (slug,),
         ).fetchone()[0]
         rows = conn.execute(
-            "SELECT s.type_id, i.name, s.roi, s.best_buy, s.best_sell, s.avg_daily_order_count_7d "
+            "SELECT s.type_id, i.name, s.roi, s.best_buy, s.best_sell, s.avg_daily_order_count_7d, "
+            "j.status AS jita_status "
             "FROM item_status s JOIN item_type i ON i.type_id = s.type_id "
+            "LEFT JOIN item_status j ON j.market_id = ? AND j.type_id = s.type_id "
             f"WHERE s.market_id = ? AND s.status IN ({_STATUS_PLACEHOLDERS}) "
             "ORDER BY s.avg_daily_order_count_7d DESC, s.type_id LIMIT ?",
-            (slug, *INDEXABLE_STATUSES, TOP_LIMIT),
+            (DEFAULT_MARKET, slug, *INDEXABLE_STATUSES, TOP_LIMIT),
         ).fetchall()
         hubs = conn.execute(
             "SELECT market_id, name FROM market WHERE enabled = 1 ORDER BY sort_order, market_id",
@@ -188,8 +181,9 @@ def _render(lang: str, slug: str) -> HTMLResponse:
 
     table_rows = "".join(
         "<tr><td>"
+        # The item page (all hubs) exists and is indexable only for items that are candidates in Jita.
         + (f'<a href="{_e(item_path(r["type_id"], r["name"]))}">{_e(r["name"])}</a>'
-           if slug == DEFAULT_MARKET else _e(r["name"]))
+           if r["jita_status"] in INDEXABLE_STATUSES else _e(r["name"]))
         + f'</td><td class="num pos">{_pct(r["roi"])}</td><td class="num">{_isk(r["best_buy"])}</td>'
         f'<td class="num">{_isk(r["best_sell"])}</td>'
         f'<td class="num">{r["avg_daily_order_count_7d"]:,.0f}</td></tr>'
