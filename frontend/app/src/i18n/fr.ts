@@ -228,6 +228,7 @@ export const fr: Messages = {
   "screener.title": "Toutes les opportunités",
   "screener.colSpread": "SPREAD/U",
   "screener.colOps": "TRANSACT./JOUR",
+  "market.label": "Marché",
   "filters.searchName": "Rechercher par nom d'objet",
   "filters.minRoiShort": "ROI min. %",
   "filters.minVolumeShort": "Volume min.",

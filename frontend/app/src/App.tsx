@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   api, type AppSetting, type Category, type CharacterOrder, type CharacterOrderClosed,
-  type CharacterOrderFill, type ItemDetail, type ItemFilters, type ItemStatus, type Opportunity,
+  type CharacterOrderFill, type ItemDetail, type ItemFilters, type ItemStatus, type Market, type Opportunity,
   type Schedule, type Status, type Summary,
 } from "./api";
 import { DONATE_URL } from "./config";
@@ -31,6 +31,20 @@ function writeOwnerHint(isOwner: boolean) {
     else window.localStorage.removeItem(OWNER_HINT_KEY);
   } catch {
     // Storage can be blocked; the landing is then just drawn until the session check answers.
+  }
+}
+
+// The market (trade hub) being explored: ?market=amarr in the URL, then the last choice, then Jita.
+const MARKET_KEY = "market";
+const DEFAULT_MARKET = "jita";
+
+function readInitialMarket(): string {
+  try {
+    const fromUrl = new URLSearchParams(window.location.search).get(MARKET_KEY);
+    if (fromUrl && /^[a-z0-9-]{1,32}$/.test(fromUrl)) return fromUrl;
+    return window.localStorage.getItem(MARKET_KEY) || DEFAULT_MARKET;
+  } catch {
+    return DEFAULT_MARKET;
   }
 }
 
@@ -127,6 +141,8 @@ export default function App() {
   const formatTrades = (value: number) =>
     new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1, useGrouping: "always" }).format(value);
 
+  const [markets, setMarkets] = useState<Market[]>([]);
+  const [market, setMarket] = useState<string>(readInitialMarket);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tab, setTab] = useState<Status>("POTENCIAL");
@@ -177,17 +193,40 @@ export default function App() {
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
-    api.summary().then(setSummary).catch((e) => setError(String(e)));
-    api.categories().then(setCategories).catch(() => {});
+    api.markets().then((list) => {
+      setMarkets(list);
+      // A stale ?market= or saved choice (disabled or unknown market) falls back to the first one.
+      if (list.length > 0 && !list.some((m) => m.market_id === market)) setMarket(list[0].market_id);
+    }).catch(() => {});
+    // eslint-disable-next-line
+  }, []);
+
+  useEffect(() => {
+    api.summary(market).then(setSummary).catch((e) => setError(String(e)));
+    api.categories(market).then(setCategories).catch(() => {});
     // "Best right now": the most-traded items (trades/day, 7d) with ROI above BEST_MIN_ROI. The API
     // cannot filter by ROI, so a wide page sorted by trades is filtered here.
     api
-      .items({ status: "POTENCIAL", sort: "avg_daily_order_count_7d", order: "desc", limit: 200 })
+      .items({ market, status: "POTENCIAL", sort: "avg_daily_order_count_7d", order: "desc", limit: 200 })
       .then((res) => setBestItems(
         res.items.filter((i) => i.roi > BEST_MIN_ROI).slice(0, BEST_COUNT),
       ))
       .catch(() => {});
-  }, []);
+  }, [market]);
+
+  useEffect(() => {
+    // Keep the choice in the URL (shareable) and in this browser; Jita, the default, leaves the URL clean.
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (market === DEFAULT_MARKET) params.delete(MARKET_KEY);
+      else params.set(MARKET_KEY, market);
+      const rest = params.toString();
+      window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
+      window.localStorage.setItem(MARKET_KEY, market);
+    } catch {
+      // Storage or history can be blocked; the choice then lasts only for this visit.
+    }
+  }, [market]);
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
@@ -337,7 +376,7 @@ export default function App() {
         return api.characterOrderFills();
       })
       .then(setOrderFills)
-      .then(() => Promise.all([api.summary(), api.wallet()]))
+      .then(() => Promise.all([api.summary(market), api.wallet()]))
       .then(([s, w]) => {
         setSummary(s);
         setWallet(w.wallet_balance);
@@ -351,7 +390,7 @@ export default function App() {
     setError(null);
     api
       .items({
-        status: tab, ...appliedFilters, sort: sortField, order: sortOrder,
+        market, status: tab, ...appliedFilters, sort: sortField, order: sortOrder,
         limit: PAGE_SIZE, offset: page * PAGE_SIZE,
       })
       .then((res) => {
@@ -360,7 +399,7 @@ export default function App() {
       })
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false));
-  }, [tab, appliedFilters, sortField, sortOrder, page]);
+  }, [market, tab, appliedFilters, sortField, sortOrder, page]);
 
   // Name search: applied on its own 300 ms after the last keystroke (one request per pause, not per letter).
   useEffect(() => {
@@ -378,12 +417,27 @@ export default function App() {
     return () => clearTimeout(id);
   }, [filterForm.q, appliedFilters.q]);
 
+  function switchMarket(next: string) {
+    if (next === market) return;
+    setMarket(next);
+    setSelected(null);
+    setRecommendation(null);
+    // Categories differ between markets: drop that filter, keep the rest (name, ranges, sort).
+    setFilterForm((form) => ({ ...form, categoryId: "" }));
+    setAppliedFilters((prev) => {
+      const rest = { ...prev };
+      delete rest.categoryId;
+      return rest;
+    });
+    setPage(0);
+  }
+
   function openItem(typeId: number) {
     setOpenWindowMsg(null);
     setRecommendation(null);
-    api.itemDetail(typeId).then(setSelected).catch((e) => setError(String(e)));
+    api.itemDetail(typeId, market).then(setSelected).catch((e) => setError(String(e)));
     if (authenticated) {
-      api.itemRecommendation(typeId).then(setRecommendation).catch(() => setRecommendation(null));
+      api.itemRecommendation(typeId, market).then(setRecommendation).catch(() => setRecommendation(null));
     }
   }
 
@@ -848,6 +902,21 @@ export default function App() {
       )}
       <section id="screener" className="screener-section">
       {showLanding && <h2 className="section-heading">{t("screener.title")}</h2>}
+      {markets.length > 1 && (
+        <div className="market-switch" role="group" aria-label={t("market.label")}>
+          <span className="market-switch-label">{t("market.label")}</span>
+          {markets.map((m) => (
+            <button
+              key={m.market_id}
+              className={m.market_id === market ? "tab active" : "tab"}
+              aria-pressed={m.market_id === market}
+              onClick={() => switchMarket(m.market_id)}
+            >
+              {m.name}
+            </button>
+          ))}
+        </div>
+      )}
       <nav className="tabs">
         {TAB_KEYS.map((key) => (
           <button

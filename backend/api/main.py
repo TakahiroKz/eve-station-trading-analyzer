@@ -27,6 +27,7 @@ from backend.api.private import router as private_router
 from backend.api.ratelimit import install_rate_limit
 from backend.api.seo import docs_kwargs, install_seo_middleware
 from backend.api.schemas import (
+    MarketOut,
     CategoryOut,
     HistoryPointOut,
     ItemDetailOut,
@@ -59,6 +60,32 @@ app.include_router(analytics_private_router)
 app.include_router(analytics_router)
 app.include_router(pages_router)
 app.include_router(indexnow_router)
+
+
+@app.get("/api/markets", response_model=list[MarketOut])
+def list_markets_endpoint():
+    """Mercados activos con sus conteos por estado y la última evaluación: alimenta el selector de
+    mercado de la app y sirve para vigilar que cada mercado se actualice."""
+    conn = _db()
+    try:
+        markets = conn.execute(
+            "SELECT market_id, name, region_id FROM market WHERE enabled = 1 ORDER BY sort_order, market_id"
+        ).fetchall()
+        counts: dict[str, dict[str, int]] = {}
+        for row in conn.execute("SELECT market_id, status, COUNT(*) AS n FROM item_status GROUP BY market_id, status"):
+            counts.setdefault(row["market_id"], {})[row["status"]] = row["n"]
+        last = {r["market_id"]: r["m"] for r in conn.execute(
+            "SELECT market_id, MAX(last_evaluated_at) AS m FROM item_status GROUP BY market_id")}
+        return [
+            MarketOut(
+                market_id=m["market_id"], name=m["name"], region_id=m["region_id"],
+                counts=counts.get(m["market_id"], {}), total=sum(counts.get(m["market_id"], {}).values()),
+                last_evaluated_at=last.get(m["market_id"]),
+            )
+            for m in markets
+        ]
+    finally:
+        conn.close()
 
 
 @app.get("/api/summary", response_model=SummaryOut)
@@ -177,11 +204,14 @@ def list_items(
 
 
 @app.get("/api/categories", response_model=list[CategoryOut])
-def list_categories():
+def list_categories(market: str = DEFAULT_MARKET):
     conn = _db()
     try:
+        market = resolve_market(conn, market)
         rows = conn.execute(
-            "SELECT DISTINCT category_id, category_name FROM item_category ORDER BY category_name"
+            "SELECT DISTINCT c.category_id, c.category_name FROM item_category c "
+            "JOIN item_status s ON s.type_id = c.type_id WHERE s.market_id = ? ORDER BY c.category_name",
+            (market,),
         ).fetchall()
         return [CategoryOut(**dict(r)) for r in rows]
     finally:
