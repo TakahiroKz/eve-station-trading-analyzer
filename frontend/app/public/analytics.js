@@ -51,11 +51,14 @@
     return Array.prototype.map.call(bytes, function (b) { return ("0" + b.toString(16)).slice(-2); }).join("");
   }
 
-  function post(path, payload) {
+  function post(path, payload, retried) {
     try {
       fetch(path, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
         keepalive: true, credentials: "omit"
+      }).then(function (res) {
+        // A busy server (503) is retried once; the ping carries cumulative seconds, so nothing is lost.
+        if (res.status === 503 && !retried) setTimeout(function () { post(path, payload, true); }, 15000);
       }).catch(function () { /* analytics must never break the page */ });
     } catch { /* ignore */ }
   }
