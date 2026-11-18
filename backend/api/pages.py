@@ -16,7 +16,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from backend.api.deps import _db
 from backend.api.seo import CANONICAL_HOST
-from storage.db import DEFAULT_MARKET
+from storage.db import DEFAULT_MARKET, MARKETS_SEED
 
 router = APIRouter()
 
@@ -138,11 +138,19 @@ table.rank td:first-child{font-family:var(--sans);font-weight:600;white-space:no
 ul{padding-left:20px}
 .site-foot{max-width:1100px;margin:32px auto 0;padding:18px 16px 32px;border-top:1px solid var(--line);color:var(--dim);font-size:.8rem}
 .site-foot p{margin:0 0 12px;max-width:64ch;line-height:1.5}
-.site-foot nav{display:flex;flex-wrap:wrap;gap:8px 18px}
+.site-foot nav{display:flex;flex-wrap:wrap;gap:8px 18px;margin:0 0 10px}
 .site-foot a{color:var(--dim)}
 .site-foot a:hover{color:var(--ink)}
 @media (max-width:640px){.top-in{gap:12px}.top-links{gap:14px}.cta{display:none}.kpis{grid-template-columns:1fr}.grid{grid-template-columns:1fr}th,td{padding:10px 12px}th{width:46%}}
 """
+
+
+def _hub_nav(lang: str) -> str:
+    """Footer links to every hub's public page, so the pages of each market are reachable from
+    every server-rendered page and not only from the sitemap."""
+    prefix = "" if lang == "en" else f"/{lang}"
+    links = "".join(f'<a href="{prefix}/{seed[0]}/">{_e(seed[1])}</a>' for seed in MARKETS_SEED)
+    return f'<nav aria-label="Markets">{links}</nav>'
 
 
 def lang_path(lang: str) -> str:
@@ -252,6 +260,7 @@ def _page(title: str, description: str, canonical_path: str, body: str, robots: 
         f'<nav aria-label="Footer"><a href="{_e(home_href)}">{_e(chrome["screener"])}</a>'
         f'<a href="/items">{_e(chrome["items"])}</a>'
         f'<a href="/privacy">{_e(chrome["privacy"])}</a></nav>'
+        f"{_hub_nav(lang)}"
         f'</footer>\n{scripts}<script src="/analytics.js" defer></script>\n</body></html>\n'
     )
 

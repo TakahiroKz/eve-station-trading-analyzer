@@ -10,7 +10,7 @@ import {
   translateSettingCategory, translateSettingLabel, translateSpread, type MessageKey, type TFunction,
 } from "./i18n";
 import { useI18n } from "./i18n/useI18n";
-import { BEST_COUNT, BEST_MIN_ROI, BestNow, Hero, HowItWorks, SiteFooter, Stats, SupportBand } from "./Landing";
+import { BEST_COUNT, BEST_MIN_ROI, BestNow, FaqSection, Hero, HowItWorks, MarketsSection, SiteFooter, Stats, SupportBand } from "./Landing";
 import "./App.css";
 
 // Remembers that this browser belongs to the signed-in owner, so the public landing (hero,
@@ -1143,6 +1143,8 @@ export default function App() {
       {showLanding && (
         <>
           <HowItWorks t={t} />
+          <MarketsSection t={t} lang={lang} />
+          <FaqSection t={t} />
           <SupportBand t={t} />
         </>
       )}

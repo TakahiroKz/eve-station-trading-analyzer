@@ -20,6 +20,19 @@ export const LOCALES: Record<Lang, string> = {
   en: "en-US", es: "es-ES", de: "de-DE", fr: "fr-FR", it: "it-IT",
 };
 
+/** The trade hubs that have their own public page (`/amarr/`, `/es/amarr/`...), served by the backend. */
+export const MARKET_PAGES = [
+  { id: "jita", name: "Jita" },
+  { id: "amarr", name: "Amarr" },
+  { id: "dodixie", name: "Dodixie" },
+  { id: "rens", name: "Rens" },
+  { id: "hek", name: "Hek" },
+] as const;
+
+export function marketPagePath(lang: Lang, marketId: string): string {
+  return lang === DEFAULT_LANG ? `/${marketId}/` : `/${lang}/${marketId}/`;
+}
+
 /** Each non-default language lives at its own path (`/es/`, `/de/`...) so search engines can
  *  index it; the default one stays at `/`. */
 export function langPath(lang: Lang): string {
