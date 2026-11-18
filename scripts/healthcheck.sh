@@ -8,6 +8,8 @@
 #   1. La API responde en HEALTH_URL (el contenedor `api` está vivo).
 #   2. `last_evaluated_at` (motor de mercado, ciclo de precios cada 5 min) tiene menos de
 #      MARKET_MAX_AGE_MIN minutos (default 15: 3 ciclos perdidos).
+#   2b. Cada mercado activo (GET /api/markets) tiene `last_evaluated_at` de menos de
+#      MARKET_MAX_AGE_MIN minutos; avisa cuáles se atrasaron (Jita ya está cubierto arriba).
 #   3. Hay una corrida reciente del motor de posiciones (mtime del log de hoy,
 #      ciclo de 5 min) -- menos de POSITIONS_MAX_AGE_MIN minutos (default 20).
 #   4. El servicio systemd `cloudflared` está activo.
@@ -39,6 +41,7 @@ _env_get() {
 }
 
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8001/api/summary}"
+MARKETS_URL="${MARKETS_URL:-${HEALTH_URL%/summary}/markets}"
 MARKET_MAX_AGE_MIN="${MARKET_MAX_AGE_MIN:-15}"
 POSITIONS_MAX_AGE_MIN="${POSITIONS_MAX_AGE_MIN:-20}"
 LOG_DIR="${LOG_DIR:-$APP_DIR/logs}"
@@ -84,6 +87,39 @@ PYEOF
         failures+=("el motor de mercado no corre hace más de ${MARKET_MAX_AGE_MIN} min")
       fi ;;
   esac
+fi
+
+# 2b: frescura de cada mercado activo. Si /api/markets no responde se omite (el chequeo 1 ya avisa
+# si la API cae); si responde, un mercado activo sin evaluar hace más de MARKET_MAX_AGE_MIN min es falla.
+if markets_body="$(curl -fsS --max-time 15 "$MARKETS_URL" 2>/dev/null)"; then
+  stale_markets="$(python3 - "$markets_body" "$MARKET_MAX_AGE_MIN" <<'PYEOF'
+import json
+import sys
+from datetime import datetime, timezone
+
+try:
+    markets = json.loads(sys.argv[1])
+    limit = float(sys.argv[2])
+    stale = []
+    for market in markets:
+        last = market.get("last_evaluated_at")
+        if not last:
+            stale.append(market["market_id"])
+            continue
+        dt = datetime.fromisoformat(last.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        if (datetime.now(timezone.utc) - dt).total_seconds() / 60 > limit:
+            stale.append(market["market_id"])
+    print(",".join(stale))
+except Exception:
+    print("")
+PYEOF
+)"
+  if [ -n "$stale_markets" ]; then
+    # Sin la antigüedad en el texto (anti-spam): solo los mercados atrasados.
+    failures+=("mercados sin actualizar hace más de ${MARKET_MAX_AGE_MIN} min: ${stale_markets}")
+  fi
 fi
 
 # 3: motor de posiciones -- cada corrida (haya o no órdenes) escribe al log del día.
