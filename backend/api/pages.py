@@ -16,6 +16,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from backend.api.deps import _db
 from backend.api.seo import CANONICAL_HOST
+from storage.db import DEFAULT_MARKET
 
 router = APIRouter()
 
@@ -251,9 +252,9 @@ def items_index() -> HTMLResponse:
             "COALESCE(c.category_name, 'Other') AS category "
             "FROM item_status s JOIN item_type i ON i.type_id = s.type_id "
             "LEFT JOIN item_category c ON c.type_id = s.type_id "
-            f"WHERE s.status IN ({_STATUS_PLACEHOLDERS}) "
+            f"WHERE s.market_id = ? AND s.status IN ({_STATUS_PLACEHOLDERS}) "
             "ORDER BY s.volumen_diario_real DESC LIMIT ?",
-            (*INDEXABLE_STATUSES, HUB_LIMIT),
+            (DEFAULT_MARKET, *INDEXABLE_STATUSES, HUB_LIMIT),
         ).fetchall()
     finally:
         conn.close()
@@ -316,14 +317,14 @@ def item_page(item_ref: str):
         row = conn.execute(
             "SELECT s.*, i.name, c.category_id, c.category_name, c.group_name "
             "FROM item_status s JOIN item_type i ON i.type_id = s.type_id "
-            "LEFT JOIN item_category c ON c.type_id = s.type_id WHERE s.type_id = ?",
-            (type_id,),
+            "LEFT JOIN item_category c ON c.type_id = s.type_id WHERE s.market_id = ? AND s.type_id = ?",
+            (DEFAULT_MARKET, type_id),
         ).fetchone()
         if row is None:
             return _not_found()
         snapshot = conn.execute(
-            "SELECT buy_order_count, sell_order_count FROM market_snapshot WHERE type_id = ? "
-            "ORDER BY captured_at DESC LIMIT 1", (type_id,),
+            "SELECT buy_order_count, sell_order_count FROM market_snapshot WHERE market_id = ? AND type_id = ? "
+            "ORDER BY captured_at DESC LIMIT 1", (DEFAULT_MARKET, type_id),
         ).fetchone()
         related = []
         if row["category_id"] is not None:
@@ -331,10 +332,10 @@ def item_page(item_ref: str):
                 "SELECT s.type_id, i.name FROM item_status s "
                 "JOIN item_type i ON i.type_id = s.type_id "
                 "JOIN item_category c ON c.type_id = s.type_id "
-                "WHERE c.category_id = ? AND s.type_id != ? "
+                "WHERE s.market_id = ? AND c.category_id = ? AND s.type_id != ? "
                 f"AND s.status IN ({_STATUS_PLACEHOLDERS}) "
                 "ORDER BY s.volumen_diario_real DESC LIMIT ?",
-                (row["category_id"], type_id, *INDEXABLE_STATUSES, RELATED_LIMIT),
+                (DEFAULT_MARKET, row["category_id"], type_id, *INDEXABLE_STATUSES, RELATED_LIMIT),
             ).fetchall()
     finally:
         conn.close()
@@ -525,10 +526,12 @@ def sitemap() -> Response:
         rows = conn.execute(
             "SELECT s.type_id, i.name, s.last_evaluated_at FROM item_status s "
             "JOIN item_type i ON i.type_id = s.type_id "
-            f"WHERE s.status IN ({_STATUS_PLACEHOLDERS}) ORDER BY s.type_id",
-            INDEXABLE_STATUSES,
+            f"WHERE s.market_id = ? AND s.status IN ({_STATUS_PLACEHOLDERS}) ORDER BY s.type_id",
+            (DEFAULT_MARKET, *INDEXABLE_STATUSES),
         ).fetchall()
-        latest = conn.execute("SELECT MAX(last_evaluated_at) FROM item_status").fetchone()[0]
+        latest = conn.execute(
+            "SELECT MAX(last_evaluated_at) FROM item_status WHERE market_id = ?", (DEFAULT_MARKET,),
+        ).fetchone()[0]
     finally:
         conn.close()
 

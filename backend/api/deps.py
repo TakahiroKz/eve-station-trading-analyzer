@@ -7,6 +7,7 @@ import sqlite3
 from fastapi import HTTPException, Request
 
 from backend.api.security import check_same_origin, verify_access_jwt
+from storage.db import DEFAULT_MARKET
 
 
 def _db() -> sqlite3.Connection:
@@ -18,6 +19,16 @@ def _db() -> sqlite3.Connection:
     # escritura en curso tira "database is locked" al toque en vez de esperar.
     conn.execute("PRAGMA busy_timeout = 5000")
     return conn
+
+
+def resolve_market(conn: sqlite3.Connection, market: str = DEFAULT_MARKET) -> str:
+    """Valida el mercado pedido: tiene que existir en la tabla `market` y estar activo."""
+    row = conn.execute(
+        "SELECT market_id FROM market WHERE market_id = ? AND enabled = 1", (market,),
+    ).fetchone()
+    if row is None:
+        raise HTTPException(404, "El mercado no existe o no está activo")
+    return row["market_id"]
 
 
 ITEM_JOIN = (

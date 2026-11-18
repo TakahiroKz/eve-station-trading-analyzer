@@ -104,6 +104,25 @@ la función correspondiente (autorización incremental).
   reintentan en las siguientes corridas durante 30 min (máx. 5 intentos); después se descartan con
   una línea en el log. `SELECT COUNT(*) FROM notification_outbox` dice cuántos esperan.
 
+## Mercados (esquema por mercado)
+
+Las tablas por mercado (`market_history`, `market_snapshot`, `item_status`, `item_status_history`,
+`opportunity_log`) llevan `market_id` en la clave; `item_type`, `item_category` y los ajustes son comunes. La
+tabla `market` lista los hubs (jita, amarr, dodixie, rens, hek), cada uno con su `region_id`, y `enabled` decide
+cuáles analiza el sistema y cuáles acepta la API (`?market=`). Hoy cada mercado es una región, como Jita desde el
+principio; `kind = system` queda para mercados de un solo sistema (arbitraje) sin cambiar el esquema.
+
+**Migración desde el esquema anterior** (una sola vez, `init_db` la hace sola y es atómica): renombra las cinco tablas
+a `*_pre_market`, crea las nuevas y copia todo con `market_id = jita`; si los conteos no coinciden, revierte. En la
+base de producción (2 GB) tardó 88 s y quedó idéntica (conteos y sumas). Las copias `*_pre_market` se conservan hasta
+verificar; luego se borran y se compacta:
+
+```
+python -c "from storage.db import get_connection, drop_pre_market_tables; c = get_connection(storage/market.db); print(drop_pre_market_tables(c)); c.execute(VACUUM)"
+```
+
+Hacerla con los motores y el cron pausados (el VACUUM tarda ~70 s y bloquea la escritura).
+
 ## Tamaño de la base de datos
 
 `opportunity_log` crecía una fila por ítem y por ciclo (~4,7 millones al día con ciclos de 5 min) hasta

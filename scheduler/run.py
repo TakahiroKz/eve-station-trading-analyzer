@@ -39,6 +39,7 @@ from ingestion.wallet import get_current_wallet_balance
 from reporting.excel_writer import EveCalculatorRegistro
 from notifications.events import NewOpportunity, dispatch, flush_notifications
 from storage.db import (
+    DEFAULT_MARKET,
     get_app_settings_dict,
     get_cached_category_type_ids,
     get_cached_group,
@@ -103,7 +104,7 @@ def snapshot_retention_hours() -> float:
     return DEFAULT_SNAPSHOT_RETENTION_HOURS
 
 
-def ingest_orders(client: EsiClient, region_id: int, db_path: str) -> list[int]:
+def ingest_orders(client: EsiClient, region_id: int, db_path: str, market_id: str = DEFAULT_MARKET) -> list[int]:
     """Parte rápida de la ingesta: tipos activos, libro de órdenes de la región y snapshots.
     Los nombres solo se piden para los tipos que todavía no están en `item_type` (o quedaron con
     el nombre provisional `type_N`): ya no se resuelven los ~19.500 en cada ciclo."""
@@ -128,12 +129,12 @@ def ingest_orders(client: EsiClient, region_id: int, db_path: str) -> list[int]:
             name = known_names.get(type_id) or new_names.get(type_id, f"type_{type_id}")
             upsert_item_type(conn, type_id, name)
             snapshot = orders_by_type.get(type_id, {})
-            upsert_market_snapshot(conn, type_id, captured_at, snapshot)
+            upsert_market_snapshot(conn, type_id, captured_at, snapshot, market_id=market_id)
         conn.commit()
         logger.info("Snapshot de órdenes cargado para %d tipos (%d nombres nuevos)", len(type_ids), len(missing))
 
         keep_hours = snapshot_retention_hours()
-        deleted = prune_old_snapshots(conn, keep_hours=keep_hours)
+        deleted = prune_old_snapshots(conn, keep_hours=keep_hours, market_id=market_id)
         if deleted:
             logger.info("Snapshots de más de %g h borrados: %d filas", keep_hours, deleted)
         return type_ids
@@ -142,7 +143,7 @@ def ingest_orders(client: EsiClient, region_id: int, db_path: str) -> list[int]:
 
 
 def ingest_history(client: EsiClient, region_id: int, db_path: str, type_ids: list[int],
-                   backfill: bool = False, max_workers: int = 20) -> None:
+                   backfill: bool = False, max_workers: int = 20, market_id: str = DEFAULT_MARKET) -> None:
     """Parte lenta de la ingesta: el histórico diario de mercado de cada tipo (una petición por
     tipo). Solo cambia una vez al día, así que en producción corre en su propio proceso.
 
@@ -156,7 +157,7 @@ def ingest_history(client: EsiClient, region_id: int, db_path: str, type_ids: li
 
     def flush() -> None:
         for pending_type_id, pending_row in pending:
-            upsert_market_history(conn, pending_type_id, pending_row)
+            upsert_market_history(conn, pending_type_id, pending_row, market_id=market_id)
         conn.commit()
         pending.clear()
 
@@ -194,10 +195,12 @@ def ingest_history(client: EsiClient, region_id: int, db_path: str, type_ids: li
         conn.close()
 
 
-def ingest(client: EsiClient, region_id: int, db_path: str, backfill: bool, max_workers: int = 20) -> list[int]:
+def ingest(client: EsiClient, region_id: int, db_path: str, backfill: bool, max_workers: int = 20,
+           market_id: str = DEFAULT_MARKET) -> list[int]:
     """Ingesta completa (órdenes + histórico): lo que corre sin flags."""
-    type_ids = ingest_orders(client, region_id, db_path)
-    ingest_history(client, region_id, db_path, type_ids, backfill=backfill, max_workers=max_workers)
+    type_ids = ingest_orders(client, region_id, db_path, market_id=market_id)
+    ingest_history(client, region_id, db_path, type_ids, backfill=backfill, max_workers=max_workers,
+                   market_id=market_id)
     logger.info("Ingesta completada para %d tipos", len(type_ids))
     return type_ids
 
@@ -272,7 +275,8 @@ def ingest_categories(client: EsiClient, db_path: str, type_ids: list[int], max_
 
 
 def screen_opportunities(db_path: str, excel_path: str,
-                          fallback_volumen_deseado: float | None = None) -> pd.DataFrame:
+                          fallback_volumen_deseado: float | None = None,
+                          market_id: str = DEFAULT_MARKET) -> pd.DataFrame:
     conn = get_connection(db_path)
     try:
         settings = get_app_settings_dict(conn)
@@ -300,16 +304,16 @@ def screen_opportunities(db_path: str, excel_path: str,
         # al swap thrashing y la corrida nunca terminaba.
         snapshot = pd.read_sql_query(
             "SELECT s.*, i.name FROM market_snapshot s JOIN item_type i ON i.type_id = s.type_id "
-            "WHERE s.captured_at = (SELECT MAX(s2.captured_at) FROM market_snapshot s2 "
-            "WHERE s2.type_id = s.type_id)",
-            conn,
+            "WHERE s.market_id = ? AND s.captured_at = (SELECT MAX(s2.captured_at) FROM market_snapshot s2 "
+            "WHERE s2.market_id = s.market_id AND s2.type_id = s.type_id)",
+            conn, params=(market_id,),
         )
         history = pd.read_sql_query(
             "SELECT type_id, date, avg_price, volume, order_count FROM ("
             "SELECT type_id, date, avg_price, volume, order_count, "
             "ROW_NUMBER() OVER (PARTITION BY type_id ORDER BY date DESC) AS rn "
-            "FROM market_history) WHERE rn <= ?",
-            conn, params=(HISTORY_WINDOW,),
+            "FROM market_history WHERE market_id = ?) WHERE rn <= ?",
+            conn, params=(market_id, HISTORY_WINDOW),
         )
 
         latest_snapshot = snapshot.sort_values("captured_at").groupby("type_id").tail(1)
@@ -340,6 +344,7 @@ def screen_opportunities(db_path: str, excel_path: str,
         run_start = datetime.now(timezone.utc)
         last_logged = recent_opportunity_times(
             conn, (run_start - timedelta(minutes=max(log_interval, log_discarded_interval))).isoformat(),
+            market_id=market_id,
         )
         with EveCalculatorRegistro(excel_path) as registro:
             for _, row in merged.iterrows():
@@ -378,7 +383,7 @@ def screen_opportunities(db_path: str, excel_path: str,
                         f"del precio histórico reciente ({row['reference_price']:.2f}): probable orden "
                         f"basura, no es una oportunidad real."
                     )
-                previous = get_item_status(conn, row["type_id"])
+                previous = get_item_status(conn, row["type_id"], market_id=market_id)
                 previous_status = previous["status"] if previous else None
 
                 upsert_item_status(conn, {
@@ -397,9 +402,10 @@ def screen_opportunities(db_path: str, excel_path: str,
                     "avg_daily_volume_7d": avg_daily_volume_7d,
                     "avg_daily_order_count_7d": avg_daily_order_count_7d,
                     "last_evaluated_at": now,
-                })
+                }, market_id=market_id)
                 if status != previous_status:
-                    insert_status_history(conn, row["type_id"], previous_status, status, now, reason)
+                    insert_status_history(conn, row["type_id"], previous_status, status, now, reason,
+                                          market_id=market_id)
 
                 if opportunity_log_due(status, previous_status, last_logged.get(row["type_id"]), now_dt,
                                        log_interval, log_discarded_interval):
@@ -418,7 +424,7 @@ def screen_opportunities(db_path: str, excel_path: str,
                         "posicion_vs_volumen": result.posicion_vs_volumen,
                         "liquidez": result.liquidez,
                         "recomendacion": result.recomendacion,
-                    })
+                    }, market_id=market_id)
 
                 # El registro Excel es un log de OPORTUNIDADES detectadas, no de todos
                 # los ítems evaluados — solo se anota lo clasificado como POTENCIAL.

@@ -12,7 +12,7 @@ import sys
 import pandas as pd
 from dotenv import load_dotenv
 
-from storage.db import get_connection
+from storage.db import DEFAULT_MARKET, get_connection
 
 
 def main() -> int:
@@ -36,8 +36,9 @@ def main() -> int:
                    s.last_evaluated_at, i.name
             FROM item_status s
             JOIN item_type i ON i.type_id = s.type_id
+            WHERE s.market_id = ?
             """,
-            conn,
+            conn, params=(DEFAULT_MARKET,),
         )
     finally:
         conn.close()

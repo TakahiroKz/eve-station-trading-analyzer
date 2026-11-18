@@ -20,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 
 from backend.api.analytics import private_router as analytics_private_router
 from backend.api.analytics import router as analytics_router
-from backend.api.deps import ITEM_JOIN, ITEM_SELECT_COLS, _db
+from backend.api.deps import ITEM_JOIN, ITEM_SELECT_COLS, _db, resolve_market
 from backend.api.indexnow import router as indexnow_router
 from backend.api.pages import router as pages_router
 from backend.api.private import router as private_router
@@ -39,6 +39,7 @@ from backend.api.schemas import (
     SummaryOut,
 )
 from ingestion.schedule import get_next_run_times
+from storage.db import DEFAULT_MARKET
 
 load_dotenv()
 
@@ -61,12 +62,17 @@ app.include_router(indexnow_router)
 
 
 @app.get("/api/summary", response_model=SummaryOut)
-def get_summary():
+def get_summary(market: str = DEFAULT_MARKET):
     conn = _db()
     try:
-        rows = conn.execute("SELECT status, COUNT(*) as n FROM item_status GROUP BY status").fetchall()
+        market = resolve_market(conn, market)
+        rows = conn.execute(
+            "SELECT status, COUNT(*) as n FROM item_status WHERE market_id = ? GROUP BY status", (market,),
+        ).fetchall()
         counts = {r["status"]: r["n"] for r in rows}
-        last = conn.execute("SELECT MAX(last_evaluated_at) as m FROM item_status").fetchone()
+        last = conn.execute(
+            "SELECT MAX(last_evaluated_at) as m FROM item_status WHERE market_id = ?", (market,),
+        ).fetchone()
         return SummaryOut(
             counts=counts,
             total=sum(counts.values()),
@@ -86,6 +92,7 @@ def get_schedule():
 
 @app.get("/api/items", response_model=ItemsPageOut)
 def list_items(
+    market: str = DEFAULT_MARKET,
     status: str | None = None,
     category_id: int | None = None,
     q: str | None = Query(default=None, max_length=100),
@@ -117,7 +124,7 @@ def list_items(
     if limit < 1 or limit > 500:
         raise HTTPException(400, "limit debe estar entre 1 y 500")
 
-    filters: list[str] = []
+    filters: list[str] = ["s.market_id = ?"]
     params: list = []
     if status:
         filters.append("s.status = ?")
@@ -151,6 +158,7 @@ def list_items(
 
     conn = _db()
     try:
+        params.insert(0, resolve_market(conn, market))
         total = conn.execute(f"SELECT COUNT(*) as n {ITEM_JOIN}{where}", params).fetchone()["n"]
 
         sort_col = "i.name" if sort == "name" else f"s.{sort}"
@@ -181,35 +189,36 @@ def list_categories():
 
 
 @app.get("/api/items/{type_id}", response_model=ItemDetailOut)
-def get_item_detail(type_id: int):
+def get_item_detail(type_id: int, market: str = DEFAULT_MARKET):
     conn = _db()
     try:
+        market = resolve_market(conn, market)
         status_row = conn.execute(
-            f"SELECT {ITEM_SELECT_COLS} {ITEM_JOIN} WHERE s.type_id = ?",
-            (type_id,),
+            f"SELECT {ITEM_SELECT_COLS} {ITEM_JOIN} WHERE s.market_id = ? AND s.type_id = ?",
+            (market, type_id),
         ).fetchone()
         if status_row is None:
             raise HTTPException(404, "Ítem no encontrado o sin clasificar todavía")
 
         history_rows = conn.execute(
             "SELECT date, avg_price, highest, lowest, volume, order_count "
-            "FROM market_history WHERE type_id = ? ORDER BY date DESC LIMIT 90",
-            (type_id,),
+            "FROM market_history WHERE market_id = ? AND type_id = ? ORDER BY date DESC LIMIT 90",
+            (market, type_id),
         ).fetchall()
 
         snapshot_row = conn.execute(
             "SELECT captured_at, best_buy, best_sell, buy_volume, sell_volume, "
             "buy_order_count, sell_order_count "
-            "FROM market_snapshot WHERE type_id = ? ORDER BY captured_at DESC LIMIT 1",
-            (type_id,),
+            "FROM market_snapshot WHERE market_id = ? AND type_id = ? ORDER BY captured_at DESC LIMIT 1",
+            (market, type_id),
         ).fetchone()
 
         opportunity_rows = conn.execute(
             "SELECT evaluated_at, buy, sell, volumen_deseado, volumen_diario_real, beneficio, "
             "spread_bruto, precio_min_venta, roi, evaluacion_spread, posicion_vs_volumen, "
-            "liquidez, recomendacion FROM opportunity_log WHERE type_id = ? "
+            "liquidez, recomendacion FROM opportunity_log WHERE market_id = ? AND type_id = ? "
             "ORDER BY evaluated_at DESC LIMIT 20",
-            (type_id,),
+            (market, type_id),
         ).fetchall()
 
         return ItemDetailOut(
@@ -223,16 +232,17 @@ def get_item_detail(type_id: int):
 
 
 @app.get("/api/status-changes", response_model=list[StatusChangeOut])
-def list_status_changes(limit: int = 50):
+def list_status_changes(limit: int = 50, market: str = DEFAULT_MARKET):
     if limit < 1 or limit > 200:
         raise HTTPException(400, "limit debe estar entre 1 y 200")
     conn = _db()
     try:
+        market = resolve_market(conn, market)
         rows = conn.execute(
             "SELECT h.type_id, i.name, h.previous_status, h.new_status, h.changed_at, h.reason "
             "FROM item_status_history h JOIN item_type i ON i.type_id = h.type_id "
-            "ORDER BY h.changed_at DESC LIMIT ?",
-            (limit,),
+            "WHERE h.market_id = ? ORDER BY h.changed_at DESC LIMIT ?",
+            (market, limit),
         ).fetchall()
         return [StatusChangeOut(**dict(r)) for r in rows]
     finally:
