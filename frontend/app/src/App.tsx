@@ -678,7 +678,7 @@ export default function App() {
         </div>
       ) : view === "orders" ? (
         <>
-          {error && <p className="error">{error}</p>}
+          {error && <p className="error">{authenticated ? error : t("common.loadError")}</p>}
           {ordersLoading && <p className="muted">{t("common.loading")}</p>}
 
           <div className="section-title-row">
@@ -1093,7 +1093,7 @@ export default function App() {
         </div>
       )}
 
-      {error && <p className="error">{error}</p>}
+      {error && <p className="error">{authenticated ? error : t("common.loadError")}</p>}
       {loading && <p className="muted">{t("common.loading")}</p>}
 
       <p className="table-note">{t("screener.pricesInIsk")}</p>
@@ -1129,7 +1129,7 @@ export default function App() {
             </span>
           </div>
         ))}
-        {!loading && items.length === 0 && <p className="muted panel-empty">{t("screener.empty")}</p>}
+        {!loading && !error && items.length === 0 && <p className="muted panel-empty">{t("screener.empty")}</p>}
       </div>
 
       {total > 0 && (

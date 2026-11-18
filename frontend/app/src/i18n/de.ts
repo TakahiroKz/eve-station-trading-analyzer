@@ -42,6 +42,7 @@ export const de: Messages = {
   "closed.cerrada": "Geschlossen",
 
   "common.loading": "Lädt…",
+  "common.loadError": "Die Marktdaten konnten gerade nicht geladen werden. Bitte versuche es in einer Minute erneut.",
   "common.opening": "Wird geöffnet…",
   "common.units": "Stk.",
   "common.openInClient": "Im EVE-Client öffnen",
