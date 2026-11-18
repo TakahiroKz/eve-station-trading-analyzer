@@ -184,6 +184,10 @@ export const en = {
   "setting.cat.liquidity": "Liquidity thresholds",
   "setting.cat.position": "Position size",
   "setting.cat.recommendation": "Volume recommendation",
+  "setting.cat.trend": "Price trend",
+  "setting.trend_noise_multiplier": "Noise multiple per item",
+  "setting.trend_min_change_pct": "Minimum change (fraction, 0.05 = 5%)",
+  "setting.trend_min_ops_per_day": "Minimum operations per day",
   "setting.cat.junk": "Junk order filter",
 
   "setting.min_daily_volume_7d": "Minimum daily volume (units, 7d avg)",

@@ -35,6 +35,7 @@ from analytics.eve_calculator import (
 )
 from analytics.market_aggregation import build_orders_by_type
 from analytics.sanity import SanityConfig, is_price_sane
+from analytics.trend import TrendConfig, compute_price_trends
 from ingestion.esi_client import DEFAULT_BASE_URL, EsiClient
 from ingestion.markets import Market, UnknownMarketError, list_markets
 from ingestion.wallet import get_current_wallet_balance
@@ -288,6 +289,7 @@ def screen_opportunities(db_path: str, excel_path: str,
         settings = get_app_settings_dict(conn)
         eve_config = config_from_settings(EveCalculatorConfig, settings)
         sanity_config = config_from_settings(SanityConfig, settings)
+        trend_config = config_from_settings(TrendConfig, settings)
         position_pct = settings["position_size_pct_wallet"]
         fallback = (
             fallback_volumen_deseado if fallback_volumen_deseado is not None
@@ -336,6 +338,8 @@ def screen_opportunities(db_path: str, excel_path: str,
         avg_daily_order_count_7d = (
             recent_history_7d.groupby("type_id")["order_count"].mean().rename("avg_daily_order_count_7d")
         )
+
+        trends = compute_price_trends(history, trend_config)
 
         merged = latest_snapshot.merge(recent_volume, on="type_id", how="inner")
         merged = merged.merge(reference_price, on="type_id", how="inner")
@@ -389,6 +393,7 @@ def screen_opportunities(db_path: str, excel_path: str,
                         f"del precio histórico reciente ({row['reference_price']:.2f}): probable orden "
                         f"basura, no es una oportunidad real."
                     )
+                trend = trends.loc[row["type_id"]] if row["type_id"] in trends.index else None
                 previous = get_item_status(conn, row["type_id"], market_id=market_id)
                 previous_status = previous["status"] if previous else None
 
@@ -408,6 +413,12 @@ def screen_opportunities(db_path: str, excel_path: str,
                     "avg_daily_volume_7d": avg_daily_volume_7d,
                     "avg_daily_order_count_7d": avg_daily_order_count_7d,
                     "last_evaluated_at": now,
+                    "price_trend": None if trend is None or pd.isna(trend["price_trend"]) else float(trend["price_trend"]),
+                    "price_trend_label": "nodata" if trend is None else trend["price_trend_label"],
+                    "price_trend_threshold": (
+                        None if trend is None or pd.isna(trend["price_trend_threshold"])
+                        else float(trend["price_trend_threshold"])
+                    ),
                 }, market_id=market_id)
                 if status != previous_status:
                     insert_status_history(conn, row["type_id"], previous_status, status, now, reason,

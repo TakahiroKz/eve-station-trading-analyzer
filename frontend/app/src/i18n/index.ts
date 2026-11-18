@@ -164,6 +164,7 @@ const SETTING_CATEGORIES: Record<string, MessageKey> = {
   "Tamaño de posición": "setting.cat.position",
   "Recomendación de volumen": "setting.cat.recommendation",
   "Filtro de órdenes basura": "setting.cat.junk",
+  "Tendencia de precio": "setting.cat.trend",
 };
 
 export function translateSettingCategory(t: TFunction, category: string): string {

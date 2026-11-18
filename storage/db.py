@@ -79,6 +79,12 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
             conn.execute("ALTER TABLE item_status ADD COLUMN best_buy REAL NOT NULL DEFAULT 0")
         if not _column_exists(conn, "item_status", "best_sell"):
             conn.execute("ALTER TABLE item_status ADD COLUMN best_sell REAL NOT NULL DEFAULT 0")
+        if not _column_exists(conn, "item_status", "price_trend"):
+            conn.execute("ALTER TABLE item_status ADD COLUMN price_trend REAL")
+        if not _column_exists(conn, "item_status", "price_trend_label"):
+            conn.execute("ALTER TABLE item_status ADD COLUMN price_trend_label TEXT NOT NULL DEFAULT 'nodata'")
+        if not _column_exists(conn, "item_status", "price_trend_threshold"):
+            conn.execute("ALTER TABLE item_status ADD COLUMN price_trend_threshold REAL")
 
     if _table_sql(conn, "character_order") is not None:
         if not _column_exists(conn, "character_order", "orders_ahead"):
@@ -424,8 +430,9 @@ def upsert_item_status(conn: sqlite3.Connection, row: dict, market_id: str = DEF
         INSERT INTO item_status
             (market_id, type_id, status, reason, spread_bruto, evaluacion_spread, liquidez, roi,
              best_buy, best_sell, volumen_diario_real, buy_order_count, sell_order_count,
-             avg_daily_volume_7d, avg_daily_order_count_7d, last_evaluated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             avg_daily_volume_7d, avg_daily_order_count_7d, last_evaluated_at,
+             price_trend, price_trend_label, price_trend_threshold)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(market_id, type_id) DO UPDATE SET
             status = excluded.status,
             reason = excluded.reason,
@@ -440,7 +447,10 @@ def upsert_item_status(conn: sqlite3.Connection, row: dict, market_id: str = DEF
             sell_order_count = excluded.sell_order_count,
             avg_daily_volume_7d = excluded.avg_daily_volume_7d,
             avg_daily_order_count_7d = excluded.avg_daily_order_count_7d,
-            last_evaluated_at = excluded.last_evaluated_at
+            last_evaluated_at = excluded.last_evaluated_at,
+            price_trend = excluded.price_trend,
+            price_trend_label = excluded.price_trend_label,
+            price_trend_threshold = excluded.price_trend_threshold
         """,
         (
             market_id, row["type_id"], row["status"], row["reason"], row["spread_bruto"],
@@ -449,6 +459,7 @@ def upsert_item_status(conn: sqlite3.Connection, row: dict, market_id: str = DEF
             row["volumen_diario_real"], row["buy_order_count"], row["sell_order_count"],
             row["avg_daily_volume_7d"], row["avg_daily_order_count_7d"],
             row["last_evaluated_at"],
+            row.get("price_trend"), row.get("price_trend_label") or "nodata", row.get("price_trend_threshold"),
         ),
     )
 
