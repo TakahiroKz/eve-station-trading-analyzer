@@ -126,6 +126,15 @@ tr:last-child th,tr:last-child td{border-bottom:0}
 th{width:48%;color:var(--dim);font-weight:500;font-size:.9rem}
 td{font-family:var(--mono);font-size:.9rem}
 .pos{color:var(--pos)}.neg{color:var(--neg)}
+.tablewrap{overflow-x:auto;margin:16px 0}
+.tablewrap table{margin:0;min-width:560px}
+table.rank th,table.rank td{width:auto;white-space:nowrap}
+table.rank thead th{color:var(--faint);font-size:.76rem;font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+table.rank td.num{text-align:right}
+table.rank td:first-child{font-family:var(--sans);font-weight:600;white-space:normal}
+.hubs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 22px;padding:0;list-style:none}
+.hubs a{display:block;padding:6px 14px;border:1px solid var(--line);border-radius:999px;color:var(--dim);font-size:.85rem;text-decoration:none}
+.hubs a:hover,.hubs a[aria-current]{color:var(--ink);border-color:rgba(63,208,255,.5)}
 ul{padding-left:20px}
 .site-foot{max-width:1100px;margin:32px auto 0;padding:18px 16px 32px;border-top:1px solid var(--line);color:var(--dim);font-size:.8rem}
 .site-foot p{margin:0 0 12px;max-width:64ch;line-height:1.5}
@@ -165,13 +174,14 @@ def _trim(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 
-def _json_ld(name: str, path: str, crumbs: list[tuple[str, str]], about: str | None) -> str:
+def _json_ld(name: str, path: str, crumbs: list[tuple[str, str]], about: str | None,
+             lang: str = "en") -> str:
     data = {
         "@context": "https://schema.org",
         "@type": "WebPage",
         "name": name,
         "url": f"{BASE_URL}{path}",
-        "inLanguage": "en",
+        "inLanguage": lang,
         "isPartOf": {"@type": "WebSite", "name": "EveMarket Screener", "url": f"{BASE_URL}/"},
         "breadcrumb": {
             "@type": "BreadcrumbList",
@@ -191,12 +201,26 @@ def _json_ld(name: str, path: str, crumbs: list[tuple[str, str]], about: str | N
     return f'<script type="application/ld+json">{payload}</script>\n'
 
 
+CHROME_EN = {
+    "screener": "Screener",
+    "items": "All items",
+    "cta": "Open the Screener",
+    "disclaimer": (
+        "Independent site, not affiliated with CCP Games. EVE Online is a trademark of CCP hf. "
+        "Informational tool, not investment advice. Data from the official ESI API."
+    ),
+    "privacy": "Privacy",
+}
+
+
 def _page(title: str, description: str, canonical_path: str, body: str, robots: str,
-          json_ld: str = "", scripts: str = "") -> str:
+          json_ld: str = "", scripts: str = "", lang: str = "en", chrome: dict | None = None,
+          head_extra: str = "", home_href: str = "/") -> str:
+    chrome = chrome or CHROME_EN
     canonical = f"{BASE_URL}{canonical_path}"
     items_current = ' aria-current="page"' if canonical_path == "/items" else ""
     return (
-        '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+        f'<!doctype html>\n<html lang="{_e(lang)}">\n<head>\n<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         f"<title>{_e(title)}</title>\n"
         f'<meta name="description" content="{_e(description)}">\n'
@@ -216,19 +240,18 @@ def _page(title: str, description: str, canonical_path: str, body: str, robots: 
         '<meta name="theme-color" content="#08090f">\n'
         '<link rel="preload" href="/fonts/space-grotesk-latin-600-normal.woff2" as="font" '
         'type="font/woff2" crossorigin>\n'
-        f"<style>{_CSS}</style>\n{json_ld}</head>\n<body>\n"
+        f"<style>{_CSS}</style>\n{head_extra}{json_ld}</head>\n<body>\n"
         '<header class="top"><div class="top-in">'
-        '<a class="brand" href="/"><img src="/icon-192.png" alt="" width="24" height="24">'
+        f'<a class="brand" href="{_e(home_href)}"><img src="/icon-192.png" alt="" width="24" height="24">'
         "<b>EveMarket</b></a>"
-        '<nav class="top-links" aria-label="Main"><a href="/">Screener</a>'
-        f'<a href="/items"{items_current}>All items</a></nav>'
-        '<a class="cta" href="/">Open the Screener</a></div></header>\n'
+        f'<nav class="top-links" aria-label="Main"><a href="{_e(home_href)}">{_e(chrome["screener"])}</a>'
+        f'<a href="/items"{items_current}>{_e(chrome["items"])}</a></nav>'
+        f'<a class="cta" href="{_e(home_href)}">{_e(chrome["cta"])}</a></div></header>\n'
         f"<main>\n{body}\n</main>\n"
-        '<footer class="site-foot"><p>Independent site, not affiliated with CCP Games. EVE Online '
-        "is a trademark of CCP hf. Informational tool, not investment advice. Data from the "
-        "official ESI API.</p>"
-        '<nav aria-label="Footer"><a href="/">Screener</a><a href="/items">All items</a>'
-        '<a href="/privacy">Privacy</a></nav>'
+        f'<footer class="site-foot"><p>{_e(chrome["disclaimer"])}</p>'
+        f'<nav aria-label="Footer"><a href="{_e(home_href)}">{_e(chrome["screener"])}</a>'
+        f'<a href="/items">{_e(chrome["items"])}</a>'
+        f'<a href="/privacy">{_e(chrome["privacy"])}</a></nav>'
         f'</footer>\n{scripts}<script src="/analytics.js" defer></script>\n</body></html>\n'
     )
 
@@ -555,6 +578,8 @@ def sitemap() -> Response:
         url(f"{BASE_URL}{lang_path(lang)}", lastmod(latest), home_alternates)
         for lang in SITEMAP_LANGS
     ]
+    from backend.api.market_pages import sitemap_market_urls  # lazy: market_pages imports this module
+    parts += sitemap_market_urls(url, lastmod)
     parts.append(url(f"{BASE_URL}/items", lastmod(latest)))
     parts += [
         url(f"{BASE_URL}{item_path(r['type_id'], r['name'])}", lastmod(r["last_evaluated_at"]))

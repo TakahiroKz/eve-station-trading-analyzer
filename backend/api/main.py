@@ -22,6 +22,7 @@ from backend.api.analytics import private_router as analytics_private_router
 from backend.api.analytics import router as analytics_router
 from backend.api.deps import ITEM_JOIN, ITEM_SELECT_COLS, _db, resolve_market
 from backend.api.indexnow import router as indexnow_router
+from backend.api.market_pages import router as market_pages_router
 from backend.api.pages import router as pages_router
 from backend.api.private import router as private_router
 from backend.api.ratelimit import install_rate_limit
@@ -59,6 +60,7 @@ app.include_router(private_router)
 app.include_router(analytics_private_router)
 app.include_router(analytics_router)
 app.include_router(pages_router)
+app.include_router(market_pages_router)
 app.include_router(indexnow_router)
 
 
