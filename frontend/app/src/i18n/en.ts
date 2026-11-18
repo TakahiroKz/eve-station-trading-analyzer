@@ -42,6 +42,7 @@ export const en = {
   "closed.cerrada": "Closed",
 
   "common.loading": "Loading…",
+  "common.loadError": "We could not load the market data right now. Please try again in a minute.",
   "common.opening": "Opening…",
   "common.units": "u",
   "common.openInClient": "Open in EVE client",

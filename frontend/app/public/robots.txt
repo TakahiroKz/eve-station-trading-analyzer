@@ -1,5 +1,13 @@
+# La web carga sus datos desde /api/: los crawlers que renderizan JavaScript necesitan poder pedir
+# solo estas rutas públicas de lectura. El resto de /api/ (incluido /api/private) sigue bloqueado y las
+# respuestas llevan "X-Robots-Tag: noindex, nofollow". Cada grupo repite las líneas Allow porque un
+# rastreador solo usa el grupo que mejor le corresponde.
 User-agent: *
 Allow: /
+Allow: /api/markets
+Allow: /api/summary
+Allow: /api/categories
+Allow: /api/items
 Disallow: /api/
 
 # Crawlers de IA permitidos a propósito para que asistentes y buscadores con IA puedan
@@ -18,6 +26,10 @@ User-agent: xAI-Grok
 User-agent: Gemini-Deep-Research
 User-agent: meta-externalfetcher
 Allow: /
+Allow: /api/markets
+Allow: /api/summary
+Allow: /api/categories
+Allow: /api/items
 Disallow: /api/
 
 User-agent: GPTBot
@@ -29,6 +41,10 @@ User-agent: GrokBot
 User-agent: meta-externalagent
 User-agent: FacebookBot
 Allow: /
+Allow: /api/markets
+Allow: /api/summary
+Allow: /api/categories
+Allow: /api/items
 Disallow: /api/
 
 Sitemap: https://evemarket-analyzer.online/sitemap.xml
