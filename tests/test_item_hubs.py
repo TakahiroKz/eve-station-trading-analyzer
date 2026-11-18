@@ -83,3 +83,25 @@ def test_market_page_links_items_that_are_jita_candidates_only(client):
 
     assert 'href="/items/34-tritanium"' in page
     assert "/items/35-" not in page
+
+
+def test_summary_ignores_the_roi_of_hubs_that_do_not_classify_the_item_as_candidate(client):
+    http, db_path = client
+    seed_item(db_path, 34, "Tritanium", "POTENCIAL")  # Jita: candidate, roi 0.2
+    _hub_row(db_path, "rens", 34, roi=7.83, trades=5.0, status="DESCARTADO")  # outlier in a thin hub
+
+    page = http.get("/items/34-tritanium").text
+
+    assert "783.0%" in _row_of(page, "Rens")  # still shown in the table, with its status
+    assert "highest ROI for Tritanium is in Jita (20.0%)" in page
+    assert "Rens (783.0%)" not in page
+
+
+def test_summary_says_so_when_no_hub_has_the_item_as_candidate(client):
+    http, db_path = client
+    seed_item(db_path, 34, "Tritanium", "DESCARTADO")
+    _hub_row(db_path, "amarr", 34, roi=0.4, trades=50.0, status="EN_OBSERVACION")
+
+    page = http.get("/items/34-tritanium").text
+
+    assert "No hub currently classifies Tritanium as a candidate for station trading." in page
