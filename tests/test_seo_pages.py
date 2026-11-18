@@ -18,7 +18,7 @@ def test_item_page_renders_content_in_the_raw_html(client):
 
     assert response.status_code == 200
     page = response.text
-    assert "<h1>Tritanium — station trading in Jita</h1>" in page
+    assert "<h1>Tritanium — station trading in EVE's trade hubs</h1>" in page
     assert '<link rel="canonical" href="https://evemarket-analyzer.online/items/34-tritanium">' in page
     assert '<meta name="robots" content="index, follow">' in page
     assert "Potential" in page and "4.00 ISK" in page and "4.50 ISK" in page

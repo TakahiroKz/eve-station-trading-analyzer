@@ -9,7 +9,7 @@ POTENCIAL_SIN_ORDENES: miles de ítems casi idénticos serían contenido fino.
 import html
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -27,6 +27,24 @@ SITEMAP_LANGS = ("en", "es", "de", "fr", "it")
 PAGE_CACHE = "public, max-age=3600"
 HUB_LIMIT = 2000
 RELATED_LIMIT = 8
+HUB_MAX_AGE = timedelta(hours=1)  # a hub whose data is older than this shows "—" instead of prices
+TREND_EN = {"up": "Rising", "down": "Falling", "flat": "Stable", "lowliq": "Low liquidity"}
+
+
+def parse_ts(value: str | None) -> datetime | None:
+    """Parse a stored timestamp (naive values are UTC); None when missing or malformed."""
+    try:
+        parsed = datetime.fromisoformat(value) if value else None
+    except ValueError:
+        return None
+    if parsed is not None and parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def is_fresh(value: str | None) -> bool:
+    parsed = parse_ts(value)
+    return parsed is not None and datetime.now(timezone.utc) - parsed <= HUB_MAX_AGE
 
 STATUS_EN = {
     "POTENCIAL": "Potential",
@@ -313,10 +331,11 @@ def items_index() -> HTMLResponse:
         )
 
     body = (
-        "<h1>EVE Online station trading: items worth trading in Jita</h1>"
-        f"<p class=\"lede\">{len(rows):,} items in The Forge (Jita) whose spread, liquidity and "
-        "recent trade history make them candidates for station trading, ranked by daily volume "
-        "within each category. Prices and calculations refreshed every 5 minutes from the official ESI API. For live "
+        "<h1>EVE Online station trading: items worth trading</h1>"
+        f"<p class=\"lede\">{len(rows):,} items whose spread, liquidity and recent trade history make "
+        "them candidates for station trading, ranked by Jita daily volume within each category (the ROI "
+        "shown is Jita's; open an item to compare Jita, Amarr, Dodixie, Rens and Hek). Prices and "
+        "calculations refreshed every 5 minutes from the official ESI API. For live "
         'filters and sorting use the <a href="/">interactive Screener</a>.</p>'
         f'<ul class="chips"><li><b>{len(rows):,}</b> items</li>'
         f'<li><b>{len(by_category)}</b> categories</li><li>Updated every <b>5 min</b></li>'
@@ -327,14 +346,68 @@ def items_index() -> HTMLResponse:
         + "".join(sections)
         + '<p class="empty" id="empty" hidden>No items match your search.</p>'
     )
-    title = "EVE Online station trading items in Jita | EveMarket Screener"
+    title = "EVE Online station trading items | EveMarket Screener"
     description = (
-        f"{len(rows)} EVE Online items worth station trading in Jita, with ROI, spread and "
-        "liquidity, refreshed every 5 minutes."
+        f"{len(rows)} EVE Online items worth station trading, with ROI, spread and liquidity "
+        "in Jita, Amarr, Dodixie, Rens and Hek, refreshed every 5 minutes."
     )
     ld = _json_ld(title, "/items", [("Screener", "/"), ("All items", "/items")], None)
     return _html(_page(title, description, "/items", body, "index, follow", ld,
                        '<script src="/items-filter.js" defer></script>\n'))
+
+
+def _hubs_section(name: str, hubs) -> tuple[str, str]:
+    """The "prices across the trade hubs" table of an item page and a one-sentence summary.
+
+    Only hubs whose data is fresh (see HUB_MAX_AGE) show numbers; the others show "—" so the page
+    never publishes stale prices. The sentence compares the fresh hubs and is empty when fewer
+    than two have data."""
+    rows = []
+    fresh = []
+    for hub in hubs:
+        has_data = hub["status"] is not None and is_fresh(hub["last_evaluated_at"])
+        hub_link = f'<a href="/{_e(hub["market_id"])}/">{_e(hub["name"])}</a>'
+        if not has_data:
+            rows.append(f"<tr><td>{hub_link}</td>" + '<td class="num">—</td>' * 6 + "</tr>")
+            continue
+        fresh.append(hub)
+        trend = TREND_EN.get(hub["price_trend_label"] or "", "—")
+        if trend in ("Rising", "Falling") and hub["price_trend"] is not None:
+            trend = f"{trend} {hub['price_trend'] * 100:+.1f}%"
+        roi_class = "pos" if (hub["roi"] or 0) >= 0 else "neg"
+        trades_text = f"{(hub['trades'] or 0):,.0f}"
+        rows.append(
+            f"<tr><td>{hub_link}</td>"
+            f'<td class="num">{_e(_isk(hub["best_buy"]))}</td><td class="num">{_e(_isk(hub["best_sell"]))}</td>'
+            f'<td class="num {roi_class}">{_e(_pct(hub["roi"]))}</td>'
+            f'<td class="num">{_e(trades_text)}</td>'
+            f'<td class="num">{_e(STATUS_EN.get(hub["status"], hub["status"]))}</td>'
+            f'<td class="num">{_e(trend)}</td></tr>'
+        )
+    table = (
+        "<h2>Prices across the trade hubs</h2>"
+        '<div class="tablewrap"><table class="rank"><thead><tr><th>Hub</th><th>Best buy</th><th>Best sell</th>'
+        "<th>ROI</th><th>Trades/day</th><th>Status</th><th>7-day trend</th></tr></thead>"
+        f'<tbody>{"".join(rows)}</tbody></table></div>'
+        '<p class="muted">Each hub is analysed over its whole region. "—" means the item has no recent data '
+        "in that hub. Informational only, not investment advice.</p>"
+    )
+    sentence = ""
+    if len(fresh) >= 2:
+        best_roi = max(fresh, key=lambda h: h["roi"] or 0)
+        busiest = max(fresh, key=lambda h: h["trades"] or 0)
+        if (best_roi["roi"] or 0) > 0 and (busiest["trades"] or 0) > 0:
+            if best_roi["market_id"] == busiest["market_id"]:
+                sentence = (
+                    f"Right now {best_roi['name']} leads for {name} on both ROI ({_pct(best_roi['roi'])}) "
+                    f"and trades per day ({busiest['trades']:,.0f})."
+                )
+            else:
+                sentence = (
+                    f"Right now the highest ROI for {name} is in {best_roi['name']} ({_pct(best_roi['roi'])}) "
+                    f"and the most traded hub is {busiest['name']} ({busiest['trades']:,.0f} trades per day)."
+                )
+    return table, sentence
 
 
 @router.get("/items/{item_ref}", response_class=HTMLResponse, include_in_schema=False)
@@ -369,6 +442,15 @@ def item_page(item_ref: str):
                 "ORDER BY s.volumen_diario_real DESC LIMIT ?",
                 (DEFAULT_MARKET, row["category_id"], type_id, *INDEXABLE_STATUSES, RELATED_LIMIT),
             ).fetchall()
+        # One row per active hub (the item may have no row in some of them); the join uses the
+        # (market_id, type_id) primary key of item_status.
+        hubs = conn.execute(
+            "SELECT m.market_id, m.name, s.status, s.roi, s.best_buy, s.best_sell, "
+            "s.avg_daily_order_count_7d AS trades, s.price_trend, s.price_trend_label, s.last_evaluated_at "
+            "FROM market m LEFT JOIN item_status s ON s.market_id = m.market_id AND s.type_id = ? "
+            "WHERE m.enabled = 1 ORDER BY m.sort_order, m.market_id",
+            (type_id,),
+        ).fetchall()
     finally:
         conn.close()
 
@@ -428,10 +510,12 @@ def item_page(item_ref: str):
             "The market engine refreshes prices and calculations every 5 minutes.</p>"
         )
 
+    hubs_html, hubs_sentence = _hubs_section(name, hubs)
     summary = (
         f"{_e(name)} is currently classified as <strong>{_e(status_label)}</strong> for station "
         f"trading in The Forge (Jita): {_e(STATUS_BLURB.get(status, ''))} The best buy order is "
         f"{_e(_isk(row['best_buy']))} and the best sell order is {_e(_isk(row['best_sell']))}."
+        + (f" {_e(hubs_sentence)}" if hubs_sentence else "")
     )
     crumbs = (
         '<nav class="crumbs" aria-label="Breadcrumb"><a href="/">Screener</a><span>/</span>'
@@ -446,19 +530,19 @@ def item_page(item_ref: str):
         f'<strong>{_e(f"{trades:.1f}" if trades is not None else "—")}</strong></div></div>'
     )
     body = (
-        f"{crumbs}<h1>{_e(name)} — station trading in Jita</h1><p class=\"lede\">{summary}</p>"
-        f"{category_line}{kpis}<table>{table}</table>{evaluated_html}"
+        f"{crumbs}<h1>{_e(name)} — station trading in EVE's trade hubs</h1><p class=\"lede\">{summary}</p>"
+        f"{category_line}{hubs_html}<h2>In Jita (The Forge)</h2>{kpis}<table>{table}</table>{evaluated_html}"
         '<p>Want to filter and compare every item? Open the <a href="/">interactive Screener</a>.</p>'
         f"{related_html}"
     )
-    title = _trim(f"{name}: Jita station trading, ROI {_pct(row['roi'])}", 56) + " | EveMarket"
+    title = _trim(f"{name}: price and ROI in EVE's trade hubs", 56) + " | EveMarket"
     description = _trim(
-        f"{name} in EVE Online: {status_label} for station trading in Jita. Buy "
-        f"{_isk(row['best_buy'])}, sell {_isk(row['best_sell'])}, ROI {_pct(row['roi'])}, "
-        f"{liquidity_label.lower()}.", 158,
+        f"{name} in EVE Online: buy and sell price, ROI and trades per day across Jita, Amarr, Dodixie, "
+        f"Rens and Hek. In Jita: {status_label}, buy {_isk(row['best_buy'])}, sell "
+        f"{_isk(row['best_sell'])}, ROI {_pct(row['roi'])}.", 158,
     )
     ld = _json_ld(
-        f"{name} — station trading in Jita", canonical_path,
+        f"{name} — station trading in EVE's trade hubs", canonical_path,
         [("Screener", "/"), ("All items", "/items"), (name, canonical_path)], name,
     )
     robots = "index, follow" if status in INDEXABLE_STATUSES else "noindex, follow"
