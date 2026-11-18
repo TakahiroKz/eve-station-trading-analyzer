@@ -184,6 +184,10 @@ export const de: Messages = {
   "setting.cat.liquidity": "Liquiditätsschwellen",
   "setting.cat.position": "Positionsgröße",
   "setting.cat.recommendation": "Volumenempfehlung",
+  "setting.cat.trend": "Preistrend",
+  "setting.trend_noise_multiplier": "Vielfaches des Item-Rauschens",
+  "setting.trend_min_change_pct": "Minimale Änderung (Anteil, 0.05 = 5 %)",
+  "setting.trend_min_ops_per_day": "Minimale Operationen pro Tag",
   "setting.cat.junk": "Filter für Schrott-Orders",
 
   "setting.min_daily_volume_7d": "Minimales Tagesvolumen (Einheiten, Ø 7T)",

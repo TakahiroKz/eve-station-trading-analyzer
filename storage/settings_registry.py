@@ -133,6 +133,23 @@ SETTINGS: list[SettingDef] = [
         "best_sell no puede ser mayor a este % (ej. 5.0 = 500%) del precio histórico mediano "
         "reciente, o se descarta como orden basura.", 5.0,
     ),
+    # --- Tendencia de precio ---
+    SettingDef(
+        "trend_noise_multiplier", "Tendencia de precio", "Múltiplo del ruido del ítem",
+        "Una tendencia solo cuenta como 'sube' o 'baja' si supera este múltiplo del ruido "
+        "propio del ítem (variación típica entre dos semanas). Más alto = menos señales, más firmes.",
+        1.5,
+    ),
+    SettingDef(
+        "trend_min_change_pct", "Tendencia de precio", "Cambio mínimo (fracción, 0.05 = 5 %)",
+        "Suelo del umbral: ningún cambio menor a este % se considera tendencia, aunque el ítem "
+        "sea muy estable.", 0.05,
+    ),
+    SettingDef(
+        "trend_min_ops_per_day", "Tendencia de precio", "Operaciones mínimas por día",
+        "Con menos operaciones diarias (promedio de la última semana) la tendencia se marca como "
+        "'poca liquidez' porque la cifra no es fiable.", 5.0,
+    ),
 ]
 
 SETTINGS_BY_KEY: dict[str, SettingDef] = {s.key: s for s in SETTINGS}

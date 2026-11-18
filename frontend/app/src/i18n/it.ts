@@ -184,6 +184,10 @@ export const it: Messages = {
   "setting.cat.liquidity": "Soglie di liquidità",
   "setting.cat.position": "Dimensione della posizione",
   "setting.cat.recommendation": "Raccomandazione di volume",
+  "setting.cat.trend": "Tendenza del prezzo",
+  "setting.trend_noise_multiplier": "Multiplo del rumore dell'oggetto",
+  "setting.trend_min_change_pct": "Variazione minima (frazione, 0.05 = 5 %)",
+  "setting.trend_min_ops_per_day": "Operazioni minime al giorno",
   "setting.cat.junk": "Filtro ordini spazzatura",
 
   "setting.min_daily_volume_7d": "Volume giornaliero minimo (unità, media 7g)",
