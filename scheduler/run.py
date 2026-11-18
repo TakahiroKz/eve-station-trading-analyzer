@@ -2,7 +2,8 @@
 EveCalculator -> reporting. Sin flags corre el pipeline completo (modo local/Windows, ver
 scripts/setup_task_scheduler.ps1). En producción se parte en dos procesos independientes:
 `--prices-only` (órdenes -> snapshots -> screening, cada pocos minutos) y `--history-only`
-(histórico diario de ESI, una vez al día).
+(histórico diario de ESI, una vez al día). Procesa los mercados activos de la tabla `market`
+(o los de `--markets`), uno tras otro y aislados: si uno falla, los demás siguen.
 
 No toca tus órdenes de personaje — eso lo hace el motor de posiciones
 (scheduler/orders_run.py), separado y con una cadencia mucho más ágil (cada 5 min).
@@ -35,6 +36,7 @@ from analytics.eve_calculator import (
 from analytics.market_aggregation import build_orders_by_type
 from analytics.sanity import SanityConfig, is_price_sane
 from ingestion.esi_client import DEFAULT_BASE_URL, EsiClient
+from ingestion.markets import Market, UnknownMarketError, list_markets
 from ingestion.wallet import get_current_wallet_balance
 from reporting.excel_writer import EveCalculatorRegistro
 from notifications.events import NewOpportunity, dispatch, flush_notifications
@@ -143,7 +145,8 @@ def ingest_orders(client: EsiClient, region_id: int, db_path: str, market_id: st
 
 
 def ingest_history(client: EsiClient, region_id: int, db_path: str, type_ids: list[int],
-                   backfill: bool = False, max_workers: int = 20, market_id: str = DEFAULT_MARKET) -> None:
+                   backfill: bool = False, max_workers: int = 20, market_id: str = DEFAULT_MARKET,
+                   history_days: int | None = None) -> None:
     """Parte lenta de la ingesta: el histórico diario de mercado de cada tipo (una petición por
     tipo). Solo cambia una vez al día, así que en producción corre en su propio proceso.
 
@@ -180,6 +183,9 @@ def ingest_history(client: EsiClient, region_id: int, db_path: str, type_ids: li
                     history = []
 
                 if backfill:
+                    if history_days is not None:
+                        oldest = (datetime.now(timezone.utc) - timedelta(days=history_days)).date().isoformat()
+                        history = [row for row in history if row["date"] >= oldest]
                     pending.extend((type_id, row) for row in history)
                 elif history:
                     pending.append((type_id, history[-1]))
@@ -196,11 +202,11 @@ def ingest_history(client: EsiClient, region_id: int, db_path: str, type_ids: li
 
 
 def ingest(client: EsiClient, region_id: int, db_path: str, backfill: bool, max_workers: int = 20,
-           market_id: str = DEFAULT_MARKET) -> list[int]:
+           market_id: str = DEFAULT_MARKET, history_days: int | None = None) -> list[int]:
     """Ingesta completa (órdenes + histórico): lo que corre sin flags."""
     type_ids = ingest_orders(client, region_id, db_path, market_id=market_id)
     ingest_history(client, region_id, db_path, type_ids, backfill=backfill, max_workers=max_workers,
-                   market_id=market_id)
+                   market_id=market_id, history_days=history_days)
     logger.info("Ingesta completada para %d tipos", len(type_ids))
     return type_ids
 
@@ -449,10 +455,45 @@ def screen_opportunities(db_path: str, excel_path: str,
         conn.close()
 
 
+def _run_market(client: EsiClient, market: Market, db_path: str, excel_path: str, args, max_workers: int) -> None:
+    """Un mercado completo según el modo pedido (ver main)."""
+    market_id, region_id = market.market_id, market.region_id
+    if args.history_only:
+        type_ids = client.get_active_type_ids(region_id)
+        ingest_history(client, region_id, db_path, type_ids, backfill=args.backfill, max_workers=max_workers,
+                       market_id=market_id, history_days=args.history_days)
+        return
+
+    if args.rescreen_only:
+        conn = get_connection(db_path)
+        try:
+            type_ids = [r["type_id"] for r in conn.execute("SELECT type_id FROM item_type").fetchall()]
+        finally:
+            conn.close()
+    elif args.prices_only:
+        type_ids = ingest_orders(client, region_id, db_path, market_id=market_id)
+    else:
+        type_ids = ingest(client, region_id, db_path, backfill=args.backfill, max_workers=max_workers,
+                          market_id=market_id, history_days=args.history_days)
+
+    ingest_categories(client, db_path, type_ids, max_workers=max_workers)
+    screen_opportunities(db_path, excel_path, args.volumen_deseado_fallback, market_id=market_id)
+
+
 def main() -> int:
     load_dotenv()
     parser = argparse.ArgumentParser()
     parser.add_argument("--backfill", action="store_true", help="Trae histórico completo (hasta 1 año)")
+    parser.add_argument(
+        "--history-days", type=int, default=None,
+        help="Con --backfill, guarda solo los últimos N días del histórico (el screening usa 30); útil para "
+             "rellenar un mercado nuevo sin guardar un año entero",
+    )
+    parser.add_argument(
+        "--markets", default=None,
+        help="Mercados a procesar, separados por coma (p. ej. jita,amarr). Por defecto los activos en la tabla "
+             "market; con esta opción se puede procesar uno todavía desactivado (rellenar su histórico)",
+    )
     parser.add_argument(
         "--volumen-deseado-fallback", type=float, default=None,
         help="Volumen fijo a usar SOLO si el wallet no está disponible (default: el parámetro "
@@ -476,8 +517,11 @@ def main() -> int:
         parser.error("--backfill descarga histórico: no se combina con --prices-only")
     if args.rescreen_only and args.history_only:
         parser.error("--rescreen-only no se combina con --history-only")
+    if args.history_days is not None and not args.backfill:
+        parser.error("--history-days solo tiene sentido con --backfill")
+    if args.history_days is not None and args.history_days < 1:
+        parser.error("--history-days debe ser al menos 1")
 
-    region_id = int(os.environ.get("ESI_REGION_ID", 10000002))
     base_url = os.environ.get("ESI_BASE_URL", DEFAULT_BASE_URL)
     user_agent = os.environ.get("ESI_USER_AGENT", "eve-market-screener")
     db_path = os.environ.get("DB_PATH", "./storage/market.db")
@@ -490,34 +534,37 @@ def main() -> int:
     max_workers = int(os.environ.get("MAX_INGEST_WORKERS", 20))
 
     init_db(db_path)
+    requested = [m.strip() for m in args.markets.split(",") if m.strip()] if args.markets else None
+    try:
+        markets = list_markets(db_path, requested)
+    except UnknownMarketError as exc:
+        parser.error(str(exc))
+    if not markets:
+        logger.warning("No hay mercados activos en la tabla market: no hay nada que procesar")
+        return 0
 
     start = time.time()
+    failed: list[str] = []
     with EsiClient(base_url=base_url, user_agent=user_agent) as client:
-        if args.history_only:
-            type_ids = client.get_active_type_ids(region_id)
-            ingest_history(client, region_id, db_path, type_ids, backfill=args.backfill, max_workers=max_workers)
-            logger.info("Histórico completo en %.1fs", time.time() - start)
-            return 0
-
-        if args.rescreen_only:
-            conn = get_connection(db_path)
+        for market in markets:
+            market_start = time.time()
             try:
-                type_ids = [r["type_id"] for r in conn.execute("SELECT type_id FROM item_type").fetchall()]
-            finally:
-                conn.close()
-        elif args.prices_only:
-            type_ids = ingest_orders(client, region_id, db_path)
-        else:
-            type_ids = ingest(client, region_id, db_path, backfill=args.backfill, max_workers=max_workers)
+                _run_market(client, market, db_path, excel_path, args, max_workers)
+                logger.info("Mercado %s completo en %.1fs", market.market_id, time.time() - market_start)
+            except Exception:
+                # Un mercado que falla (ESI, datos) no debe dejar sin actualizar a los demás.
+                logger.exception("Fallo en el mercado %s; se sigue con los demás", market.market_id)
+                failed.append(market.market_id)
 
-        ingest_categories(client, db_path, type_ids, max_workers=max_workers)
-
-    screen_opportunities(db_path, excel_path, args.volumen_deseado_fallback)
-
-    logger.info("Pipeline completo en %.1fs", time.time() - start)
+    if args.history_only:
+        logger.info("Histórico completo en %.1fs", time.time() - start)
+    else:
+        logger.info("Pipeline completo en %.1fs", time.time() - start)
+    if failed:
+        logger.error("Mercados con fallo: %s", ", ".join(failed))
     # Después del log: la duración del ciclo no incluye la espera a Telegram.
     flush_notifications()
-    return 0
+    return 1 if failed and len(failed) == len(markets) else 0
 
 
 if __name__ == "__main__":
