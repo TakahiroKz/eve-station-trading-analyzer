@@ -77,6 +77,10 @@ indexadas y hay impresiones crecientes. Elegir la fase 3 antes que la 2 si las c
 
 ## Fase 3: ficha de ítem con los 5 hubs (pendiente)
 
+**Desplegada (opción A) el 2026-11-18** (PR #69 y corrección de la frase de resumen en PR #70): sin URLs nuevas, la ficha
+muestra la tabla de los 5 hubs. Enlaces internos y FAQ de la portada: PR #66 (2026-11-18). La evaluación del 2026-12-16
+mide portadas de mercado, enlaces y fichas juntos; la opción B (+1.154 fichas) y la fase 2 siguen pendientes de esos datos.
+
 **Plan detallado: `docs/SEO_FASE_3_FICHA_5_HUBS.md`.** Adelantada respecto a la fase 2 tras revisar Search Console (2026-11-18):
 el tráfico llega por fichas de ítem y hay ~1.100 URLs sin indexar.
 
