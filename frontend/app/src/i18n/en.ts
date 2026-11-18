@@ -33,6 +33,7 @@ export const en = {
   "sort.best_buy": "Buy price",
   "sort.best_sell": "Sell price",
   "sort.avg_daily_order_count_7d": "Trades 7d",
+  "sort.price_trend": "Price trend",
   "sort.name": "Name",
 
   "closed.completada": "Completed",
@@ -231,6 +232,15 @@ export const en = {
 
   "screener.title": "All opportunities",
   "screener.colSpread": "SPREAD/U",
+  "screener.colTrend": "TREND 7D",
+  "filters.trend": "Price trend",
+  "detail.priceTrend": "Price trend (7d)",
+  "detail.trendHelp": "Average price of the last 7 days against the 7 days before. It describes what the price did; it does not predict what it will do.",
+  "trend.up": "Rising",
+  "trend.down": "Falling",
+  "trend.flat": "Stable",
+  "trend.lowliq": "Low liquidity",
+  "trend.nodata": "Not enough data",
   "screener.colOps": "TRADES/DAY",
   "market.label": "Market",
   "filters.searchName": "Search by item name",

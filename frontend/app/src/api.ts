@@ -17,6 +17,9 @@ export interface ItemStatus {
   avg_daily_volume_7d: number;
   avg_daily_order_count_7d: number;
   last_evaluated_at: string;
+  price_trend: number | null;
+  price_trend_label: TrendLabel;
+  price_trend_threshold: number | null;
   category_id: number | null;
   category_name: string | null;
   group_id: number | null;
@@ -89,6 +92,8 @@ export interface ItemDetail {
   latest_opportunities: Opportunity[];
 }
 
+export type TrendLabel = "up" | "down" | "flat" | "lowliq" | "nodata";
+
 export interface Market {
   market_id: string;
   name: string;
@@ -113,6 +118,7 @@ export interface ItemFilters {
   maxSell?: number;
   minVolume?: number;
   maxVolume?: number;
+  trend?: TrendLabel;
   sort?: string;
   order?: "asc" | "desc";
   limit?: number;
@@ -223,6 +229,7 @@ function buildQuery(filters: ItemFilters): string {
   if (filters.maxBuy != null) params.set("max_buy", String(filters.maxBuy));
   if (filters.minSell != null) params.set("min_sell", String(filters.minSell));
   if (filters.maxSell != null) params.set("max_sell", String(filters.maxSell));
+  if (filters.trend) params.set("trend", filters.trend);
   if (filters.minVolume != null) params.set("min_volume", String(filters.minVolume));
   if (filters.maxVolume != null) params.set("max_volume", String(filters.maxVolume));
   params.set("sort", filters.sort ?? "volumen_diario_real");
