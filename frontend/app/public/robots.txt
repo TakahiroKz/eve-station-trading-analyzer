@@ -4,8 +4,9 @@ Disallow: /api/
 
 # Crawlers de IA permitidos a propósito para que asistentes y buscadores con IA puedan
 # citar el Screener. Los de búsqueda/respuesta (OAI-SearchBot, ChatGPT-User, Claude-SearchBot,
-# Claude-User, PerplexityBot, Perplexity-User) y los de entrenamiento (GPTBot, ClaudeBot,
-# Google-Extended, Applebot-Extended, CCBot) están listados por separado: para no permitir
+# Claude-User, PerplexityBot, Perplexity-User, xAI-Grok, Gemini-Deep-Research, meta-externalfetcher)
+# y los de entrenamiento (GPTBot, ClaudeBot, Google-Extended, Applebot-Extended, CCBot, GrokBot,
+# meta-externalagent, FacebookBot) están listados por separado: para no permitir
 # el entrenamiento, cambiar `Allow: /` por `Disallow: /` solo en los de entrenamiento.
 User-agent: OAI-SearchBot
 User-agent: ChatGPT-User
@@ -13,6 +14,9 @@ User-agent: Claude-SearchBot
 User-agent: Claude-User
 User-agent: PerplexityBot
 User-agent: Perplexity-User
+User-agent: xAI-Grok
+User-agent: Gemini-Deep-Research
+User-agent: meta-externalfetcher
 Allow: /
 Disallow: /api/
 
@@ -21,6 +25,9 @@ User-agent: ClaudeBot
 User-agent: Google-Extended
 User-agent: Applebot-Extended
 User-agent: CCBot
+User-agent: GrokBot
+User-agent: meta-externalagent
+User-agent: FacebookBot
 Allow: /
 Disallow: /api/
 
