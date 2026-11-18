@@ -150,6 +150,11 @@ SETTINGS: list[SettingDef] = [
         "Con menos operaciones diarias (promedio de la última semana) la tendencia se marca como "
         "'poca liquidez' porque la cifra no es fiable.", 5.0,
     ),
+    SettingDef(
+        "trend_alert_min_ops_per_day", "Tendencia de precio", "Operaciones mínimas para avisar por Telegram",
+        "Solo se avisa del cambio de tendencia de ítems con una orden activa tuya y al menos estas "
+        "operaciones diarias (promedio 7 días).", 20.0,
+    ),
 ]
 
 SETTINGS_BY_KEY: dict[str, SettingDef] = {s.key: s for s in SETTINGS}

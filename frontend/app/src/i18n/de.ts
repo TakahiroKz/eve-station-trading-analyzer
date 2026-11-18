@@ -188,6 +188,7 @@ export const de: Messages = {
   "setting.cat.trend": "Preistrend",
   "setting.trend_noise_multiplier": "Vielfaches des Item-Rauschens",
   "setting.trend_min_change_pct": "Minimale Änderung (Anteil, 0.05 = 5 %)",
+  "setting.trend_alert_min_ops_per_day": "Minimale Operationen für Telegram-Hinweise",
   "setting.trend_min_ops_per_day": "Minimale Operationen pro Tag",
   "setting.cat.junk": "Filter für Schrott-Orders",
 

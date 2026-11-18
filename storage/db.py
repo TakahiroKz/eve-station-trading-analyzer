@@ -464,6 +464,39 @@ def upsert_item_status(conn: sqlite3.Connection, row: dict, market_id: str = DEF
     )
 
 
+def active_order_sides(conn: sqlite3.Connection, region_id: int) -> dict[int, set[str]]:
+    """Ítems en los que el usuario tiene una orden activa en esa región: {type_id: {'compra', 'venta'}}."""
+    sides: dict[int, set[str]] = {}
+    for row in conn.execute(
+        "SELECT DISTINCT type_id, is_buy_order FROM character_order WHERE region_id = ?", (region_id,),
+    ):
+        sides.setdefault(row["type_id"], set()).add("compra" if row["is_buy_order"] else "venta")
+    return sides
+
+
+def get_trend_alert_state(conn: sqlite3.Connection, market_id: str, type_id: int) -> dict | None:
+    row = conn.execute(
+        "SELECT label, since_date, last_date, alerted_since, last_alerted_date FROM trend_alert_state "
+        "WHERE market_id = ? AND type_id = ?", (market_id, type_id),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def save_trend_alert_state(conn: sqlite3.Connection, market_id: str, type_id: int, state: dict) -> None:
+    conn.execute(
+        """
+        INSERT INTO trend_alert_state
+            (market_id, type_id, label, since_date, last_date, alerted_since, last_alerted_date)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(market_id, type_id) DO UPDATE SET
+            label = excluded.label, since_date = excluded.since_date, last_date = excluded.last_date,
+            alerted_since = excluded.alerted_since, last_alerted_date = excluded.last_alerted_date
+        """,
+        (market_id, type_id, state["label"], state["since_date"], state["last_date"],
+         state.get("alerted_since"), state.get("last_alerted_date")),
+    )
+
+
 def upsert_item_category(conn: sqlite3.Connection, row: dict) -> None:
     conn.execute(
         """

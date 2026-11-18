@@ -157,6 +157,23 @@ def notify_order_closed(item_name: str, side: str, price: float, final_state: st
     return _send_message(text, f"orden {final_state} {item_name}")
 
 
+def notify_trend_change(item_name: str, market_name: str, label: str, change: float, threshold: float,
+                        ops_per_day: float, sides: tuple[str, ...]) -> bool:
+    """Cambio de tendencia de precio confirmado en dos lecturas diarias seguidas, solo para ítems en
+    los que hay una orden activa. Describe lo ocurrido; no es una predicción."""
+    emoji, word = ("📈", "al alza") if label == "up" else ("📉", "a la baja")
+    orders = " y ".join(f"orden de {s}" for s in sides) or "orden activa"
+    text = (
+        f"{emoji} Tendencia {word}: {item_name} ({market_name})\n\n"
+        f"Precio medio de 7 días: {change:+.1%} frente a la semana anterior "
+        f"(umbral de este ítem: ±{threshold:.1%})\n"
+        f"Confirmada en dos lecturas diarias seguidas · ~{ops_per_day:,.0f} operaciones/día\n"
+        f"Tienes {orders} en este ítem.\n\n"
+        f"Es una descripción de lo ocurrido, no una predicción."
+    )
+    return _send_message(text, f"tendencia {item_name}")
+
+
 def notify_order_filled(item_name: str, side: str, price: float, filled_units: int,
                          volume_remain: int, wallet_balance: float | None = None) -> bool:
     """Motor de posiciones (cada 5 min): se ejecutó total o parcialmente una orden activa

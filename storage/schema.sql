@@ -114,6 +114,19 @@ CREATE TABLE IF NOT EXISTS item_status (
     FOREIGN KEY (type_id) REFERENCES item_type(type_id)
 ) WITHOUT ROWID;
 
+-- Seguimiento de la tendencia de los ítems con una orden activa tuya, para avisar por Telegram
+-- solo cuando la señal se confirma en dos lecturas diarias seguidas (ver analytics/trend_alerts.py).
+CREATE TABLE IF NOT EXISTS trend_alert_state (
+    market_id         TEXT NOT NULL,
+    type_id           INTEGER NOT NULL,
+    label             TEXT NOT NULL,
+    since_date        TEXT NOT NULL,
+    last_date         TEXT NOT NULL,
+    alerted_since     TEXT,
+    last_alerted_date TEXT,
+    PRIMARY KEY (market_id, type_id)
+) WITHOUT ROWID;
+
 -- Historial append-only de cambios de estado, para auditar cómo evoluciona cada ítem
 -- entre recategorizaciones sucesivas (ej. de EN_OBSERVACION a POTENCIAL).
 CREATE TABLE IF NOT EXISTS item_status_history (

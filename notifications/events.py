@@ -28,6 +28,7 @@ from notifications.telegram_bot import (
     notify_order_closed,
     notify_order_filled,
     notify_position_update,
+    notify_trend_change,
 )
 
 
@@ -77,7 +78,20 @@ class OrderFilled:
     wallet_balance: float | None = None
 
 
-Event = NewOpportunity | PositionChanged | OrderClosed | OrderFilled
+@dataclass
+class TrendChanged:
+    """El precio de un ítem en el que tienes una orden activa lleva dos lecturas diarias seguidas
+    subiendo o bajando por encima del umbral propio del ítem (motor de mercado)."""
+    item_name: str
+    market_name: str
+    label: str            # 'up' o 'down'
+    change: float         # fracción: 0.12 = +12 %
+    threshold: float
+    ops_per_day: float
+    sides: tuple[str, ...]
+
+
+Event = NewOpportunity | PositionChanged | OrderClosed | OrderFilled | TrendChanged
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +150,12 @@ def dispatch(events: list[Event]) -> None:
                 notify_order_filled,
                 event.item_name, event.side, event.price, event.filled_units, event.volume_remain,
                 wallet_balance=event.wallet_balance,
+            )
+        elif isinstance(event, TrendChanged):
+            _submit(
+                notify_trend_change,
+                event.item_name, event.market_name, event.label, event.change,
+                event.threshold, event.ops_per_day, event.sides,
             )
         else:
             raise TypeError(f"Tipo de evento desconocido: {type(event)!r}")
