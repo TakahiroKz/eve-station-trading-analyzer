@@ -89,7 +89,17 @@ export interface ItemDetail {
   latest_opportunities: Opportunity[];
 }
 
+export interface Market {
+  market_id: string;
+  name: string;
+  region_id: number;
+  counts: Partial<Record<Status, number>>;
+  total: number;
+  last_evaluated_at: string | null;
+}
+
 export interface ItemFilters {
+  market?: string;
   status?: Status;
   categoryId?: number;
   q?: string;
@@ -202,6 +212,7 @@ async function put<T>(path: string, payload: unknown): Promise<T> {
 function buildQuery(filters: ItemFilters): string {
   const params = new URLSearchParams();
   if (filters.status) params.set("status", filters.status);
+  if (filters.market) params.set("market", filters.market);
   if (filters.categoryId != null) params.set("category_id", String(filters.categoryId));
   if (filters.q) params.set("q", filters.q);
   if (filters.minRoi != null) params.set("min_roi", String(filters.minRoi));
@@ -221,12 +232,18 @@ function buildQuery(filters: ItemFilters): string {
   return params.toString();
 }
 
+// `/summary?market=amarr`; sin mercado, el servidor usa el predeterminado (Jita).
+function withMarket(path: string, market?: string): string {
+  return market ? `${path}?market=${encodeURIComponent(market)}` : path;
+}
+
 export const api = {
-  summary: () => get<Summary>("/summary"),
+  markets: () => get<Market[]>("/markets"),
+  summary: (market?: string) => get<Summary>(withMarket("/summary", market)),
   schedule: () => get<Schedule>("/schedule"),
   items: (filters: ItemFilters) => get<ItemsPage>(`/items?${buildQuery(filters)}`),
-  categories: () => get<Category[]>("/categories"),
-  itemDetail: (typeId: number) => get<ItemDetail>(`/items/${typeId}`),
+  categories: (market?: string) => get<Category[]>(withMarket("/categories", market)),
+  itemDetail: (typeId: number, market?: string) => get<ItemDetail>(withMarket(`/items/${typeId}`, market)),
   // Rutas /private/* — detrás de Cloudflare Access (T14). Cualquier rechazo (bloqueo
   // de Access, red) es esperado para un visitante sin sesión; quien llama decide
   // cómo tratarlo (ver el probe authPing en App.tsx).
@@ -235,7 +252,8 @@ export const api = {
   // mostrar su pantalla de login (ver backend/api/private.py::login_redirect).
   authLoginUrl: "/api/private/login",
   wallet: () => get<Wallet>("/private/wallet"),
-  itemRecommendation: (typeId: number) => get<Opportunity | null>(`/private/items/${typeId}/recommendation`),
+  itemRecommendation: (typeId: number, market?: string) =>
+    get<Opportunity | null>(withMarket(`/private/items/${typeId}/recommendation`, market)),
   openInClient: (typeId: number) => post<OpenWindowResult>(`/private/items/${typeId}/open-in-client`),
   characterOrders: () => get<CharacterOrder[]>("/private/character-orders"),
   characterOrdersClosed: () => get<CharacterOrderClosed[]>("/private/character-orders/closed"),

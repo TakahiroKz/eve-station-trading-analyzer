@@ -305,6 +305,22 @@
   color: #7cf0ab;
 }
 
+.market-switch {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.market-switch-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-right: 2px;
+}
+
 .badge {
   background: rgba(255, 255, 255, 0.14);
   color: var(--ink);

@@ -330,3 +330,75 @@ def test_status_changes_are_filtered_by_market(client):
 
     assert [c["new_status"] for c in jita] == ["POTENCIAL"]
     assert [c["new_status"] for c in amarr] == ["DESCARTADO"]
+
+
+# ---------------- /api/markets, categorías y recomendación por mercado ----------------
+def test_markets_endpoint_lists_only_enabled_markets_with_their_counts(client):
+    api, db_path = client
+    seed_item(db_path, type_id=34, name="Tritanium", status="POTENCIAL")
+    seed_item(db_path, type_id=35, name="Pyerite", status="DESCARTADO")
+
+    only_jita = api.get("/api/markets").json()
+    assert [m["market_id"] for m in only_jita] == ["jita"]
+    assert only_jita[0]["name"] == "Jita" and only_jita[0]["region_id"] == 10000002
+    assert only_jita[0]["counts"] == {"POTENCIAL": 1, "DESCARTADO": 1} and only_jita[0]["total"] == 2
+    assert only_jita[0]["last_evaluated_at"] is not None
+
+    _enable_amarr(db_path)
+    both = api.get("/api/markets").json()
+    assert [m["market_id"] for m in both] == ["jita", "amarr"]
+    assert both[1]["counts"] == {"DESCARTADO": 1} and both[1]["total"] == 1
+
+
+def test_an_enabled_market_without_data_is_listed_empty(client):
+    api, db_path = client
+    conn = sqlite3.connect(db_path)
+    conn.execute("UPDATE market SET enabled = 1 WHERE market_id = 'hek'")
+    conn.commit()
+    conn.close()
+
+    hek = [m for m in api.get("/api/markets").json() if m["market_id"] == "hek"][0]
+
+    assert hek["counts"] == {} and hek["total"] == 0 and hek["last_evaluated_at"] is None
+
+
+def test_categories_only_list_what_exists_in_the_chosen_market(client):
+    api, db_path = client
+    seed_item(db_path, type_id=34, name="Tritanium", category_id=4, category_name="Material")
+    seed_item(db_path, type_id=35, name="Rifter", category_id=6, category_name="Ship")
+    conn = sqlite3.connect(db_path)
+    conn.execute("UPDATE market SET enabled = 1 WHERE market_id = 'amarr'")
+    conn.execute(
+        "INSERT INTO item_status (market_id, type_id, status, reason, spread_bruto, evaluacion_spread, liquidez, "
+        "roi, last_evaluated_at) VALUES ('amarr', 34, 'POTENCIAL', 'ok', 0.1, 'ok', 'alta', 0.2, datetime('now'))"
+    )
+    conn.commit()
+    conn.close()
+
+    jita = {c["category_name"] for c in api.get("/api/categories").json()}
+    amarr = {c["category_name"] for c in api.get("/api/categories", params={"market": "amarr"}).json()}
+
+    assert jita == {"Material", "Ship"} and amarr == {"Material"}
+    assert api.get("/api/categories", params={"market": "nope"}).status_code == 404
+
+
+def test_the_live_recommendation_uses_the_chosen_markets_prices(client):
+    from tests.conftest import FAKE_CF_HEADER
+
+    api, db_path = client
+    seed_item(db_path, type_id=34, name="Tritanium", status="POTENCIAL")
+    _enable_amarr(db_path)
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "INSERT INTO market_snapshot (market_id, type_id, captured_at, best_buy, best_sell, buy_volume, "
+        "sell_volume, buy_order_count, sell_order_count) VALUES ('amarr', 34, datetime('now'), 9.0, 9.5, 5, 5, 1, 1)"
+    )
+    conn.commit()
+    conn.close()
+
+    jita = api.get("/api/private/items/34/recommendation", headers=FAKE_CF_HEADER).json()
+    amarr = api.get("/api/private/items/34/recommendation", params={"market": "amarr"}, headers=FAKE_CF_HEADER).json()
+
+    assert (jita["buy"], amarr["buy"]) == (4.0, 9.0)
+    unknown = api.get("/api/private/items/34/recommendation", params={"market": "nope"}, headers=FAKE_CF_HEADER)
+    assert unknown.status_code == 404

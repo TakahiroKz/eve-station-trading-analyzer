@@ -18,7 +18,7 @@ from analytics.eve_calculator import (
     evaluar_oportunidad,
     resolve_volumen_deseado,
 )
-from backend.api.deps import ITEM_JOIN, ITEM_SELECT_COLS, _db, require_cf_access_header
+from backend.api.deps import ITEM_JOIN, ITEM_SELECT_COLS, _db, require_cf_access_header, resolve_market
 from backend.api.schemas import (
     AppSettingOut,
     AppSettingUpdateIn,
@@ -77,15 +77,16 @@ def get_wallet():
 
 
 @router.get("/items/{type_id}/recommendation", response_model=OpportunityOut | None)
-def get_item_recommendation(type_id: int):
+def get_item_recommendation(type_id: int, market: str = DEFAULT_MARKET):
     """Recalcula la recomendación de sizing al vuelo contra el wallet en vivo (no
     depende de un snapshot de hasta 5 min de antigüedad del motor de mercado) — movido
     tal cual desde el antiguo bloque live_recommendation de get_item_detail()."""
     conn = _db()
     try:
+        market = resolve_market(conn, market)
         status_row = conn.execute(
             f"SELECT {ITEM_SELECT_COLS} {ITEM_JOIN} WHERE s.market_id = ? AND s.type_id = ?",
-            (DEFAULT_MARKET, type_id),
+            (market, type_id),
         ).fetchone()
         if status_row is None:
             raise HTTPException(404, "Ítem no encontrado o sin clasificar todavía")
@@ -93,7 +94,7 @@ def get_item_recommendation(type_id: int):
         snapshot_row = conn.execute(
             "SELECT best_buy, best_sell FROM market_snapshot WHERE market_id = ? AND type_id = ? "
             "ORDER BY captured_at DESC LIMIT 1",
-            (DEFAULT_MARKET, type_id),
+            (market, type_id),
         ).fetchone()
 
         if snapshot_row is None or not snapshot_row["best_buy"] or not snapshot_row["best_sell"]:

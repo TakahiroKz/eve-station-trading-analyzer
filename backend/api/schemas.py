@@ -40,6 +40,15 @@ class CategoryOut(BaseModel):
     category_name: str
 
 
+class MarketOut(BaseModel):
+    market_id: str
+    name: str
+    region_id: int
+    counts: dict[str, int]
+    total: int
+    last_evaluated_at: str | None
+
+
 class SummaryOut(BaseModel):
     counts: dict[str, int]
     total: int
