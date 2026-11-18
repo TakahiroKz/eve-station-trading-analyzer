@@ -22,6 +22,9 @@ class ItemStatusOut(BaseModel):
     avg_daily_volume_7d: float
     avg_daily_order_count_7d: float
     last_evaluated_at: str
+    price_trend: float | None = None
+    price_trend_label: str = "nodata"
+    price_trend_threshold: float | None = None
     category_id: int | None = None
     category_name: str | None = None
     group_id: int | None = None

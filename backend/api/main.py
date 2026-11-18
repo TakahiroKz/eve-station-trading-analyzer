@@ -62,6 +62,9 @@ app.include_router(pages_router)
 app.include_router(indexnow_router)
 
 
+TREND_LABELS = {"up", "down", "flat", "lowliq", "nodata"}
+
+
 @app.get("/api/markets", response_model=list[MarketOut])
 def list_markets_endpoint():
     """Mercados activos con sus conteos por estado y la última evaluación: alimenta el selector de
@@ -133,6 +136,9 @@ def list_items(
     max_sell: float | None = None,
     min_volume: float | None = None,
     max_volume: float | None = None,
+    trend: str | None = None,
+    min_trend: float | None = None,
+    max_trend: float | None = None,
     sort: str = "volumen_diario_real",
     order: str = "desc",
     limit: int = 50,
@@ -141,11 +147,13 @@ def list_items(
     # Prioridad de descubrimiento: volumen diario real (rotación real) primero, ROI como
     # criterio secundario — se aplica siempre como desempate, sin importar el `sort` elegido.
     allowed_sort = {"spread_bruto", "roi", "last_evaluated_at", "name", "volumen_diario_real",
-                     "best_buy", "best_sell", "avg_daily_order_count_7d"}
+                     "best_buy", "best_sell", "avg_daily_order_count_7d", "price_trend"}
     if sort not in allowed_sort:
         raise HTTPException(400, f"sort debe ser uno de {allowed_sort}")
     if order not in {"asc", "desc"}:
         raise HTTPException(400, "order debe ser 'asc' o 'desc'")
+    if trend is not None and trend not in TREND_LABELS:
+        raise HTTPException(400, f"trend debe ser uno de {sorted(TREND_LABELS)}")
     if offset < 0 or offset > 100_000:
         raise HTTPException(400, "offset debe estar entre 0 y 100000")
     if limit < 1 or limit > 500:
@@ -159,6 +167,9 @@ def list_items(
     if category_id is not None:
         filters.append("c.category_id = ?")
         params.append(category_id)
+    if trend:
+        filters.append("s.price_trend_label = ?")
+        params.append(trend)
     name_query = (q or "").strip()
     if name_query:
         # Búsqueda por nombre: contiene el texto, sin distinguir mayúsculas (LIKE de SQLite es
@@ -168,14 +179,14 @@ def list_items(
         params.append(f"%{escaped}%")
     for column, value in [
         ("s.roi", min_roi), ("s.spread_bruto", min_spread), ("s.best_buy", min_buy),
-        ("s.best_sell", min_sell), ("s.volumen_diario_real", min_volume),
+        ("s.best_sell", min_sell), ("s.volumen_diario_real", min_volume), ("s.price_trend", min_trend),
     ]:
         if value is not None:
             filters.append(f"{column} >= ?")
             params.append(value)
     for column, value in [
         ("s.roi", max_roi), ("s.spread_bruto", max_spread), ("s.best_buy", max_buy),
-        ("s.best_sell", max_sell), ("s.volumen_diario_real", max_volume),
+        ("s.best_sell", max_sell), ("s.volumen_diario_real", max_volume), ("s.price_trend", max_trend),
     ]:
         if value is not None:
             filters.append(f"{column} <= ?")
@@ -190,6 +201,9 @@ def list_items(
 
         sort_col = "i.name" if sort == "name" else f"s.{sort}"
         tiebreaker = "" if sort == "roi" else ", s.roi DESC"
+        if sort == "price_trend":
+            # Items without a reliable trend (NULL) always go last, whichever the direction.
+            sort_col = f"(s.price_trend IS NULL), {sort_col}"
         query = (
             f"SELECT {ITEM_SELECT_COLS} {ITEM_JOIN}{where} "
             f"ORDER BY {sort_col} {order.upper()}{tiebreaker} LIMIT ? OFFSET ?"

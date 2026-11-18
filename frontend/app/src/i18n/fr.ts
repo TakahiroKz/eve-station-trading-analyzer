@@ -33,6 +33,7 @@ export const fr: Messages = {
   "sort.best_buy": "Prix d'achat",
   "sort.best_sell": "Prix de vente",
   "sort.avg_daily_order_count_7d": "Transactions 7j",
+  "sort.price_trend": "Tendance du prix",
   "sort.name": "Nom",
 
   "closed.completada": "Terminé",
@@ -231,6 +232,15 @@ export const fr: Messages = {
 
   "screener.title": "Toutes les opportunités",
   "screener.colSpread": "SPREAD/U",
+  "screener.colTrend": "TENDANCE 7J",
+  "filters.trend": "Tendance du prix",
+  "detail.priceTrend": "Tendance du prix (7j)",
+  "detail.trendHelp": "Prix moyen des 7 derniers jours comparé aux 7 jours précédents. Elle décrit ce que le prix a fait, elle ne prédit rien.",
+  "trend.up": "À la hausse",
+  "trend.down": "À la baisse",
+  "trend.flat": "Stable",
+  "trend.lowliq": "Faible liquidité",
+  "trend.nodata": "Données insuffisantes",
   "screener.colOps": "TRANSACT./JOUR",
   "market.label": "Marché",
   "filters.searchName": "Rechercher par nom d'objet",

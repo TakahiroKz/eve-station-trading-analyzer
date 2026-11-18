@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   api, type AppSetting, type Category, type CharacterOrder, type CharacterOrderClosed,
-  type CharacterOrderFill, type ItemDetail, type ItemFilters, type ItemStatus, type Market, type Opportunity,
+  type CharacterOrderFill, type ItemDetail, type ItemFilters, type ItemStatus, type Market, type TrendLabel, type Opportunity,
   type Schedule, type Status, type Summary,
 } from "./api";
 import { DONATE_URL } from "./config";
@@ -48,11 +48,11 @@ function readInitialMarket(): string {
   }
 }
 
-type SortField = "best_buy" | "best_sell" | "roi" | "avg_daily_order_count_7d";
+type SortField = "best_buy" | "best_sell" | "roi" | "avg_daily_order_count_7d" | "price_trend";
 
 // Price columns read best low-to-high; the rest, high-to-low.
 const DEFAULT_ORDER: Record<SortField, "asc" | "desc"> = {
-  best_buy: "asc", best_sell: "asc", roi: "desc", avg_daily_order_count_7d: "desc",
+  best_buy: "asc", best_sell: "asc", roi: "desc", avg_daily_order_count_7d: "desc", price_trend: "desc",
 };
 
 // The backend stores closed-order states in Spanish; these are the known values.
@@ -65,8 +65,10 @@ const TRACKED_REGION_ID = 10000002; // The Forge / Jita
 
 const SORT_VALUES = [
   "volumen_diario_real", "roi", "spread_bruto", "best_buy", "best_sell",
-  "avg_daily_order_count_7d", "name",
+  "avg_daily_order_count_7d", "price_trend", "name",
 ];
+
+const TREND_LABELS: TrendLabel[] = ["up", "down", "flat", "lowliq", "nodata"];
 
 interface FilterForm {
   q: string;
@@ -81,11 +83,12 @@ interface FilterForm {
   maxSell: string;
   minVolume: string;
   maxVolume: string;
+  trend: string;
 }
 
 const EMPTY_FILTERS: FilterForm = {
   q: "", categoryId: "", minRoi: "", maxRoi: "", minSpread: "", maxSpread: "",
-  minBuy: "", maxBuy: "", minSell: "", maxSell: "", minVolume: "", maxVolume: "",
+  minBuy: "", maxBuy: "", minSell: "", maxSell: "", minVolume: "", maxVolume: "", trend: "",
 };
 
 function formatCountdown(target: string | null, now: Date, t: TFunction): string {
@@ -118,6 +121,7 @@ function toFilters(form: FilterForm): Partial<ItemFilters> {
     maxSell: num(form.maxSell),
     minVolume: num(form.minVolume),
     maxVolume: num(form.maxVolume),
+    trend: (form.trend || undefined) as TrendLabel | undefined,
   };
 }
 
@@ -138,6 +142,15 @@ export default function App() {
   // Percentages and per-day counts follow the language too (they used a fixed "." decimal).
   const formatPct = (value: number) =>
     new Intl.NumberFormat(locale, { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value);
+  // Price trend: arrow + % when the reading is reliable, a dash otherwise (low liquidity / no data).
+  const trendText = (item: ItemStatus) => {
+    if (item.price_trend == null || item.price_trend_label === "lowliq" || item.price_trend_label === "nodata") return "—";
+    const arrow = item.price_trend_label === "up" ? "▲" : item.price_trend_label === "down" ? "▼" : "→";
+    const sign = item.price_trend > 0 ? "+" : "";
+    return `${arrow} ${sign}${new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(item.price_trend * 100)}%`;
+  };
+  const trendClass = (item: ItemStatus) =>
+    item.price_trend_label === "up" ? "positive" : item.price_trend_label === "down" ? "negative" : "muted-num";
   const formatTrades = (value: number) =>
     new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1, useGrouping: "always" }).format(value);
 
@@ -1020,6 +1033,19 @@ export default function App() {
             </select>
           </label>
 
+          <label>
+            {t("filters.trend")}
+            <select
+              value={filterForm.trend}
+              onChange={(e) => setFilterForm({ ...filterForm, trend: e.target.value })}
+            >
+              <option value="">{t("common.all")}</option>
+              {TREND_LABELS.map((label) => (
+                <option key={label} value={label}>{t(`trend.${label}` as MessageKey)}</option>
+              ))}
+            </select>
+          </label>
+
           <div className="filter-range">
             <span>{t("filters.roi")}</span>
             <input type="number" placeholder={t("common.min")} value={filterForm.minRoi}
@@ -1079,6 +1105,7 @@ export default function App() {
           <span className="col-num col-extra">{t("screener.colSpread")}</span>
           {renderSortHeader("roi", t("screener.colRoi"))}
           {renderSortHeader("avg_daily_order_count_7d", t("screener.colOps"), "col-num col-extra")}
+          {renderSortHeader("price_trend", t("screener.colTrend"), "col-num col-extra")}
         </div>
         {items.map((item) => (
           <div key={item.type_id} className="data-row clickable" onClick={() => openItem(item.type_id)}>
@@ -1089,6 +1116,7 @@ export default function App() {
               </span>
               <span className="row-sub row-sub-ops">
                 {t("screener.tradesPerDay", { n: formatTrades(item.avg_daily_order_count_7d) })}
+                {item.price_trend != null && ` · ${trendText(item)}`}
               </span>
             </span>
             <span className="col-num">{formatIsk(item.best_buy)}</span>
@@ -1096,6 +1124,9 @@ export default function App() {
             <span className="col-num col-extra">{formatIsk(item.best_sell - item.best_buy)}</span>
             <span className={item.roi >= 0 ? "col-num positive" : "col-num negative"}>{formatPct(item.roi)}</span>
             <span className="col-num col-extra">{formatTrades(item.avg_daily_order_count_7d)}</span>
+            <span className={`col-num col-extra ${trendClass(item)}`} title={t(`trend.${item.price_trend_label}` as MessageKey)}>
+              {trendText(item)}
+            </span>
           </div>
         ))}
         {!loading && items.length === 0 && <p className="muted panel-empty">{t("screener.empty")}</p>}
@@ -1143,6 +1174,11 @@ export default function App() {
                 <div><span className="label">{t("detail.activeSellOrders")}</span>{formatIsk(selected.latest_snapshot.sell_order_count)}</div>
                 <div><span className="label">{t("detail.realVolume7d")}</span>{formatIsk(selected.status.avg_daily_volume_7d)} {t("detail.unitsPerDay")}</div>
                 <div><span className="label">{t("detail.trades7d")}</span>{selected.status.avg_daily_order_count_7d.toFixed(1)}{t("detail.perDay")}</div>
+                <div title={t("detail.trendHelp")}>
+                  <span className="label">{t("detail.priceTrend")}</span>
+                  <span className={trendClass(selected.status)}>{trendText(selected.status)}</span>{" "}
+                  <span className="muted">({t(`trend.${selected.status.price_trend_label}` as MessageKey)})</span>
+                </div>
               </div>
             )}
 
