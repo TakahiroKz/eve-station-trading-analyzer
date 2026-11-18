@@ -97,6 +97,30 @@ def test_sitemap_contains_home_hub_and_only_indexable_items(client):
     assert '?lang=' not in xml
 
 
+def test_sitemap_item_lastmod_is_the_last_status_change_not_the_last_evaluation(client):
+    import sqlite3
+
+    http, db_path = client
+    seed_item(db_path, 34, "Tritanium", "POTENCIAL")   # evaluated "now", status changed long ago
+    seed_item(db_path, 35, "Pyerite", "POTENCIAL")     # no history row at all
+    conn = sqlite3.connect(db_path)
+    for changed_at in ("2026-10-01T08:00:00+00:00", "2026-11-05T09:30:00+00:00"):
+        conn.execute(
+            "INSERT INTO item_status_history (type_id, previous_status, new_status, changed_at, reason) "
+            "VALUES (34, NULL, 'POTENCIAL', ?, 'ok')", (changed_at,),
+        )
+    conn.commit()
+    conn.close()
+
+    xml = http.get("/sitemap.xml").text
+
+    assert (
+        "<loc>https://evemarket-analyzer.online/items/34-tritanium</loc>"
+        "<lastmod>2026-11-05</lastmod>"
+    ) in xml
+    assert "<loc>https://evemarket-analyzer.online/items/35-pyerite</loc><changefreq>" in xml
+
+
 def test_indexnow_key_file_is_served_and_does_not_shadow_other_txt(client):
     from backend.api.indexnow import INDEXNOW_KEY
 
