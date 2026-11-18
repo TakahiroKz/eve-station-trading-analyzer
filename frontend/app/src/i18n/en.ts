@@ -1,11 +1,11 @@
 // English is the source of truth: every other language is typed against this object, so
 // a missing key is a compile error.
 export const en = {
-  "meta.title": "EveMarket Screener — Station trading in EVE Online (Jita)",
+  "meta.title": "EveMarket Screener — Station trading in EVE Online",
   "meta.description":
-    "Free station trading screener for EVE Online: items with the best ROI, spread and liquidity in The Forge (Jita), refreshed every 5 minutes.",
+    "Free station trading screener for EVE Online: items with the best ROI, spread and liquidity in the five main trade hubs (Jita, Amarr, Dodixie, Rens and Hek), refreshed every 5 minutes.",
   "meta.ogDescription":
-    "Find which items are worth trading in Jita: ROI, spread and liquidity, refreshed every 5 minutes.",
+    "Find which items are worth trading in EVE's main trade hubs: ROI, spread and liquidity, refreshed every 5 minutes.",
 
   "nav.wallet": "WALLET",
   "nav.notAuthorized": "not authorized",
@@ -216,8 +216,8 @@ export const en = {
   "nav.allItems": "All items",
   "nav.privacy": "Privacy",
 
-  "hero.eyebrow": "STATION TRADING · THE FORGE (JITA)",
-  "hero.title": "Find what to trade in Jita",
+  "hero.eyebrow": "STATION TRADING · THE 5 MAIN TRADE HUBS",
+  "hero.title": "Find what to trade in EVE's main markets",
   "hero.subtitle":
     "Free screener that ranks market items by ROI, spread and real volume. Official ESI data, refreshed every 5 minutes.",
   "hero.cta": "See opportunities",
