@@ -1,11 +1,11 @@
 import type { Messages } from "./en";
 
 export const fr: Messages = {
-  "meta.title": "EveMarket Screener — Station trading sur EVE Online (Jita)",
+  "meta.title": "EveMarket Screener — Station trading sur EVE Online",
   "meta.description":
-    "Screener gratuit de station trading pour EVE Online : les objets avec le meilleur ROI, spread et liquidité à The Forge (Jita), actualisé toutes les 5 minutes.",
+    "Screener gratuit de station trading pour EVE Online : les objets avec le meilleur ROI, spread et liquidité dans les cinq principaux hubs commerciaux (Jita, Amarr, Dodixie, Rens et Hek), actualisé toutes les 5 minutes.",
   "meta.ogDescription":
-    "Trouvez quels objets valent la peine d'être échangés à Jita : ROI, spread et liquidité, actualisé toutes les 5 minutes.",
+    "Trouvez quels objets valent la peine d'être échangés dans les principaux hubs d'EVE : ROI, spread et liquidité, actualisé toutes les 5 minutes.",
 
   "nav.wallet": "WALLET",
   "nav.notAuthorized": "non autorisé",
@@ -216,8 +216,8 @@ export const fr: Messages = {
   "nav.allItems": "Tous les objets",
   "nav.privacy": "Confidentialité",
 
-  "hero.eyebrow": "STATION TRADING · THE FORGE (JITA)",
-  "hero.title": "Trouvez quoi échanger à Jita",
+  "hero.eyebrow": "STATION TRADING · LES 5 PRINCIPAUX HUBS",
+  "hero.title": "Trouvez quoi échanger dans les principaux marchés d'EVE",
   "hero.subtitle":
     "Screener gratuit qui classe les objets du marché par ROI, spread et volume réel. Données officielles de l'ESI, actualisées toutes les 5 minutes.",
   "hero.cta": "Voir les opportunités",
