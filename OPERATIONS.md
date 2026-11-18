@@ -123,6 +123,19 @@ python -c "from storage.db import get_connection, drop_pre_market_tables; c = ge
 
 Hacerla con los motores y el cron pausados (el VACUUM tarda ~70 s y bloquea la escritura).
 
+### Activar un mercado nuevo
+
+El motor (`scheduler/run.py`) procesa los mercados con `enabled = 1` en la tabla `market`, uno tras otro y
+aislados (si uno falla, los demás siguen y el fallo queda en el log). Para sumar uno (p. ej. amarr), de a uno:
+
+1. Rellenar su histórico sin activarlo (tarda varios minutos; guarda solo los últimos 120 días):
+   `docker compose --profile cron run --rm engine-history python -m scheduler.run --history-only --backfill --history-days 120 --markets amarr`
+2. Un ciclo de precios a mano para ese mercado y revisar el resultado:
+   `flock -n .market.lock docker compose --profile cron run --rm engine-market python -m scheduler.run --prices-only --markets amarr`
+3. Activarlo: `UPDATE market SET enabled = 1 WHERE market_id = amarr` (con `docker exec evemarket-api python -c` y
+   `sqlite3`). Desde ahí entra en cada ciclo y la API lo acepta con `?market=amarr`.
+   Para desactivarlo, `enabled = 0` (los datos se conservan).
+
 ## Tamaño de la base de datos
 
 `opportunity_log` crecía una fila por ítem y por ciclo (~4,7 millones al día con ciclos de 5 min) hasta
