@@ -17,12 +17,12 @@ The public Screener requires no account. The "My Orders" and "Settings" sections
 
 ## Pages
 - [Screener](https://evemarket-analyzer.online/): main listing, public.
-- [All items](https://evemarket-analyzer.online/items): one plain HTML page per tracked item, with its prices, ROI, spread, volume and status.
+- [All items](https://evemarket-analyzer.online/items): one plain HTML page per item that is a station-trading candidate, each comparing the item across the five hubs (best buy and sell price, ROI, trades per day, status and 7-day price trend per hub) plus its Jita details.
 - [Español](https://evemarket-analyzer.online/es/) · [Deutsch](https://evemarket-analyzer.online/de/) · [Français](https://evemarket-analyzer.online/fr/) · [Italiano](https://evemarket-analyzer.online/it/)
 
 ## Data and limits
 - Source: the ESI, CCP Games' official API for EVE Online (not scraping).
-- Markets covered: Jita (The Forge), Amarr (Domain), Dodixie (Sinq Laison), Rens (Heimatar) and Hek (Metropolis), each as a whole region. Each market has its own plain HTML page (`/jita/`, `/amarr/`, `/dodixie/`, `/rens/`, `/hek/`; localized under `/es/`, `/de/`, `/fr/`, `/it/`) with its top candidates. The per-item plain HTML pages cover Jita only.
+- Markets covered: Jita (The Forge), Amarr (Domain), Dodixie (Sinq Laison), Rens (Heimatar) and Hek (Metropolis), each as a whole region. Each market has its own plain HTML page (`/jita/`, `/amarr/`, `/dodixie/`, `/rens/`, `/hek/`; localized under `/es/`, `/de/`, `/fr/`, `/it/`) with its top candidates. The per-item pages compare all five hubs; an item has a page when it is a candidate in Jita.
 - Frequency: the prices-and-calculations cycle runs every 5 minutes; market history (daily volumes) updates once a day.
 - Informational tool, not investment advice nor an in-game purchase recommendation.
 - Independent site, not affiliated with CCP Games. EVE Online is a trademark of CCP hf.
