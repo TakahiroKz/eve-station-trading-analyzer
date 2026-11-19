@@ -146,8 +146,24 @@ export interface Assessment {
   reference: Record<string, number | null>;
 }
 
+// Units to buy for a capital (position = capital x position_pct); computed by the server with the engine's own math.
+export interface UnitRecommendation {
+  capital: number;
+  position_pct: number;
+  posicion_isk: number;
+  volumen_deseado: number;
+  unidades_sugeridas: number;
+  recomendacion: string;
+  action: EngineAction | null;
+  blocked_by: string[];
+  inversion_isk: number;
+  beneficio_neto_isk: number;
+  dias_rotacion: number | null;
+}
+
 export interface ItemDetail {
   status: ItemStatus;
+  recommendation?: UnitRecommendation | null;
   history: HistoryPoint[];
   latest_snapshot: Snapshot | null;
   latest_opportunities: Opportunity[];

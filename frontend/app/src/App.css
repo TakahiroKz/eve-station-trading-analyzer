@@ -1622,11 +1622,21 @@
 .factor-note { font-size: 0.72rem; color: var(--ink-faint); margin-top: 1px; }
 .score-small { font-size: 0.68rem; margin: 6px 0 0; }
 
-/* ---- Capital propio para el puntaje ---- */
-.capital-picker { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin: 10px 2px 4px; font-size: 0.78rem; }
-.capital-picker label { display: flex; align-items: center; gap: 8px; }
-.capital-label { color: var(--ink-faint); font-size: 0.7rem; letter-spacing: 0.3px; }
-.capital-picker select, .capital-picker input { padding: 5px 8px; font-size: 0.78rem; }
-.capital-picker input { width: 11em; }
-.capital-note { color: var(--ink-dim); font-size: 0.7rem; }
-.capital-reset { background: none; border: none; padding: 0; color: var(--accent-cyan); cursor: pointer; font-size: 0.7rem; text-decoration: underline; }
+/* ---- Capital propio: mismo lenguaje que el selector de mercado ---- */
+.capital-block { margin-bottom: 4px; }
+.capital-input { width: 8.5em; min-height: 34px; padding: 6px 10px; border-radius: 999px; }
+.capital-suffix { font-family: var(--mono); font-size: 0.72rem; color: var(--ink-faint); }
+.capital-position { margin: -2px 2px 12px; font-size: 0.74rem; line-height: 1.5; color: var(--ink-dim); }
+.capital-position strong { color: var(--ink); font-family: var(--mono); font-weight: 600; }
+.capital-reset { background: none; border: none; padding: 0; color: var(--accent-cyan); cursor: pointer; font-size: inherit; text-decoration: underline; }
+
+/* ---- Recomendación de unidades según el capital ---- */
+.recommendation.is-wait { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.3); }
+.recommendation.is-wait strong { color: var(--warning); }
+.recommendation.is-reject { background: var(--negative-soft); border-color: rgba(255, 93, 93, 0.3); }
+.recommendation.is-reject strong { color: var(--negative); }
+.rec-figures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; margin: 12px 0 4px; font-family: var(--mono); }
+.rec-figures div { font-size: 0.82rem; color: var(--ink); }
+.rec-blocked { margin: 8px 0 0; padding: 0; list-style: none; font-size: 0.78rem; color: var(--negative); display: grid; gap: 3px; }
+.rec-note { margin: 8px 0 0; font-size: 0.74rem; color: var(--ink-dim); }
+.rec-basis { margin: 8px 0 0; font-size: 0.68rem; color: var(--ink-faint); }
