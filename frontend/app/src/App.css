@@ -1682,3 +1682,23 @@
 .modal a.primary { color: #04121a; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
 @media (max-width: 520px) { .account-btn { max-width: 120px; } }
+
+/* ---------- player profile ---------- */
+.profile-modal { width: min(720px, 100%); }
+.profile-modal h3 { margin: 16px 0 6px; font-size: 14px; }
+.profile-meta { margin: 6px 0; font-size: 12.5px; }
+.profile-warn { margin: 8px 0; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--negative); color: var(--ink); }
+.profile-ok { margin: 8px 0; color: var(--accent-cyan); }
+.profile-skills { list-style: none; padding: 0; margin: 6px 0; }
+.profile-skills li { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.profile-table-wrap { overflow-x: auto; }
+.profile-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.profile-table th, .profile-table td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+.profile-table th { font-weight: 600; color: var(--ink-dim); white-space: nowrap; }
+.profile-table small, .profile-skills small { display: block; font-size: 11px; color: var(--ink-dim); }
+.profile-skills small { display: inline; margin-left: 6px; }
+.profile-table small.src-MANUAL, .profile-skills small.src-MANUAL { color: var(--accent-cyan); }
+.profile-modal input, .profile-modal select {
+  width: 100%; max-width: 110px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--panel-strong); color: var(--ink); font: inherit; font-size: 13px;
+}

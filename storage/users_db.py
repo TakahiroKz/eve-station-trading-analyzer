@@ -4,13 +4,14 @@ Guarda lo mínimo: personaje, consentimiento, refresh token CIFRADO y sesiones (
 Ver docs/ANALISIS_CUENTAS_Y_BASE_DE_DATOS.md.
 """
 import hashlib
+import json
 import os
 import secrets
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 SESSION_TTL_DAYS = 30
 INACTIVE_MONTHS = 12
 _SLIDE_EVERY = timedelta(hours=1)   # la sesión se prolonga como mucho una vez por hora (evita una escritura por petición)
@@ -37,6 +38,18 @@ CREATE TABLE IF NOT EXISTS user_session (
     created_at TEXT NOT NULL,
     expires_at TEXT NOT NULL,
     last_seen_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS user_profile (
+    character_id INTEGER PRIMARY KEY REFERENCES user(character_id) ON DELETE CASCADE,
+    skills_json TEXT,
+    skills_at TEXT,
+    standings_json TEXT,
+    standings_at TEXT,
+    wallet_isk TEXT,
+    wallet_at TEXT,
+    override_json TEXT,
+    sync_status TEXT NOT NULL DEFAULT 'NEVER',
+    last_attempt_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_user_session_char ON user_session(character_id);
 CREATE INDEX IF NOT EXISTS idx_user_session_exp ON user_session(expires_at);
@@ -105,6 +118,54 @@ def save_token(conn: sqlite3.Connection, character_id: int, encrypted: bytes, sc
         (character_id, encrypted, scopes, iso(now)))
 
 
+def get_token(conn: sqlite3.Connection, character_id: int) -> sqlite3.Row | None:
+    return conn.execute("SELECT refresh_token_enc, scopes, status FROM user_token WHERE character_id = ?",
+                        (character_id,)).fetchone()
+
+
+def set_token_status(conn: sqlite3.Connection, character_id: int, status: str, now: datetime) -> None:
+    conn.execute("UPDATE user_token SET status = ?, updated_at = ? WHERE character_id = ?",
+                 (status, iso(now), character_id))
+
+
+def get_profile(conn: sqlite3.Connection, character_id: int) -> sqlite3.Row | None:
+    return conn.execute("SELECT * FROM user_profile WHERE character_id = ?", (character_id,)).fetchone()
+
+
+def _ensure_profile(conn: sqlite3.Connection, character_id: int) -> None:
+    conn.execute("INSERT OR IGNORE INTO user_profile (character_id) VALUES (?)", (character_id,))
+
+
+def save_skills(conn: sqlite3.Connection, character_id: int, skills: dict, now: datetime) -> None:
+    _ensure_profile(conn, character_id)
+    conn.execute("UPDATE user_profile SET skills_json = ?, skills_at = ? WHERE character_id = ?",
+                 (json.dumps(skills, sort_keys=True), iso(now), character_id))
+
+
+def save_standings(conn: sqlite3.Connection, character_id: int, standings: dict, now: datetime) -> None:
+    _ensure_profile(conn, character_id)
+    conn.execute("UPDATE user_profile SET standings_json = ?, standings_at = ? WHERE character_id = ?",
+                 (json.dumps(standings, sort_keys=True), iso(now), character_id))
+
+
+def save_wallet(conn: sqlite3.Connection, character_id: int, isk: str, now: datetime) -> None:
+    _ensure_profile(conn, character_id)
+    conn.execute("UPDATE user_profile SET wallet_isk = ?, wallet_at = ? WHERE character_id = ?",
+                 (isk, iso(now), character_id))
+
+
+def save_sync_result(conn: sqlite3.Connection, character_id: int, status: str, now: datetime) -> None:
+    _ensure_profile(conn, character_id)
+    conn.execute("UPDATE user_profile SET sync_status = ?, last_attempt_at = ? WHERE character_id = ?",
+                 (status, iso(now), character_id))
+
+
+def save_override(conn: sqlite3.Connection, character_id: int, override: dict | None) -> None:
+    _ensure_profile(conn, character_id)
+    conn.execute("UPDATE user_profile SET override_json = ? WHERE character_id = ?",
+                 (json.dumps(override, sort_keys=True) if override else None, character_id))
+
+
 def create_session(conn: sqlite3.Connection, character_id: int, now: datetime) -> str:
     """Devuelve el token en claro (va solo a la cookie); en la base queda su hash."""
     raw = secrets.token_urlsafe(32)
@@ -166,4 +227,6 @@ def export_user(conn: sqlite3.Connection, character_id: int) -> dict | None:
                          (character_id,)).fetchone()
     sessions = conn.execute("SELECT created_at, expires_at, last_seen_at FROM user_session WHERE character_id = ?",
                             (character_id,)).fetchall()
-    return {"user": dict(user), "token": dict(token) if token else None, "sessions": [dict(s) for s in sessions]}
+    profile = get_profile(conn, character_id)
+    return {"user": dict(user), "token": dict(token) if token else None, "sessions": [dict(s) for s in sessions],
+            "profile": dict(profile) if profile else None}

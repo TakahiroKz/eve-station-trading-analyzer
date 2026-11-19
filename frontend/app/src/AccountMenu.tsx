@@ -3,6 +3,7 @@
 // nothing secret ever reaches this code.
 import { useEffect, useState } from "react";
 import type { MessageKey, TFunction } from "./i18n";
+import { ProfilePanel } from "./ProfilePanel";
 
 interface AuthStatus {
   enabled: boolean;
@@ -29,6 +30,7 @@ export function AccountMenu({ t }: { t: TFunction }) {
   const [status, setStatus] = useState<AuthStatus | null>(null);
   const [dialog, setDialog] = useState(false);
   const [menu, setMenu] = useState(false);
+  const [profile, setProfile] = useState(false);
   const [notice, setNotice] = useState<MessageKey | null>(null);
 
   useEffect(() => {
@@ -85,6 +87,7 @@ export function AccountMenu({ t }: { t: TFunction }) {
           </button>
           {menu && (
             <div className="account-menu" role="menu">
+              <button role="menuitem" onClick={() => { setMenu(false); setProfile(true); }}>{t("profile.open")}</button>
               <button role="menuitem" onClick={() => void exportData()}>{t("account.export")}</button>
               <button role="menuitem" onClick={() => void signOut()}>{t("account.signOut")}</button>
               <button role="menuitem" className="danger" onClick={() => void deleteData()}>{t("account.delete")}</button>
@@ -94,6 +97,8 @@ export function AccountMenu({ t }: { t: TFunction }) {
       ) : (
         <button className="account-btn" onClick={() => setDialog(true)}>{t("account.signIn")}</button>
       )}
+
+      {profile && signedIn && <ProfilePanel t={t} onClose={() => setProfile(false)} />}
 
       {notice && (
         <div className="account-notice" role="status" onClick={() => setNotice(null)}>{t(notice)}</div>
