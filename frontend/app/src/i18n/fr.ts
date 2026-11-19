@@ -384,4 +384,5 @@ export const fr: Messages = {
   "detail.recBlocked": "Non recommandé pour le moment :",
   "detail.recWait": "Le moteur suggère d'attendre : ces unités ne valent que si vous décidez d'acheter.",
   "detail.recTooBig": "Une unité coûte ≈ {price} ISK, plus que votre position de {position} ISK. Augmentez votre capital pour échanger cet objet.",
+  "detail.recUnderDay": "< 1 jour",
 };

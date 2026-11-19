@@ -384,6 +384,7 @@ export const en = {
   "detail.recBlocked": "Not recommended right now:",
   "detail.recWait": "The engine suggests waiting: these units apply only if you decide to buy.",
   "detail.recTooBig": "One unit costs ≈ {price} ISK, more than your position of {position} ISK. Raise your capital to trade this item.",
+  "detail.recUnderDay": "< 1 day",
 } as const;
 
 export type MessageKey = keyof typeof en;
