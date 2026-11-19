@@ -205,3 +205,174 @@ def test_history_days_requires_backfill_and_a_positive_value(engine):
         run("--history-only", "--history-days", "30")
     with pytest.raises(SystemExit):
         run("--history-only", "--backfill", "--history-days", "0")
+
+
+# ---------------- histórico: huecos, reintentos y fallos masivos ----------------
+def _day(days_ago):
+    return (datetime.now(timezone.utc).date() - timedelta(days=days_ago)).isoformat()
+
+
+def _history_row(days_ago):
+    return {"date": _day(days_ago), "average": 4.0, "highest": 4.2, "lowest": 3.8, "volume": 10, "order_count": 2}
+
+
+class _GapClient(_RecordingClient):
+    """Devuelve el año como la ESI: filas viejas, el hueco y el día más reciente."""
+
+    def get_history(self, region_id, type_id):
+        self.history_regions.append(region_id)
+        return [_history_row(d) for d in (30, 4, 3, 2, 1)]
+
+
+def _seed_item(db_path, *type_ids):
+    conn = sqlite3.connect(db_path)
+    conn.executemany("INSERT INTO item_type (type_id, name) VALUES (?, ?)", [(t, f"item {t}") for t in type_ids])
+    conn.commit()
+    conn.close()
+
+
+def _stored_dates(db_path, type_id, market_id="jita"):
+    conn = get_connection(db_path)
+    rows = conn.execute("SELECT date FROM market_history WHERE market_id = ? AND type_id = ? ORDER BY date",
+                        (market_id, type_id)).fetchall()
+    conn.close()
+    return [r["date"] for r in rows]
+
+
+def test_daily_history_fills_the_days_missed_by_a_failed_run(engine):
+    _, _, _, db_path = engine
+    _seed_item(db_path, 34, 35)
+    conn = sqlite3.connect(db_path)
+    conn.execute("INSERT INTO market_history (market_id, type_id, date, avg_price, highest, lowest, volume, "
+                 "order_count) VALUES ('jita', 34, ?, 4, 4, 4, 1, 1)", (_day(4),))
+    conn.commit()
+    conn.close()
+
+    ingest_history(_GapClient(), JITA, db_path, [34, 35])
+
+    # tipo con historial: todo lo posterior a su última fecha; tipo nuevo: solo la última fila
+    assert _stored_dates(db_path, 34) == [_day(4), _day(3), _day(2), _day(1)]
+    assert _stored_dates(db_path, 35) == [_day(1)]
+
+def _target(offset=0):
+    """Fecha del último día que la ESI ya debe tener publicado (según la hora real), menos `offset` días."""
+    return (run_module.history_expected_date() - timedelta(days=offset)).isoformat()
+
+
+def _seed_history(db_path, rows, market_id="jita"):
+    conn = sqlite3.connect(db_path)
+    conn.executemany("INSERT INTO market_history (market_id, type_id, date, avg_price, highest, lowest, volume, "
+                     "order_count) VALUES (?, ?, ?, 1, 1, 1, 1, 1)", [(market_id, t, d) for t, d in rows])
+    conn.commit()
+    conn.close()
+
+
+def test_expected_history_date_follows_the_esi_publication_time():
+    day = datetime(2026, 11, 19, tzinfo=timezone.utc)
+    assert run_module.history_expected_date(day.replace(hour=5)).isoformat() == "2026-11-17"  # aún sin publicar
+    assert run_module.history_expected_date(day.replace(hour=11, minute=14)).isoformat() == "2026-11-17"
+    assert run_module.history_expected_date(day.replace(hour=11, minute=35)).isoformat() == "2026-11-18"
+    assert run_module.history_expected_date(day.replace(hour=23)).isoformat() == "2026-11-18"
+
+
+def test_history_is_current_needs_the_target_day_covered_like_the_day_before(engine):
+    _, _, _, db_path = engine
+    _seed_item(db_path, *range(1, 11))
+    _seed_history(db_path, [(t, _target(1)) for t in range(1, 11)])
+    assert run_module.history_is_current(db_path, "jita") is False  # el día esperado sin datos
+
+    _seed_history(db_path, [(t, _target()) for t in range(1, 6)])  # cortada a medias: 50 %
+    assert run_module.history_is_current(db_path, "jita") is False
+
+    _seed_history(db_path, [(t, _target()) for t in range(6, 10)])  # 90 %
+    assert run_module.history_is_current(db_path, "jita") is True
+    assert run_module.history_is_current(db_path, "amarr") is False  # sin datos
+
+
+def test_history_gaps_flags_missing_days_and_poorly_covered_days(engine):
+    _, _, _, db_path = engine
+    _seed_item(db_path, *range(1, 11))
+    rows = []
+    for offset in range(0, 8):
+        if offset == 3:
+            continue  # día sin ningún dato
+        types = range(1, 3) if offset == 5 else range(1, 11)  # día con solo el 20 % de los tipos
+        rows += [(t, _target(offset)) for t in types]
+    _seed_history(db_path, rows)
+
+    assert run_module.history_gaps(db_path, "jita") == [_target(5), _target(3)]
+    assert run_module.history_gaps(db_path, "amarr") == []  # sin datos no hay huecos que reportar
+
+
+def test_a_new_market_has_no_gaps_before_its_first_day(engine):
+    _, _, _, db_path = engine
+    _seed_item(db_path, 1)
+    _seed_history(db_path, [(1, _target(offset)) for offset in range(0, 4)])
+
+    assert run_module.history_gaps(db_path, "jita") == []
+
+
+def test_audit_history_reports_gaps_without_calling_esi(engine, caplog):
+    run, _, state, db_path = engine
+    _seed_item(db_path, 1, 2)
+    caplog.set_level(logging.INFO)
+    _seed_history(db_path, [(t, _target(offset)) for offset in (0, 1, 3) for t in (1, 2)])  # falta offset 2
+
+    assert run("--audit-history") == 1
+    assert _target(2) in caplog.text and "con huecos" in caplog.text
+    assert state["client"].active_regions == [] and state["client"].history_regions == []
+
+    _seed_history(db_path, [(t, _target(2)) for t in (1, 2)])
+    caplog.clear()
+    assert run("--audit-history") == 0
+    assert "sin huecos" in caplog.text
+
+
+def test_history_only_repairs_a_gap_with_a_backfill_from_the_first_missing_day(engine, caplog):
+    run, _, state, db_path = engine
+    _seed_item(db_path, 34)
+    # el cliente falso devuelve filas de hace 30, 4, 3, 2 y 1 días: hace 3 días hay un hueco
+    _seed_history(db_path, [(34, _day(d)) for d in (5, 4, 2, 1)])
+    state["client"] = _GapClient()
+    caplog.set_level(logging.INFO)
+
+    run("--history-only")
+
+    assert "Huecos de histórico en jita" in caplog.text
+    assert _day(3) in _stored_dates(db_path, 34)
+    assert _day(30) not in _stored_dates(db_path, 34)  # solo desde el primer hueco, no el año entero
+
+
+def test_history_only_skips_a_market_that_is_already_current_but_backfill_does_not(engine, caplog):
+    run, _, state, db_path = engine
+    _seed_item(db_path, 34)
+    _seed_history(db_path, [(34, _target(offset)) for offset in range(0, 3)])
+    caplog.set_level(logging.INFO)
+
+    run("--history-only")
+    assert state["client"].active_regions == [] and "ya al día" in caplog.text
+
+    run("--history-only", "--backfill", "--history-days", "5")
+    assert state["client"].active_regions == [JITA]
+
+
+def test_a_history_run_with_many_failed_types_fails_the_market_so_cron_retries(engine, caplog):
+    import httpx
+
+    run, _, state, db_path = engine
+
+    class _Down(_RecordingClient):
+        def get_active_type_ids(self, region_id):
+            return list(range(1, 31))
+
+        def get_history(self, region_id, type_id):
+            response = httpx.Response(503, request=httpx.Request("GET", "http://esi"))
+            raise httpx.HTTPStatusError("503", request=response.request, response=response)
+
+    state["client"] = _Down()
+    caplog.set_level(logging.INFO)
+
+    assert run("--history-only") == 1  # el único mercado falló
+
+    assert "Mercados con fallo: jita" in caplog.text
+    assert run_module.history_is_current(db_path, "jita") is False

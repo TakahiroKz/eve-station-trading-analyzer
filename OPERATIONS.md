@@ -199,7 +199,24 @@ un ping externo no ve: la API responde pero los motores dejaron de correr. Chequ
 - el servicio systemd `cloudflared` está activo;
 - el ciclo de mercado no dura demasiado: avisa si hay uno corriendo hace más de 4 min o si el último
   tardó más de 4 min (un ciclo de precios normal tarda unos 35 s; ver `MARKET_MAX_RUN_MIN`);
-- el histórico diario (`history_*.log`) se tocó hace menos de 36 h (`HISTORY_MAX_AGE_HOURS`).
+- el histórico diario (`history_*.log`) se tocó hace menos de 36 h (`HISTORY_MAX_AGE_HOURS`);
+- a partir de las 17:00 UTC (`HISTORY_DATA_CHECK_HOUR`), cada mercado activo tiene en `market_history` el día
+  de ayer (el log se toca aunque la corrida falle, así que solo mirar el log no detecta un día perdido). Si un
+  mercado acumula 2 días o más de retraso, el aviso escala con otro texto («histórico de mercado con 2 días o
+  más de retraso en: …»), que llega como aviso nuevo; al recuperarse llega el ✅ de siempre.
+
+**Histórico diario con reintentos y reparación.** El cron lo lanza **cada hora, todo el día** (minuto 35).
+`--history-only` omite los mercados cuyo último día publicado ya está completo (`history_is_current`: la ESI
+publica el día D-1 a las 11:05 UTC, y la cobertura debe ser ≥ 90 % de los tipos del día anterior), así que
+tras una corrida buena las demás no hacen nada y las de madrugada no repiten trabajo. Si la ESI cae (503),
+la siguiente hora lo reintenta, aunque el corte dure días: cada corrida guarda todas las filas posteriores a
+la última fecha de cada tipo, y si detecta días sin datos en los últimos 30 (`history_gaps`: día vacío o con
+menos de la mitad de la cobertura mediana) rellena solo desde el primer hueco (`--backfill` automático).
+Auditoría a mano (solo lectura, no llama a la ESI; sale con código 1 si hay huecos):
+`docker compose --profile cron run --rm engine-history python -m scheduler.run --audit-history`.
+Incidente 2026-11-18: la ESI devolvió 503 a las 11:35 UTC, el único intento falló y el 17-nov quedó sin datos
+(recuperado con `--history-only --backfill --history-days 5`). Lo que NO se recupera de un corte son los
+snapshots de precios (la ESI solo da el libro actual): hay un hueco en la tendencia y la profundidad.
 
 Avisa por Telegram (mismas variables del `.env` que el resto) solo cuando el estado
 cambia: falla nueva, cambio de motivo, o recuperación (✅). El último estado queda en
