@@ -4,8 +4,8 @@
 # no en la máquina de desarrollo.
 #
 # Motor de mercado en dos procesos: ciclo de precios y cálculos (scheduler/run.py
-# --prices-only) cada 5 min, e histórico diario de ESI (--history-only) una vez al día
-# a las 11:35 UTC (ESI lo renueva a las 11:05). Motor de posiciones
+# --prices-only) cada 5 min, e histórico diario de ESI (--history-only) de 11:35 a 16:35
+# UTC cada hora, con reintentos (ESI lo renueva a las 11:05; si cae, la siguiente hora lo repite). Motor de posiciones
 # (scheduler/orders_run.py) cada 5 min. Todos disparan contenedores de un solo uso
 # (`docker compose run --rm`) en vez de invocar python directo. Más el backup diario de la DB (D10, scripts/
 # backup_db.sh) a las 03:17 UTC — fuera de los :00 en punto para no coincidir con el
@@ -26,7 +26,7 @@ CRON_BLOCK=$(cat <<'CRONEOF'
 # evemarket-screener: motor de mercado (precios y cálculos), cada 5 min
 */5 * * * * cd __APP_DIR__ && flock -n .market.lock docker compose --profile cron run --rm engine-market >> logs/scheduler_$(date +\%Y-\%m-\%d).log 2>&1
 # evemarket-screener: histórico diario de mercado (ESI lo renueva a las 11:05 UTC)
-35 11 * * * cd __APP_DIR__ && flock -n .history.lock docker compose --profile cron run --rm engine-history >> logs/history_$(date +\%Y-\%m-\%d).log 2>&1
+35 11-16 * * * cd __APP_DIR__ && flock -n .history.lock docker compose --profile cron run --rm engine-history >> logs/history_$(date +\%Y-\%m-\%d).log 2>&1
 # evemarket-screener: motor de posiciones, cada 5 min
 */5 * * * * cd __APP_DIR__ && flock -n .positions.lock docker compose --profile cron run --rm engine-positions >> logs/orders_$(date +\%Y-\%m-\%d).log 2>&1
 # evemarket-screener: backup diario de la DB (D10)

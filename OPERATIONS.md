@@ -199,7 +199,16 @@ un ping externo no ve: la API responde pero los motores dejaron de correr. Chequ
 - el servicio systemd `cloudflared` está activo;
 - el ciclo de mercado no dura demasiado: avisa si hay uno corriendo hace más de 4 min o si el último
   tardó más de 4 min (un ciclo de precios normal tarda unos 35 s; ver `MARKET_MAX_RUN_MIN`);
-- el histórico diario (`history_*.log`) se tocó hace menos de 36 h (`HISTORY_MAX_AGE_HOURS`).
+- el histórico diario (`history_*.log`) se tocó hace menos de 36 h (`HISTORY_MAX_AGE_HOURS`);
+- a partir de las 17:00 UTC (`HISTORY_DATA_CHECK_HOUR`), cada mercado activo tiene en `market_history` el día
+  de ayer (el log se toca aunque la corrida falle, así que solo mirar el log no detecta un día perdido).
+
+**Histórico diario con reintentos.** El cron lo lanza cada hora de 11:35 a 16:35 UTC; `--history-only` omite
+los mercados cuyo día de ayer ya está completo (`history_is_current`, cobertura ≥ 90 % de los tipos del día
+anterior), así que tras una corrida buena las demás no hacen nada. Si la ESI cae (503), la siguiente hora lo
+reintenta, y como cada corrida guarda todas las filas posteriores a la última fecha de cada tipo, un día
+perdido se rellena solo. Incidente 2026-11-18: la ESI devolvió 503 a las 11:35 UTC, el único intento falló y
+el 17-nov quedó sin datos (recuperado con `--history-only --backfill --history-days 5`).
 
 Avisa por Telegram (mismas variables del `.env` que el resto) solo cuando el estado
 cambia: falla nueva, cambio de motivo, o recuperación (✅). El último estado queda en

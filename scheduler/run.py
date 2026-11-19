@@ -149,6 +149,35 @@ def ingest_orders(client: EsiClient, region_id: int, db_path: str, market_id: st
         conn.close()
 
 
+HISTORY_MAX_FAILURE_RATE = 0.02  # fracción de tipos con error que hace fallar la corrida de histórico
+HISTORY_CURRENT_COVERAGE = 0.9   # el día de ayer cuenta como completo con el 90 % de los tipos del día anterior
+
+
+def history_is_current(db_path: str, market_id: str, now: datetime | None = None) -> bool:
+    """¿Ya está guardado el histórico de ayer (UTC) de este mercado? La ESI publica el día D-1 a las
+    11:05 UTC; el cron del histórico reintenta cada hora y esta comprobación hace que las corridas
+    posteriores a una exitosa no hagan nada. Se compara la cobertura (tipos con fila ayer frente a
+    los del día anterior) para que una corrida cortada a medias se reintente."""
+    today = (now or datetime.now(timezone.utc)).date()
+    yesterday = (today - timedelta(days=1)).isoformat()
+    day_before = (today - timedelta(days=2)).isoformat()
+    conn = get_connection(db_path)
+    try:
+        counts = {
+            r["date"]: r["n"]
+            for r in conn.execute(
+                "SELECT date, COUNT(*) AS n FROM market_history WHERE market_id = ? AND date IN (?, ?) "
+                "GROUP BY date", (market_id, yesterday, day_before),
+            )
+        }
+    finally:
+        conn.close()
+    have, previous = counts.get(yesterday, 0), counts.get(day_before, 0)
+    if previous == 0:
+        return have > 0
+    return have >= previous * HISTORY_CURRENT_COVERAGE
+
+
 def ingest_history(client: EsiClient, region_id: int, db_path: str, type_ids: list[int],
                    backfill: bool = False, max_workers: int = 20, market_id: str = DEFAULT_MARKET,
                    history_days: int | None = None) -> None:
@@ -162,6 +191,20 @@ def ingest_history(client: EsiClient, region_id: int, db_path: str, type_ids: li
     "database is locked" aun con el busy_timeout de 30 s."""
     conn = get_connection(db_path)
     pending: list[tuple[int, dict]] = []
+    # Última fecha guardada por tipo: la ESI devuelve el año completo en cada petición, así que
+    # el modo diario guarda TODO lo posterior a esa fecha. Si una corrida falla (ESI caída), la
+    # siguiente rellena el hueco en vez de dejarlo para siempre (antes solo se guardaba la última
+    # fila y un día perdido no se recuperaba).
+    latest_date: dict[int, str] = {}
+    if not backfill:
+        latest_date = {
+            r["type_id"]: r["last_date"]
+            for r in conn.execute(
+                "SELECT type_id, MAX(date) AS last_date FROM market_history WHERE market_id = ? GROUP BY type_id",
+                (market_id,),
+            )
+        }
+    failures = 0
 
     def flush() -> None:
         for pending_type_id, pending_row in pending:
@@ -182,9 +225,11 @@ def ingest_history(client: EsiClient, region_id: int, db_path: str, type_ids: li
                         # 404 es esperado (ítem nunca transado en esta región); cualquier otro
                         # código sí es un fallo real digno de traceback.
                         logger.exception("Fallo al traer histórico de type_id=%s", type_id)
+                        failures += 1
                     history = []
                 except Exception:
                     logger.exception("Fallo al traer histórico de type_id=%s", type_id)
+                    failures += 1
                     history = []
 
                 if backfill:
@@ -193,7 +238,11 @@ def ingest_history(client: EsiClient, region_id: int, db_path: str, type_ids: li
                         history = [row for row in history if row["date"] >= oldest]
                     pending.extend((type_id, row) for row in history)
                 elif history:
-                    pending.append((type_id, history[-1]))
+                    known = latest_date.get(type_id)
+                    if known is None:
+                        pending.append((type_id, history[-1]))
+                    else:
+                        pending.extend((type_id, row) for row in history if row["date"] > known)
 
                 done += 1
                 if done % 100 == 0:
@@ -202,6 +251,10 @@ def ingest_history(client: EsiClient, region_id: int, db_path: str, type_ids: li
 
         flush()
         logger.info("Histórico completado para %d tipos", len(type_ids))
+        if failures > max(10, len(type_ids) * HISTORY_MAX_FAILURE_RATE):
+            # Lo traído ya quedó guardado; fallar hace que el mercado figure como fallido y que el
+            # cron reintente (history_is_current sigue diciendo "no al día" hasta cubrir el día).
+            raise RuntimeError(f"Histórico de {market_id}: fallaron {failures} de {len(type_ids)} tipos")
     finally:
         conn.close()
 
@@ -495,6 +548,9 @@ def _run_market(client: EsiClient, market: Market, db_path: str, excel_path: str
     """Un mercado completo según el modo pedido (ver main)."""
     market_id, region_id = market.market_id, market.region_id
     if args.history_only:
+        if not args.backfill and history_is_current(db_path, market_id):
+            logger.info("Histórico de %s ya al día; nada que hacer", market_id)
+            return
         type_ids = client.get_active_type_ids(region_id)
         ingest_history(client, region_id, db_path, type_ids, backfill=args.backfill, max_workers=max_workers,
                        market_id=market_id, history_days=args.history_days)

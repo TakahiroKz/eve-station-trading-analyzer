@@ -142,6 +142,20 @@ if [ -n "$latest_history_log" ]; then
   fi
 fi
 
+# 6b: datos del histórico -- el log se toca aunque la corrida falle (así pasó el 18-nov: ESI devolvió 503,
+# el log existía y nadie se enteró del hueco). Pasada la ventana de reintentos del cron, cada mercado activo
+# debe tener ya el día de ayer (UTC). Lectura directa de la base; el texto no lleva fechas (anti-spam).
+HISTORY_DATA_CHECK_HOUR="${HISTORY_DATA_CHECK_HOUR:-17}"
+DB_FILE="${DB_FILE:-$APP_DIR/storage/market.db}"
+if [ "$(date -u +%H)" -ge "$HISTORY_DATA_CHECK_HOUR" ] && [ -r "$DB_FILE" ] && command -v sqlite3 >/dev/null 2>&1; then
+  stale_data_markets="$(sqlite3 -readonly "$DB_FILE" \
+    "SELECT group_concat(m.market_id, ', ') FROM market m WHERE m.enabled = 1 AND COALESCE((SELECT MAX(h.date) \
+FROM market_history h WHERE h.market_id = m.market_id), '') < date('now', '-1 day')" 2>/dev/null || true)"
+  if [ -n "$stale_data_markets" ]; then
+    failures+=("histórico de mercado sin el día de ayer en: ${stale_data_markets}")
+  fi
+fi
+
 # 4: túnel de Cloudflare.
 if [ "$CHECK_CLOUDFLARED" = "1" ] && ! systemctl is-active --quiet cloudflared; then
   failures+=("el servicio cloudflared no está activo")
