@@ -1570,3 +1570,54 @@
   .how-states { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .data-header .col-num { font-size: 0.68rem; }
 }
+
+/* ---- Puntaje de oportunidad (0-100) ---- */
+.score-chip {
+  display: inline-block;
+  min-width: 2.1em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-align: center;
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+}
+.score-chip.score-EXCELLENT, .score-chip.score-HIGH { color: var(--positive); background: var(--positive-soft); border-color: rgba(61, 220, 132, 0.3); }
+.score-chip.score-MODERATE { color: var(--accent-cyan); background: rgba(63, 208, 255, 0.12); border-color: rgba(63, 208, 255, 0.3); }
+.score-chip.score-LOW { color: var(--warning); background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.3); }
+.score-chip.score-DISCARDED { color: var(--ink-faint); }
+.col-score { flex: 0.8; text-align: center; }
+.data-header .col-score { text-align: center; }
+
+.score-panel { margin: 16px 0; padding-top: 4px; }
+.score-head { display: flex; align-items: center; gap: 16px; margin: 8px 0 10px; flex-wrap: wrap; }
+.score-big { font-family: var(--mono); font-size: 2.2rem; font-weight: 700; line-height: 1; color: var(--ink-dim); }
+.score-big small { font-size: 0.9rem; font-weight: 500; color: var(--ink-faint); margin-left: 2px; }
+.score-big.score-EXCELLENT, .score-big.score-HIGH { color: var(--positive); }
+.score-big.score-MODERATE { color: var(--accent-cyan); }
+.score-big.score-LOW { color: var(--warning); }
+.score-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.score-tag { font-size: 0.7rem; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-dim); }
+.score-tag.elig-RECOMMENDED, .score-tag.act-BUY_CANDIDATE { color: var(--positive); background: var(--positive-soft); border-color: rgba(61, 220, 132, 0.3); }
+.score-tag.elig-NO_ELIGIBLE, .score-tag.act-REJECT { color: var(--negative); background: var(--negative-soft); border-color: rgba(255, 93, 93, 0.3); }
+.score-tag.act-WAIT { color: var(--warning); background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.3); }
+
+.score-caps, .score-block {
+  margin: 10px 0; padding: 10px 12px; border-radius: 10px; font-size: 0.78rem;
+  background: var(--panel); border: 1px solid var(--line-soft);
+}
+.score-block-bad { background: var(--negative-soft); border-color: rgba(255, 93, 93, 0.25); }
+.score-caps ul, .score-block ul { margin: 6px 0 0; padding-left: 0; list-style: none; display: grid; gap: 4px; }
+.score-block li.ok { color: var(--positive); }
+.score-block li.bad { color: var(--negative); }
+
+.score-factors { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 12px; }
+.factor-top { display: flex; justify-content: space-between; gap: 10px; font-size: 0.8rem; font-weight: 600; }
+.factor-points { font-family: var(--mono); font-weight: 500; color: var(--ink-dim); white-space: nowrap; }
+.factor-bar { height: 6px; margin: 5px 0 4px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.factor-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--accent-purple), var(--accent-cyan)); }
+.factor-value { font-family: var(--mono); font-size: 0.68rem; color: var(--ink-dim); }
+.factor-note { font-size: 0.72rem; color: var(--ink-faint); margin-top: 1px; }
+.score-small { font-size: 0.68rem; margin: 6px 0 0; }

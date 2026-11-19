@@ -37,6 +37,15 @@ THIN_BOOK_MIN_ORDERS = 3      # menos órdenes que esto en un lado: el libro se 
 THIN_BOOK_FACTOR = 0.5
 NO_DATA_SCORE = 50.0          # factor sin dato suficiente: neutro, y así se dice en la explicación
 
+# Códigos estables que viajan en la explicación; la web los traduce (frontend/app/src/i18n: score.note.*,
+# score.cap.*). Un test comprueba que cada uno tiene su texto en los cinco idiomas.
+NOTE_CODES = (
+    "ROI_SUSTAINABLE", "ROI_VERY_HIGH", "ROI_THIN", "POSITION_ABSORBABLE", "POSITION_SLOW", "VOLUME_ISK",
+    "BOOK_THIN", "BOOK_ACTIVE", "STABLE", "UNSTABLE", "NO_VOLATILITY_DATA", "FAST_RECOVERY", "SLOW_ROTATION",
+    "NO_RECENT_VOLUME",
+)
+CAP_CODES = ("CLASSIFIED_DISCARDED", "ATYPICAL_ROI", "INSUFFICIENT_DATA")
+
 WEIGHT_KEYS = {
     "profitability": "score_w_profitability",
     "liquidity": "score_w_liquidity",
@@ -101,8 +110,10 @@ class Factor:
     points: float        # puntos obtenidos (0 .. max)
     max: float           # puntos máximos = peso x 100
     score: float         # puntuación de la dimensión, 0-100
-    value: str           # lo medido, en texto
-    note: str            # frase de explicación
+    value: str           # lo medido, en texto (español; la web usa metrics para traducirlo)
+    note: str            # frase de explicación (español; la web usa code para traducirla)
+    code: str = ""       # código estable de la frase de explicación, p. ej. ROI_SUSTAINABLE
+    metrics: dict = field(default_factory=dict)  # las cifras medidas, para que la web arme su propio texto
 
 
 @dataclass
@@ -126,7 +137,7 @@ class ScoreResult:
             "reference": self.reference,
             "factors": [
                 {"key": f.key, "label": f.label, "points": round(f.points, 1), "max": round(f.max, 1),
-                 "score": round(f.score, 1), "value": f.value, "note": f.note}
+                 "score": round(f.score, 1), "value": f.value, "note": f.note, "code": f.code, "metrics": f.metrics}
                 for f in self.factors
             ],
             "caps": self.caps,
@@ -192,24 +203,31 @@ def score_opportunity(inputs: ScoreInputs, config: ScoreConfig | None = None) ->
     days = holding_days(ref["quantity"], inputs.volume_7d, config)
     ref["holding_days"] = None if days is None else round(days, 2)
 
-    scores: dict[str, tuple[float, str, str]] = {}
+    # factor -> (puntuación 0-100, valor en texto, frase, código de la frase, cifras medidas)
+    scores: dict[str, tuple[float, str, str, str, dict]] = {}
 
     roi = inputs.roi
-    note = "Zona de rentabilidad sostenible." if 0.12 <= roi <= 0.60 else (
-        "ROI muy alto: en libros finos suele ser ruido; deja de sumar." if roi > 0.60 else
-        "Margen estrecho tras comisiones e impuestos.")
-    scores["profitability"] = (interp(roi, PROFIT_CURVE), f"ROI neto {roi:.1%}", note)
+    if 0.12 <= roi <= 0.60:
+        note, code = "Zona de rentabilidad sostenible.", "ROI_SUSTAINABLE"
+    elif roi > 0.60:
+        note, code = "ROI muy alto: en libros finos suele ser ruido; deja de sumar.", "ROI_VERY_HIGH"
+    else:
+        note, code = "Margen estrecho tras comisiones e impuestos.", "ROI_THIN"
+    scores["profitability"] = (interp(roi, PROFIT_CURVE), f"ROI neto {roi:.1%}", note, code, {"roi": round(roi, 4)})
 
     position = ref["quantity"] / inputs.volume_30d
+    fast = position < 0.25
     scores["liquidity"] = (
         interp(position, LIQUIDITY_CURVE), f"posición {position:.1%} del volumen diario",
-        "La posición de referencia se vende rápido." if position < 0.25 else
-        "La posición de referencia tardaría en venderse: capital inmovilizado.")
+        "La posición de referencia se vende rápido." if fast else
+        "La posición de referencia tardaría en venderse: capital inmovilizado.",
+        "POSITION_ABSORBABLE" if fast else "POSITION_SLOW", {"position": round(position, 4)})
 
     turnover = inputs.volume_7d * inputs.best_buy
     volume_score = interp(math.log10(turnover), VOLUME_CURVE) if turnover > 0 else 0.0
     scores["volume"] = (volume_score, f"{turnover:,.0f} ISK/día (7 d)",
-                        "Volumen negociado en ISK; ítems de poco flujo puntúan menos.")
+                        "Volumen negociado en ISK; ítems de poco flujo puntúan menos.",
+                        "VOLUME_ISK", {"turnover": round(turnover)})
 
     book_score = interp(inputs.ops_7d, ACTIVITY_CURVE)
     thin = min(inputs.buy_orders, inputs.sell_orders) < THIN_BOOK_MIN_ORDERS
@@ -218,38 +236,45 @@ def score_opportunity(inputs: ScoreInputs, config: ScoreConfig | None = None) ->
     scores["book"] = (
         book_score, f"{inputs.ops_7d:.1f} operaciones/día, libro {inputs.buy_orders}/{inputs.sell_orders}",
         "Libro fino (menos de 3 órdenes en un lado): se reduce a la mitad." if thin else
-        "Actividad de operaciones distintas y libro con competidores reales.")
+        "Actividad de operaciones distintas y libro con competidores reales.",
+        "BOOK_THIN" if thin else "BOOK_ACTIVE",
+        {"ops": round(inputs.ops_7d, 1), "buy_orders": inputs.buy_orders, "sell_orders": inputs.sell_orders})
 
     ratio = inputs.volume_7d / inputs.volume_30d
     ratio_score = interp(ratio, RATIO_CURVE)
     if inputs.price_cv is None:
         stability, value, note = NO_DATA_SCORE * 0.6 + ratio_score * 0.4, f"volumen 7 d / 30 d = {ratio:.2f}", (
             "Sin precio histórico suficiente: la parte de volatilidad se toma neutra (50).")
+        code, metrics = "NO_VOLATILITY_DATA", {"cv": None, "ratio": round(ratio, 2)}
     else:
         cv_score = interp(inputs.price_cv, CV_CURVE)
         stability = cv_score * 0.6 + ratio_score * 0.4
         value = f"volatilidad {inputs.price_cv:.1%}, volumen 7 d / 30 d = {ratio:.2f}"
-        note = ("Precio y volumen estables." if stability >= 70 else
-                "Precio volátil o volumen fuera de su nivel habitual (posible pico o caída).")
-    scores["stability"] = (stability, value, note)
+        note, code = (("Precio y volumen estables.", "STABLE") if stability >= 70 else
+                      ("Precio volátil o volumen fuera de su nivel habitual (posible pico o caída).", "UNSTABLE"))
+        metrics = {"cv": round(inputs.price_cv, 4), "ratio": round(ratio, 2)}
+    scores["stability"] = (stability, value, note, code, metrics)
 
     if days is None:
-        scores["capital"] = (NO_DATA_SCORE, "sin volumen 7 d", "Sin volumen reciente: eficiencia neutra (50).")
+        scores["capital"] = (NO_DATA_SCORE, "sin volumen 7 d", "Sin volumen reciente: eficiencia neutra (50).",
+                             "NO_RECENT_VOLUME", {"days": None, "daily": None})
     else:
         rotation = max(days, 1.0)
         daily = min(max(roi, 0.0), 0.60) / rotation
+        quick = rotation <= 2
         scores["capital"] = (
             interp(daily, EFFICIENCY_CURVE), f"{days:.1f} días de rotación, {daily:.2%} diario",
-            "Recupera el capital con rapidez." if rotation <= 2 else "Rotación lenta: el ROI se diluye en días.")
+            "Recupera el capital con rapidez." if quick else "Rotación lenta: el ROI se diluye en días.",
+            "FAST_RECOVERY" if quick else "SLOW_ROTATION", {"days": round(days, 2), "daily": round(daily, 4)})
 
     factors = []
     total = 0.0
     for key in WEIGHT_KEYS:
-        value_score, value, note = scores[key]
+        value_score, value, note, code, metrics = scores[key]
         max_points = weights[key] * 100
         points = value_score * weights[key]
         total += points
-        factors.append(Factor(key, FACTOR_LABELS[key], points, max_points, value_score, value, note))
+        factors.append(Factor(key, FACTOR_LABELS[key], points, max_points, value_score, value, note, code, metrics))
 
     caps: list[dict] = []
     if inputs.status == "DESCARTADO" and total > config.score_discarded_cap:
@@ -258,7 +283,7 @@ def score_opportunity(inputs: ScoreInputs, config: ScoreConfig | None = None) ->
                      "note": "El estado es DESCARTADO: el puntaje no puede superar este tope."})
     elif roi > config.score_atypical_roi and total > config.score_atypical_cap:
         total = config.score_atypical_cap
-        caps.append({"code": "ATYPICAL_ROI", "limit": config.score_atypical_cap,
+        caps.append({"code": "ATYPICAL_ROI", "limit": config.score_atypical_cap, "roi": round(roi, 4),
                      "note": f"ROI neto {roi:.0%}: atípico, probablemente un libro fino o un precio aislado."})
 
     ref = {k: (round(v, 2) if isinstance(v, float) else v) for k, v in ref.items()}

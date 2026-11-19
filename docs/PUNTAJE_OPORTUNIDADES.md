@@ -61,3 +61,10 @@ puntaje medio por estado fue POTENCIAL 64, POTENCIAL_SIN_ORDENES 56, EN_OBSERVAC
 
 Profundidad de libro y competencia (fase 2), capital del usuario por petición (fase 3), interfaz con la explicación
 (fase 4); mercados por estación, comisiones por habilidades, HOLD/SELL y arbitraje.
+
+## Interfaz (fase 4)
+
+- Tabla del Screener: columna **Puntaje** (ordenable; en pantallas estrechas el chip va junto a las operaciones/día) con chip de color por banda; el orden por defecto no cambia.
+- Filtros: **Puntaje mínimo** y **Elegibilidad** (Recomendado / Elegible / No elegible); opción de orden "Puntaje".
+- Detalle del ítem: panel **¿Por qué este puntaje?** con el total, la banda, la elegibilidad y la acción del motor, una barra por factor (puntos / máximo, la cifra medida y su frase), los topes aplicados, los filtros que lo bloquean, las condiciones y "qué tendría que cambiar".
+- Todo se calcula en el backend. La API envía códigos estables y cifras (`code`, `metrics`, códigos de filtros y motivos) y la web los traduce a los cinco idiomas (`frontend/app/src/ScorePanel.tsx`, claves `score.*`); un test (`tests/test_score_i18n.py`) comprueba que cada código tiene texto en en/es/de/fr/it.

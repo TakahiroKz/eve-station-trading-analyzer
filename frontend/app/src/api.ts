@@ -20,6 +20,11 @@ export interface ItemStatus {
   price_trend: number | null;
   price_trend_label: TrendLabel;
   price_trend_threshold: number | null;
+  // Opportunity score 0-100 (null until the engine re-evaluates the item).
+  score?: number | null;
+  score_class?: ScoreClass | null;
+  eligibility?: Eligibility | null;
+  recommendation?: EngineAction | null;
   category_id: number | null;
   category_name: string | null;
   group_id: number | null;
@@ -85,11 +90,60 @@ export interface Opportunity {
   unidades_sugeridas: number | null;
 }
 
+export type ScoreClass = "EXCELLENT" | "HIGH" | "MODERATE" | "LOW" | "DISCARDED";
+export type Eligibility = "NO_ELIGIBLE" | "ELIGIBLE" | "RECOMMENDED";
+export type EngineAction = "BUY_CANDIDATE" | "WAIT" | "REJECT";
+
+export interface ScoreFactor {
+  key: "profitability" | "liquidity" | "volume" | "book" | "stability" | "capital";
+  label: string;
+  points: number;
+  max: number;
+  score: number;
+  value: string;
+  note: string;
+  code: string;
+  metrics: Record<string, number | null>;
+}
+
+export interface ScoreCap {
+  code: string;
+  limit: number | null;
+  roi?: number;
+  note: string;
+}
+
+export interface ScoreChange {
+  code: string;
+  current: number | string | null;
+  needed: number | string | null;
+}
+
+export interface Assessment {
+  algorithm_version: string;
+  stored_version: string;
+  config_changed: boolean;
+  evaluated_at: string;
+  data_age_min: number | null;
+  score: {
+    total: number | null;
+    classification: ScoreClass;
+    version: string;
+    reference: Record<string, number | null>;
+    factors: ScoreFactor[];
+    caps: ScoreCap[];
+  };
+  eligibility: { status: Eligibility; failed_filters: string[]; passed_filters: string[] };
+  recommendation: { action: EngineAction; reason_codes: string[]; to_change: ScoreChange[] };
+  reference: Record<string, number | null>;
+}
+
 export interface ItemDetail {
   status: ItemStatus;
   history: HistoryPoint[];
   latest_snapshot: Snapshot | null;
   latest_opportunities: Opportunity[];
+  assessment?: Assessment | null;
 }
 
 export type TrendLabel = "up" | "down" | "flat" | "lowliq" | "nodata";
@@ -119,6 +173,8 @@ export interface ItemFilters {
   minVolume?: number;
   maxVolume?: number;
   trend?: TrendLabel;
+  minScore?: number;
+  eligibility?: Eligibility;
   sort?: string;
   order?: "asc" | "desc";
   limit?: number;
@@ -230,6 +286,8 @@ function buildQuery(filters: ItemFilters): string {
   if (filters.minSell != null) params.set("min_sell", String(filters.minSell));
   if (filters.maxSell != null) params.set("max_sell", String(filters.maxSell));
   if (filters.trend) params.set("trend", filters.trend);
+  if (filters.minScore != null) params.set("min_score", String(filters.minScore));
+  if (filters.eligibility) params.set("eligibility", filters.eligibility);
   if (filters.minVolume != null) params.set("min_volume", String(filters.minVolume));
   if (filters.maxVolume != null) params.set("max_volume", String(filters.maxVolume));
   params.set("sort", filters.sort ?? "volumen_diario_real");

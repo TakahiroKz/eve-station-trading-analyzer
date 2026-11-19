@@ -23,6 +23,17 @@ from analytics.scoring import (
 )
 
 
+# Códigos que viajan en la evaluación (frontend/app/src/i18n: score.code.*); ver NOTE_CODES en scoring.py.
+FILTER_CODES = (
+    "CLASSIFIED_DISCARDED", "PRICE_INCONSISTENT", "NO_VALID_ORDERS", "NET_PROFIT_NOT_POSITIVE",
+    "STALE_MARKET_DATA", "VOLUME_BELOW_MINIMUM", "NET_PROFIT_BELOW_MINIMUM", "HIGH_VOLATILITY",
+)
+REASON_CODES = (
+    "SCORE_ABOVE_MINIMUM", "ROI_ABOVE_MINIMUM", "LIQUIDITY_ABOVE_MINIMUM", "HOLDING_TIME_OK",
+    "SCORE_BELOW_MINIMUM", "ROI_BELOW_MINIMUM", "LOW_LIQUIDITY", "EXCESSIVE_HOLDING_TIME",
+)
+
+
 @dataclass
 class OpportunityConfig:
     """Los nombres de campo son claves de app_settings."""
