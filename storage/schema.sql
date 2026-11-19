@@ -56,6 +56,15 @@ CREATE TABLE IF NOT EXISTS market_snapshot (
     sell_volume      INTEGER,
     buy_order_count  INTEGER NOT NULL DEFAULT 0,
     sell_order_count INTEGER NOT NULL DEFAULT 0,
+    -- Profundidad del libro (analytics/market_aggregation.py), de la región completa: unidades dentro del 5 %
+    -- del mejor precio, distancia al siguiente nivel en puntos básicos y parte del volumen en el mejor precio
+    -- por mil. Enteros para que cada snapshot ocupe poco; NULL si ese lado no tiene órdenes o es anterior.
+    buy_depth_5pct   INTEGER,
+    sell_depth_5pct  INTEGER,
+    buy_gap_bp       INTEGER,
+    sell_gap_bp      INTEGER,
+    buy_top_permille  INTEGER,
+    sell_top_permille INTEGER,
     PRIMARY KEY (market_id, type_id, captured_at),
     FOREIGN KEY (market_id) REFERENCES market(market_id),
     FOREIGN KEY (type_id) REFERENCES item_type(type_id)
