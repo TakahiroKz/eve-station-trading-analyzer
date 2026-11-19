@@ -47,7 +47,13 @@ from backend.api.schemas import (
     StatusChangeOut,
     SummaryOut,
 )
-from analytics.eve_calculator import EveCalculatorConfig, config_from_settings, evaluar_oportunidad, resolve_volumen_deseado
+from analytics.eve_calculator import (
+    EveCalculatorConfig,
+    beneficio_unitario,
+    config_from_settings,
+    evaluar_oportunidad,
+    resolve_volumen_deseado,
+)
 from analytics.opportunity import evaluate_item, make_configs, parse_inputs_blob
 from analytics.scoring import ScoreConfig, ScoreInputs, holding_days
 from ingestion.schedule import get_next_run_times
@@ -160,7 +166,8 @@ _RESCORE_CACHE_MAX = 6
 def rescored_market(conn, market_id: str, capital: float, settings: dict, configs: tuple) -> dict:
     """{type_id: (score, score_class, eligibility, recommendation)} de todo el mercado para ese capital."""
     stamp = conn.execute("SELECT MAX(last_evaluated_at) FROM item_status WHERE market_id = ?", (market_id,)).fetchone()[0]
-    key = (market_id, float(capital), stamp, hash(tuple(sorted(settings.items()))))
+    db_file = conn.execute("PRAGMA database_list").fetchone()[2]   # la caché nunca mezcla bases distintas
+    key = (db_file, market_id, float(capital), stamp, hash(tuple(sorted(settings.items()))))
     def cached():
         with _RESCORE_LOCK:
             if key in _RESCORE_CACHE:
@@ -197,8 +204,8 @@ def build_unit_recommendation(status_row, snapshot_row, conn, capital: float | N
     used_capital = float(settings["score_reference_capital"])
     buy = (snapshot_row["best_buy"] if snapshot_row is not None else None) or status_row["best_buy"]
     sell = (snapshot_row["best_sell"] if snapshot_row is not None else None) or status_row["best_sell"]
-    if not buy or not sell or buy <= 0:
-        return None
+    if not buy or not sell or buy <= 0 or not status_row["volumen_diario_real"] or status_row["volumen_diario_real"] <= 0:
+        return None  # sin precios o sin volumen no hay con qué calcular una posición (y evaluar_oportunidad divide por él)
     pct = float(settings["position_size_pct_wallet"])
     eve_config = config_from_settings(EveCalculatorConfig, settings)
     wanted = resolve_volumen_deseado(buy, used_capital, pct, settings["volumen_deseado_fallback"])
@@ -211,12 +218,16 @@ def build_unit_recommendation(status_row, snapshot_row, conn, capital: float | N
     max_units = int((used_capital * pct) // unit_cost)   # lo que cabe en la posición, comisión incluida
     affordable = max_units >= 1
     units = 0 if (action == "REJECT" or not affordable) else min(int(result.unidades_sugeridas or 0), max_units)
+    if units == 0 and action == "BUY_CANDIDATE":
+        # El motor de unidades dice "no ejecutar" (spread que no cubre costos) aunque la evaluación del puntaje
+        # (con otros ajustes) lo daba por candidato: nunca se muestra "candidato a compra" con 0 unidades.
+        action = "WAIT"
     days = holding_days(units, status_row["avg_daily_volume_7d"], config_from_settings(ScoreConfig, settings)) if units else None
     return UnitRecommendationOut(
         capital=used_capital, position_pct=pct, posicion_isk=round(used_capital * pct), volumen_deseado=round(wanted, 2),
         unidades_sugeridas=units, recomendacion=result.recomendacion, action=action, blocked_by=blocked_by,
         precio_unidad_isk=round(unit_cost), alcanza=affordable,
-        inversion_isk=round(units * buy * eve_config.buy_fee_factor), beneficio_neto_isk=round(units * result.beneficio),
+        inversion_isk=round(units * unit_cost), beneficio_neto_isk=round(units * beneficio_unitario(buy, sell, eve_config)),
         dias_rotacion=None if days is None else round(days, 2),
     )
 
@@ -411,26 +422,45 @@ def list_items(
             rows = conn.execute(f"{query} LIMIT ? OFFSET ?", [*params, limit, offset]).fetchall()
             items = [rescore_row(r, settings, configs) for r in rows]
         else:
+            # Solo se piden id y ROI de todas las filas (no las ~30 columnas de 17 mil): se filtra y ordena por el puntaje
+            # recalculado y únicamente las filas de la página se leen completas. Antes cada petición construía 17 mil
+            # diccionarios (~350 ms de CPU) y con varios clientes a la vez la mediana pasaba de 9 s.
             scores = rescored_market(conn, market_id, capital, settings, configs)
-            scored = []
-            for r in conn.execute(query, params):
-                row = dict(r)
-                hit = scores.get(row["type_id"])
-                if hit is not None:
-                    row.update(score=hit[0], score_class=hit[1], eligibility=hit[2], recommendation=hit[3])
-                scored.append(row)
-            if min_score is not None:
-                scored = [r for r in scored if r["score"] is not None and r["score"] >= min_score]
-            for key, value in (("score_class", score_class), ("eligibility", eligibility),
-                               ("recommendation", recommendation)):
-                if value is not None:
-                    scored = [r for r in scored if r[key] == value]
+            ids_query = f"SELECT s.type_id, s.roi {ITEM_JOIN}{where} ORDER BY {sort_col} {order.upper()}{tiebreaker}"
+            kept = []
+            for type_id, roi in conn.execute(ids_query, params):
+                hit = scores.get(type_id)
+                if min_score is not None and (hit is None or hit[0] is None or hit[0] < min_score):
+                    continue
+                if score_class is not None and (hit is None or hit[1] != score_class):
+                    continue
+                if eligibility is not None and (hit is None or hit[2] != eligibility):
+                    continue
+                if recommendation is not None and (hit is None or hit[3] != recommendation):
+                    continue
+                kept.append((type_id, roi, hit))
             if sort == "score":
                 # Sin puntaje siempre al final; el desempate es el ROI, como en el orden de SQL.
-                scored.sort(key=lambda r: -r["roi"])
-                scored.sort(key=lambda r: (r["score"] is None, (r["score"] or 0) * (-1 if order == "desc" else 1)))
-            total = len(scored)
-            items = scored[offset:offset + limit]
+                kept.sort(key=lambda k: -k[1])
+                sign = -1 if order == "desc" else 1
+                kept.sort(key=lambda k: (k[2] is None or k[2][0] is None, sign * ((k[2][0] or 0) if k[2] else 0)))
+            total = len(kept)
+            page = kept[offset:offset + limit]
+            by_id = {}
+            if page:
+                marks = ",".join("?" * len(page))
+                for r in conn.execute(
+                        f"SELECT {ITEM_SELECT_COLS} {ITEM_JOIN} WHERE s.market_id = ? AND s.type_id IN ({marks})",
+                        [market_id, *[k[0] for k in page]]):
+                    by_id[r["type_id"]] = dict(r)
+            items = []
+            for type_id, _roi, hit in page:
+                row = by_id.get(type_id)
+                if row is None:
+                    continue
+                if hit is not None:
+                    row.update(score=hit[0], score_class=hit[1], eligibility=hit[2], recommendation=hit[3])
+                items.append(row)
         return ItemsPageOut(items=[ItemStatusOut(**r) for r in items], total=total, limit=limit, offset=offset,
                             capital=capital)
     finally:

@@ -187,3 +187,94 @@ def test_nearby_capitals_share_one_cache_entry(seeded):
     seeded.get("/api/items", params={"capital": 123_400_000, "min_score": 1})
 
     assert len(api_main._RESCORE_CACHE) == 1
+
+
+def test_filtered_and_sorted_results_match_a_brute_force_reference(client):
+    """El camino rápido (ids primero, página después) da exactamente lo que daría filtrar todo a mano."""
+    import random
+
+    api_client, db_path = client
+    rng = random.Random(4)
+    classes = ("EXCELLENT", "HIGH", "MODERATE", "LOW", "DISCARDED")
+    for i in range(60):
+        make_scored(db_path, 100 + i, f"Item {i}", volume=10 ** rng.uniform(3, 9), stored_score=rng.randint(0, 100),
+                    depth=(int(10 ** rng.uniform(1, 9)), int(10 ** rng.uniform(1, 9))))
+        conn = sqlite3.connect(db_path)
+        conn.execute("UPDATE item_status SET roi = ?, buy_order_count = ?, avg_daily_order_count_7d = ?, "
+                     "status = ? WHERE type_id = ?",
+                     (rng.uniform(0.03, 1.4), rng.choice([0, 2, 12, 40]),   # ROI único: el desempate por ROI es determinista
+                      rng.choice([1, 8, 40, 200]), rng.choice(["POTENCIAL", "EN_OBSERVACION", "DESCARTADO"]),
+                      100 + i))
+        conn.commit()
+        conn.close()
+    conn = sqlite3.connect(db_path)                       # y unos sin puntaje, que deben quedar siempre al final
+    conn.execute("UPDATE item_status SET score_version = NULL, score = NULL, score_class = NULL, "
+                 "eligibility = NULL, recommendation = NULL WHERE type_id IN (100, 101, 102)")
+    conn.commit()
+    conn.close()
+
+    for capital in (50_000_000, 1_000_000_000, 5_000_000_000, 123_000_000):
+        everything = api_client.get("/api/items", params={"capital": capital, "limit": 500}).json()["items"]
+        assert len(everything) == 60
+
+        def reference(sort=None, order="desc", **filters):
+            rows = list(everything)
+            if "min_score" in filters:
+                rows = [r for r in rows if r["score"] is not None and r["score"] >= filters["min_score"]]
+            for key in ("score_class", "eligibility", "recommendation"):
+                if key in filters:
+                    rows = [r for r in rows if r[key] == filters[key]]
+            if sort == "score":
+                sign = -1 if order == "desc" else 1
+                rows.sort(key=lambda r: -r["roi"])
+                rows.sort(key=lambda r: (r["score"] is None, sign * (r["score"] or 0)))
+            return [r["type_id"] for r in rows]
+
+        cases = [dict(sort="score", order="desc"), dict(sort="score", order="asc"),
+                 dict(min_score=50), dict(min_score=50, sort="score", order="desc"),
+                 dict(score_class="LOW"), dict(eligibility="RECOMMENDED", sort="score", order="asc"),
+                 dict(recommendation="WAIT"), dict(score_class=rng.choice(classes), min_score=10, sort="score"),
+                 dict(eligibility="NO_ELIGIBLE", recommendation="REJECT", sort="score", order="desc")]
+        for case in cases:
+            params = {"capital": capital, "limit": 500, **{k: v for k, v in case.items()}}
+            body = api_client.get("/api/items", params=params).json()
+            expected = reference(**case)
+
+            assert [i["type_id"] for i in body["items"]] == expected, (capital, case)
+            assert body["total"] == len(expected), (capital, case)
+            page = api_client.get("/api/items", params={**params, "limit": 7, "offset": 5}).json()
+            assert [i["type_id"] for i in page["items"]] == expected[5:12], (capital, case, "paginación")
+            # lo mostrado en cada fila es el puntaje recalculado, el mismo que en la lista completa
+            scores = {r["type_id"]: (r["score"], r["eligibility"], r["recommendation"]) for r in everything}
+            assert all((i["score"], i["eligibility"], i["recommendation"]) == scores[i["type_id"]] for i in body["items"])
+
+
+def test_the_cache_never_mixes_two_databases_with_the_same_timestamp_and_capital(client, tmp_path, monkeypatch):
+    """Fallo que destapó la CI: con la misma marca de tiempo y el mismo capital, una base distinta servía los
+    puntajes de otra porque la clave de la caché no incluía la base."""
+    from backend.api import main as api_main
+    from storage.db import init_db
+
+    api_client, first_db = client
+    api_main._RESCORE_CACHE.clear()
+    make_scored(first_db, 34, "Slow mover", volume=200_000, stored_score=10)
+    make_scored(first_db, 35, "Fast mover", volume=50_000_000, stored_score=95)
+    stamp = "2026-11-19T10:00:00+00:00"
+
+    second_db = str(tmp_path / "second.db")
+    init_db(second_db)
+    make_scored(second_db, 34, "Slow mover", volume=50_000_000, stored_score=10)     # mismos ids, otros datos
+    make_scored(second_db, 35, "Fast mover", volume=200_000, stored_score=95)
+    for path in (first_db, second_db):
+        conn = sqlite3.connect(path)
+        conn.execute("UPDATE item_status SET last_evaluated_at = ?", (stamp,))
+        conn.commit()
+        conn.close()
+
+    params = {"capital": 50_000_000, "min_score": 0, "sort": "score"}
+    first = {i["name"]: i["score"] for i in api_client.get("/api/items", params=params).json()["items"]}
+    monkeypatch.setenv("DB_PATH", second_db)
+    second = {i["name"]: i["score"] for i in api_client.get("/api/items", params=params).json()["items"]}
+
+    assert first != second                                   # con otros volúmenes, otros puntajes
+    assert second["Slow mover"] > first["Slow mover"] and first["Fast mover"] > second["Fast mover"]
