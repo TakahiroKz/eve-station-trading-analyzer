@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   api, type AppSetting, type Category, type CharacterOrder, type CharacterOrderClosed,
-  type CharacterOrderFill, type ItemDetail, type ItemFilters, type ItemStatus, type Market, type TrendLabel, type Opportunity,
+  type CharacterOrderFill, type Eligibility, type ItemDetail, type ItemFilters, type ItemStatus, type Market, type TrendLabel, type Opportunity,
   type Schedule, type Status, type Summary,
 } from "./api";
 import { DONATE_URL } from "./config";
@@ -11,6 +11,7 @@ import {
 } from "./i18n";
 import { useI18n } from "./i18n/useI18n";
 import { BEST_COUNT, BEST_MIN_ROI, BestNow, FaqSection, Hero, HowItWorks, MarketsSection, SiteFooter, Stats, SupportBand } from "./Landing";
+import { ScoreChip, ScorePanel } from "./ScorePanel";
 import "./App.css";
 
 // Remembers that this browser belongs to the signed-in owner, so the public landing (hero,
@@ -48,11 +49,11 @@ function readInitialMarket(): string {
   }
 }
 
-type SortField = "best_buy" | "best_sell" | "roi" | "avg_daily_order_count_7d" | "price_trend";
+type SortField = "best_buy" | "best_sell" | "roi" | "score" | "avg_daily_order_count_7d" | "price_trend";
 
 // Price columns read best low-to-high; the rest, high-to-low.
 const DEFAULT_ORDER: Record<SortField, "asc" | "desc"> = {
-  best_buy: "asc", best_sell: "asc", roi: "desc", avg_daily_order_count_7d: "desc", price_trend: "desc",
+  best_buy: "asc", best_sell: "asc", roi: "desc", score: "desc", avg_daily_order_count_7d: "desc", price_trend: "desc",
 };
 
 // The backend stores closed-order states in Spanish; these are the known values.
@@ -64,9 +65,11 @@ const PAGE_SIZE = 50;
 const TRACKED_REGION_ID = 10000002; // The Forge / Jita
 
 const SORT_VALUES = [
-  "volumen_diario_real", "roi", "spread_bruto", "best_buy", "best_sell",
+  "volumen_diario_real", "roi", "score", "spread_bruto", "best_buy", "best_sell",
   "avg_daily_order_count_7d", "price_trend", "name",
 ];
+
+const ELIGIBILITIES: Eligibility[] = ["RECOMMENDED", "ELIGIBLE", "NO_ELIGIBLE"];
 
 const TREND_LABELS: TrendLabel[] = ["up", "down", "flat", "lowliq", "nodata"];
 
@@ -84,11 +87,14 @@ interface FilterForm {
   minVolume: string;
   maxVolume: string;
   trend: string;
+  minScore: string;
+  eligibility: string;
 }
 
 const EMPTY_FILTERS: FilterForm = {
   q: "", categoryId: "", minRoi: "", maxRoi: "", minSpread: "", maxSpread: "",
   minBuy: "", maxBuy: "", minSell: "", maxSell: "", minVolume: "", maxVolume: "", trend: "",
+  minScore: "", eligibility: "",
 };
 
 function formatCountdown(target: string | null, now: Date, t: TFunction): string {
@@ -122,6 +128,8 @@ function toFilters(form: FilterForm): Partial<ItemFilters> {
     minVolume: num(form.minVolume),
     maxVolume: num(form.maxVolume),
     trend: (form.trend || undefined) as TrendLabel | undefined,
+    minScore: num(form.minScore),
+    eligibility: (form.eligibility || undefined) as Eligibility | undefined,
   };
 }
 
@@ -1046,6 +1054,25 @@ export default function App() {
             </select>
           </label>
 
+          <label>
+            {t("filters.minScore")}
+            <input type="number" min={0} max={100} placeholder="0-100" value={filterForm.minScore}
+              onChange={(e) => setFilterForm({ ...filterForm, minScore: e.target.value })} />
+          </label>
+
+          <label>
+            {t("filters.eligibility")}
+            <select
+              value={filterForm.eligibility}
+              onChange={(e) => setFilterForm({ ...filterForm, eligibility: e.target.value })}
+            >
+              <option value="">{t("common.all")}</option>
+              {ELIGIBILITIES.map((value) => (
+                <option key={value} value={value}>{t(`elig.${value}` as MessageKey)}</option>
+              ))}
+            </select>
+          </label>
+
           <div className="filter-range">
             <span>{t("filters.roi")}</span>
             <input type="number" placeholder={t("common.min")} value={filterForm.minRoi}
@@ -1104,6 +1131,7 @@ export default function App() {
           {renderSortHeader("best_sell", t("screener.colSell"))}
           <span className="col-num col-extra">{t("screener.colSpread")}</span>
           {renderSortHeader("roi", t("screener.colRoi"))}
+          {renderSortHeader("score", t("score.col"), "col-num col-extra col-score")}
           {renderSortHeader("avg_daily_order_count_7d", t("screener.colOps"), "col-num col-extra")}
           {renderSortHeader("price_trend", t("screener.colTrend"), "col-num col-extra")}
         </div>
@@ -1115,6 +1143,7 @@ export default function App() {
                 {item.category_name ?? "—"} · {translateSpread(t, item.evaluacion_spread)}
               </span>
               <span className="row-sub row-sub-ops">
+                {item.score != null && <><ScoreChip score={item.score} scoreClass={item.score_class} t={t} />{" "}</>}
                 {t("screener.tradesPerDay", { n: formatTrades(item.avg_daily_order_count_7d) })}
                 {item.price_trend != null && ` · ${trendText(item)}`}
               </span>
@@ -1123,6 +1152,9 @@ export default function App() {
             <span className="col-num">{formatIsk(item.best_sell)}</span>
             <span className="col-num col-extra">{formatIsk(item.best_sell - item.best_buy)}</span>
             <span className={item.roi >= 0 ? "col-num positive" : "col-num negative"}>{formatPct(item.roi)}</span>
+            <span className="col-num col-extra col-score">
+              <ScoreChip score={item.score} scoreClass={item.score_class} t={t} />
+            </span>
             <span className="col-num col-extra">{formatTrades(item.avg_daily_order_count_7d)}</span>
             <span className={`col-num col-extra ${trendClass(item)}`} title={t(`trend.${item.price_trend_label}` as MessageKey)}>
               {trendText(item)}
@@ -1198,6 +1230,8 @@ export default function App() {
                 )}
               </div>
             )}
+
+            <ScorePanel status={selected.status} assessment={selected.assessment ?? null} t={t} locale={locale} />
 
             <h3>{t("detail.history")}</h3>
             <table className="history-table">
