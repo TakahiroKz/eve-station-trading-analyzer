@@ -34,7 +34,7 @@ def required_keys() -> set[str]:
     keys |= {f"capital.{k}" for k in ("label", "custom", "customLabel", "reset", "help", "pill", "pillTitle",
                                       "customSuffix", "position", "basis", "basisDefault")}
     keys |= {f"detail.{k}" for k in ("recUnits", "recInvest", "recProfit", "recRotation", "recDays", "recBasis",
-                                     "recBlocked", "recWait")}
+                                     "recBlocked", "recWait", "recTooBig")}
     return keys
 
 

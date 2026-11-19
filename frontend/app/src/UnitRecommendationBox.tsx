@@ -16,19 +16,22 @@ export function UnitRecommendationBox({ reco, t, locale, formatIsk }: {
     const key = `score.code.${code}`;
     return [code, key in en ? t(key as MessageKey) : code] as const;
   });
-  const tone = rejected ? " is-reject" : reco.action === "WAIT" ? " is-wait" : "";
+  const tooBig = !reco.alcanza && !rejected;
+  const tone = rejected || tooBig ? " is-reject" : reco.action === "WAIT" ? " is-wait" : "";
 
   return (
     <div className={`recommendation${tone}`}>
       <strong>{t("detail.recommendation")}</strong>{" "}
-      {rejected ? t("detail.recBlocked") : translateRecommendation(t, reco.recomendacion, locale)}
+      {rejected ? t("detail.recBlocked") : tooBig ? t("detail.recTooBig", {
+        price: formatIsk(reco.precio_unidad_isk), position: formatIsk(reco.posicion_isk),
+      }) : translateRecommendation(t, reco.recomendacion, locale)}
       {rejected && (
         <ul className="rec-blocked">
           {blocked.map(([code, text]) => <li key={code}>✗ {text}</li>)}
         </ul>
       )}
-      {reco.action === "WAIT" && <p className="rec-note">{t("detail.recWait")}</p>}
-      {!rejected && (
+      {reco.action === "WAIT" && !tooBig && <p className="rec-note">{t("detail.recWait")}</p>}
+      {!rejected && !tooBig && (
         <div className="rec-figures">
           <div><span className="label">{t("detail.recUnits")}</span>{formatIsk(reco.unidades_sugeridas)} u</div>
           <div><span className="label">{t("detail.recInvest")}</span>≈ {formatIsk(reco.inversion_isk)} ISK</div>
