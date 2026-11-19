@@ -11,6 +11,9 @@ ingesta ni screening: eso lo hacen los dos motores por separado (on-demand o
 programados) — scheduler/run.py (mercado, cada 5 min) y scheduler/orders_run.py
 (posiciones de tus órdenes, cada 5 min). Mayormente se lee lo que ya calcularon.
 """
+import logging
+import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -43,11 +46,25 @@ from backend.api.schemas import (
 from analytics.opportunity import evaluate_item, parse_inputs_blob
 from analytics.scoring import ScoreInputs
 from ingestion.schedule import get_next_run_times
-from storage.db import DEFAULT_MARKET, get_app_settings_dict
+from storage.db import DEFAULT_MARKET, get_app_settings_dict, init_db
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
-app = FastAPI(title="EveMarket Screener API", version="1.0.0", **docs_kwargs())
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Al arrancar, deja el esquema al día (migraciones aditivas e idempotentes de init_db). Tras un
+    despliegue la API suele arrancar antes de que el motor corra init_db, y las consultas que usan columnas
+    nuevas fallaban hasta el siguiente ciclo (2026-11-19: el detalle de un ítem dio 500 unos minutos)."""
+    try:
+        init_db(os.environ.get("DB_PATH", "./storage/market.db"))
+    except Exception:  # la API debe arrancar aunque la base esté ocupada: el motor migrará en su ciclo
+        logger.exception("No se pudo migrar el esquema al arrancar la API")
+    yield
+
+
+app = FastAPI(title="EveMarket Screener API", version="1.0.0", lifespan=lifespan, **docs_kwargs())
 install_seo_middleware(app)
 install_rate_limit(app)  # se registra después: corre antes que el resto y corta rápido
 
@@ -77,7 +94,8 @@ def build_assessment(row, conn) -> dict | None:
     (analytics.opportunity.evaluate_item) a partir de la fila de item_status y de score_inputs. Si los
     ajustes cambiaron desde la última evaluación, `config_changed` lo dice (el número del listado es el
     guardado; el desglose usa la configuración actual)."""
-    if row["score_version"] is None:
+    if "score_version" not in row.keys() or row["score_version"] is None:
+        # Sin columna (la API arrancó antes que la migración) o ítem aún sin puntaje.
         return None
     extras = parse_inputs_blob(row["score_inputs"])
     score, assessment = evaluate_item(
