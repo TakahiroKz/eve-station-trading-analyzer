@@ -568,8 +568,8 @@ _PRIVACY = {
         "traffic statistics.",
         "<b>Optional EVE account.</b> If you sign in with your EVE character (official CCP login; we never see your password) we keep "
         "your character ID and name, an encrypted access token and the date you agreed. With your permission we read your trade skills, "
-        "standings and wallet balance to calculate your own fees, capital and recommendations; they are read when needed and not kept as "
-        "history. We do not read your assets, contacts, mail or wallet history and we never share your data. Signing out removes the "
+        "standings and wallet balance to calculate your own fees, capital and recommendations; we keep only the latest values read (the three skill levels, the standings with the hub factions and "
+        "corporations, and the balance) so we do not query CCP on every visit, and no history. We do not read your assets, contacts, mail or wallet history and we never share your data. Signing out removes the "
         "access token; the account menu lets you download or delete everything at any time, and accounts unused for 12 months are "
         "deleted automatically. Data is stored on our server (Oracle Cloud) and served through Cloudflare.",
         "<button type=\"button\" data-eve-consent-settings>Change my choice</button>",
@@ -587,8 +587,9 @@ _PRIVACY = {
         "sus propias estadísticas sin cookies.",
         "<b>Cuenta de EVE opcional.</b> Si entras con tu personaje de EVE (inicio de sesión oficial de CCP; nunca vemos tu contraseña) "
         "guardamos el ID y el nombre de tu personaje, un token de acceso cifrado y la fecha en que aceptaste. Con tu permiso leemos tus "
-        "habilidades de comercio, tus standings y el saldo de tu wallet para calcular tus comisiones, capital y recomendaciones; se leen "
-        "cuando hace falta y no se guardan como historial. No leemos tus activos, contactos, correo ni historial del wallet y nunca "
+        "habilidades de comercio, tus standings y el saldo de tu wallet para calcular tus comisiones, capital y recomendaciones; solo guardamos "
+        "los últimos valores leídos (los tres niveles de habilidad, los standings con las facciones y corporaciones de los hubs y el "
+        "saldo) para no consultar a CCP en cada visita, y no guardamos historial. No leemos tus activos, contactos, correo ni historial del wallet y nunca "
         "compartimos tus datos. Al cerrar sesión se elimina el token; desde el menú de la cuenta puedes descargar o borrar todo cuando "
         "quieras, y las cuentas sin uso durante 12 meses se borran solas. Los datos se guardan en nuestro servidor (Oracle Cloud) y se "
         "sirven a través de Cloudflare.",
@@ -608,7 +609,8 @@ _PRIVACY = {
         "<b>Optionales EVE-Konto.</b> Wenn du dich mit deinem EVE-Charakter anmeldest (offizielle CCP-Anmeldung; wir sehen dein Passwort "
         "nie), speichern wir deine Charakter-ID und deinen Namen, ein verschlüsseltes Zugriffstoken und das Datum deiner Zustimmung. Mit "
         "deiner Erlaubnis lesen wir deine Handelsfertigkeiten, Standings und dein Wallet-Guthaben, um deine eigenen Gebühren, dein "
-        "Kapital und deine Empfehlungen zu berechnen; sie werden bei Bedarf gelesen und nicht als Verlauf gespeichert. Wir lesen weder "
+        "Kapital und deine Empfehlungen zu berechnen; wir speichern nur die zuletzt gelesenen Werte (die drei Skill-Stufen, die Standings zu den Fraktionen und Korporationen "
+        "der Hubs und das Guthaben), damit wir CCP nicht bei jedem Besuch abfragen, und keinen Verlauf. Wir lesen weder "
         "Assets, Kontakte, Mails noch den Wallet-Verlauf und geben deine Daten nie weiter. Beim Abmelden wird das Token entfernt; im "
         "Kontomenü kannst du jederzeit alles herunterladen oder löschen, und Konten ohne Nutzung seit 12 Monaten werden automatisch "
         "gelöscht. Die Daten liegen auf unserem Server (Oracle Cloud) und werden über Cloudflare ausgeliefert.",
@@ -630,8 +632,8 @@ _PRIVACY = {
         "<b>Compte EVE facultatif.</b> Si vous vous connectez avec votre personnage EVE (connexion officielle de CCP ; nous ne voyons "
         "jamais votre mot de passe), nous conservons l'ID et le nom de votre personnage, un jeton d'accès chiffré et la date de votre "
         "accord. Avec votre autorisation, nous lisons vos compétences de commerce, vos standings et le solde de votre wallet pour "
-        "calculer vos propres frais, votre capital et vos recommandations ; ils sont lus au besoin et ne sont pas conservés en "
-        "historique. Nous ne lisons ni vos actifs, ni vos contacts, ni vos courriers, ni l'historique du wallet, et nous ne partageons "
+        "calculer vos propres frais, votre capital et vos recommandations ; nous ne conservons que les dernières valeurs lues (les trois niveaux de compétence, les standings avec les factions et "
+        "corporations des hubs et le solde) pour ne pas interroger CCP à chaque visite, sans historique. Nous ne lisons ni vos actifs, ni vos contacts, ni vos courriers, ni l'historique du wallet, et nous ne partageons "
         "jamais vos données. La déconnexion supprime le jeton ; le menu du compte permet de tout télécharger ou supprimer à tout moment, "
         "et les comptes inutilisés depuis 12 mois sont supprimés automatiquement. Les données sont stockées sur notre serveur "
         "(Oracle Cloud) et servies via Cloudflare.",
@@ -651,7 +653,8 @@ _PRIVACY = {
         "<b>Account EVE facoltativo.</b> Se accedi con il tuo personaggio EVE (login ufficiale di CCP; non vediamo mai la tua password) "
         "conserviamo l'ID e il nome del personaggio, un token di accesso cifrato e la data del tuo consenso. Con il tuo permesso leggiamo "
         "le tue abilità di commercio, i tuoi standing e il saldo del wallet per calcolare le tue commissioni, il tuo capitale e le tue "
-        "raccomandazioni; vengono letti quando serve e non sono conservati come storico. Non leggiamo asset, contatti, mail né lo "
+        "raccomandazioni; conserviamo solo gli ultimi valori letti (i tre livelli di skill, gli standing con le fazioni e le corporazioni degli hub e "
+        "il saldo) per non interrogare CCP a ogni visita, senza storico. Non leggiamo asset, contatti, mail né lo "
         "storico del wallet e non condividiamo mai i tuoi dati. Uscendo si elimina il token; dal menu dell'account puoi scaricare o "
         "eliminare tutto in qualsiasi momento e gli account non usati da 12 mesi vengono eliminati automaticamente. I dati sono "
         "memorizzati sul nostro server (Oracle Cloud) e serviti tramite Cloudflare.",
