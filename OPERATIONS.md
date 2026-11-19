@@ -283,3 +283,22 @@ python -m ruff check .
 python -m pip_audit -r requirements.txt
 npm --prefix frontend/app audit --audit-level=high
 ```
+
+## Cuentas de visitantes (EVE SSO)
+
+Apagadas hasta que existan `EVE_LOGIN_CLIENT_ID`, `EVE_LOGIN_CLIENT_SECRET` y `USERS_ENC_KEYS` en `.env` (ver `.env.example`).
+Mientras tanto `/api/auth/status` responde `enabled:false`, el botón no aparece y el resto del sitio no cambia.
+
+**Activarlas (una vez):**
+1. Registrar la aplicación en https://developers.eveonline.com (callback `https://evemarket-analyzer.online/api/auth/callback`,
+   scopes `esi-skills.read_skills.v1`, `esi-characters.read_standings.v1`, `esi-wallet.read_character_wallet.v1`). Es una app
+   distinta de la local del propietario (`ESI_SSO_*`).
+2. `python scripts/users_admin.py genkey` → `USERS_ENC_KEYS`; copiar también a un gestor de secretos: **sin la clave no se pueden
+   leer los tokens** (los usuarios tendrían que volver a entrar).
+3. Reiniciar la API (`docker compose up -d api`). `users.db` se crea en `storage/` con permisos 600.
+
+**Mantenimiento:** `python scripts/users_admin.py purge` (sesiones caducadas y usuarios sin uso en 12 meses; conviene un cron
+diario) y `rotate` tras anteponer una clave nueva. `users.db` entra en la copia diaria (`backup_db.sh`) como `users-AAAA-MM-DD.db.gz`.
+Borrado a petición: el usuario lo hace desde el menú de la cuenta (`DELETE /api/auth/me`).
+
+Nota: las copias diarias conservan 60 días; un usuario que borra sus datos desaparece de las copias al caducar (menos de 60 días).

@@ -385,6 +385,25 @@ export const en = {
   "detail.recWait": "The engine suggests waiting: these units apply only if you decide to buy.",
   "detail.recTooBig": "One unit costs ≈ {price} ISK, more than your position of {position} ISK. Raise your capital to trade this item.",
   "detail.recUnderDay": "< 1 day",
+  // --- Visitor accounts (EVE SSO) ---
+  "account.signIn": "Sign in with EVE",
+  "account.signOut": "Sign out",
+  "account.menu": "Account",
+  "account.export": "Download my data",
+  "account.delete": "Delete my data",
+  "account.deleteConfirm": "Delete all your data from this site? This cannot be undone.",
+  "account.consentTitle": "Sign in with your EVE character",
+  "account.consentIntro": "You will be sent to the official EVE Online login (CCP). We never see your password. The site will read, with your permission, only:",
+  "account.consentData": "Your trade skills (Broker Relations, Accounting, Advanced Broker Relations), your standings and your wallet balance, to calculate your own fees, capital and recommendations.",
+  "account.consentKept": "We keep your character ID and name, an encrypted access token and the date you agreed. Skills, standings and balance are read when needed and are not kept as history.",
+  "account.consentNever": "We do not read your assets, contacts, mail or wallet history, and we never share your data.",
+  "account.consentRights": "Signing out removes the access token. You can download or delete everything at any time, and accounts unused for 12 months are deleted automatically.",
+  "account.consentPolicy": "Privacy policy",
+  "account.consentContinue": "Continue to EVE login",
+  "account.consentCancel": "Cancel",
+  "account.notice.ok": "You are signed in.",
+  "account.notice.denied": "You cancelled the sign-in. Nothing was saved.",
+  "account.notice.error": "The sign-in failed. Please try again.",
 } as const;
 
 export type MessageKey = keyof typeof en;

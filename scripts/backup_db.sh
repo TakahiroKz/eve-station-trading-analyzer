@@ -82,4 +82,24 @@ EOF
   exit 1
 fi
 
+# users.db (si existe): misma técnica; contiene tokens CIFRADOS y datos personales, retención = la del bucket.
+USERS_DB="$(dirname "$DB_PATH")/users.db"
+if [ -f "$USERS_DB" ]; then
+  TMP_USERS="/tmp/users-${DATE}.db"
+  python3 - "$USERS_DB" "$TMP_USERS" <<'PYEOF'
+import sqlite3
+import sys
+
+src = sqlite3.connect(sys.argv[1])
+dst = sqlite3.connect(sys.argv[2])
+with dst:
+    src.backup(dst)
+src.close()
+dst.close()
+PYEOF
+  gzip -f "$TMP_USERS"
+  curl -fsS -X PUT --data-binary "@${TMP_USERS}.gz" "${ORACLE_BACKUP_PAR_URL}users-${DATE}.db.gz" || echo "Falló el backup de users.db." >&2
+  rm -f "$TMP_USERS" "${TMP_USERS}.gz"
+fi
+
 echo "Backup del ${DATE} subido correctamente ($(du -h "$TMP_GZ" | cut -f1))."

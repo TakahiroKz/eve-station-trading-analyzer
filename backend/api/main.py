@@ -25,6 +25,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from backend.api.analytics import private_router as analytics_private_router
+from backend.api.auth import router as auth_router
 from backend.api.analytics import router as analytics_router
 from backend.api.deps import ITEM_JOIN, ITEM_SELECT_COLS, _db, resolve_market
 from backend.api.indexnow import router as indexnow_router
@@ -58,6 +59,7 @@ from analytics.opportunity import evaluate_item, make_configs, parse_inputs_blob
 from analytics.scoring import ScoreConfig, ScoreInputs, holding_days
 from ingestion.schedule import get_next_run_times
 from storage.db import DEFAULT_MARKET, get_app_settings_dict, init_db
+from storage.users_db import init_users_db
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -72,6 +74,10 @@ async def lifespan(_app: FastAPI):
         init_db(os.environ.get("DB_PATH", "./storage/market.db"))
     except Exception:  # la API debe arrancar aunque la base esté ocupada: el motor migrará en su ciclo
         logger.exception("No se pudo migrar el esquema al arrancar la API")
+    try:
+        init_users_db()
+    except Exception:  # sin users.db solo falla el inicio de sesión; el resto del sitio sigue
+        logger.exception("No se pudo preparar users.db")
     yield
 
 
@@ -87,6 +93,7 @@ app.add_middleware(
 )
 
 app.include_router(private_router)
+app.include_router(auth_router)
 app.include_router(analytics_private_router)
 app.include_router(analytics_router)
 app.include_router(pages_router)

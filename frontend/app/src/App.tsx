@@ -11,6 +11,7 @@ import {
 } from "./i18n";
 import { useI18n } from "./i18n/useI18n";
 import { BEST_COUNT, BEST_MIN_ROI, BestNow, FaqSection, Hero, HowItWorks, MarketsSection, SiteFooter, Stats, SupportBand } from "./Landing";
+import { AccountMenu } from "./AccountMenu";
 import { CapitalPicker, MAX_CAPITAL, MIN_CAPITAL } from "./CapitalPicker";
 import { UnitRecommendationBox } from "./UnitRecommendationBox";
 import { ScoreChip, ScorePanel } from "./ScorePanel";
@@ -648,6 +649,7 @@ export default function App() {
             </div>
           )}
           <div className={authenticated ? "navbar-links" : "navbar-links is-public"}>
+            <AccountMenu t={t} />
             <label className="lang-picker">
               <svg className="lang-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" /></svg>
               <select

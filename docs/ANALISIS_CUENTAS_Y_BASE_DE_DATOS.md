@@ -99,3 +99,12 @@ Las rutas de usuario son de bajo tráfico y escritura pequeña. El recálculo pe
 3. ¿Se exige re-consentimiento cuando cambie la lista de datos?
 4. ¿Qué retención de inactivos (propuesta: 12 meses)?
 5. ¿Se aprueba abandonar la decisión de «no rotar claves» para el cifrado de tokens (propuesta: clave rotable y documentada)?
+
+## 10. Fase 2 implementada (2026-11-19): lo que cambió respecto al diseño
+- **Apagada por defecto**: se activa solo con `EVE_LOGIN_CLIENT_ID`, `EVE_LOGIN_CLIENT_SECRET` y `USERS_ENC_KEYS` (ver `OPERATIONS.md`). Sin eso el sitio no cambia.
+- **Sin PKCE**: la app es un cliente confidencial (secreto en el servidor); la protección es `state` en cookie HttpOnly de 10 min, de un solo uso.
+- Sesión: cookie `eve_session` (HttpOnly, SameSite=Lax, Secure tras HTTPS) con 32 bytes aleatorios; en la base solo su SHA-256; 30 días deslizantes (se prolonga como mucho 1 vez por hora).
+- JWT de CCP verificado con las claves públicas (RS256, emisor, audiencia = nuestro `client_id`, expiración, sujeto `CHARACTER:EVE:<id>`); el `character_id` sale solo de ahí.
+- Tokens: AES-256-GCM con el `character_id` como dato asociado; `USERS_ENC_KEYS` admite varias claves (rotación con `scripts/users_admin.py`).
+- Cerrar sesión borra la sesión **y** el token; «Borrar mis datos» borra todo; exportación sin el token; `purge` para inactivos (12 meses).
+- Pendiente de decisión del propietario antes de activar: responsable del tratamiento y su contacto en la política de privacidad, registro de la app en CCP y la clave de cifrado en un gestor de secretos.
