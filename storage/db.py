@@ -64,6 +64,10 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
             conn.execute("ALTER TABLE market_snapshot ADD COLUMN buy_order_count INTEGER NOT NULL DEFAULT 0")
         if not _column_exists(conn, "market_snapshot", "sell_order_count"):
             conn.execute("ALTER TABLE market_snapshot ADD COLUMN sell_order_count INTEGER NOT NULL DEFAULT 0")
+        for column in ("buy_depth_5pct", "sell_depth_5pct", "buy_gap_bp", "sell_gap_bp",
+                       "buy_top_permille", "sell_top_permille"):
+            if not _column_exists(conn, "market_snapshot", column):
+                conn.execute(f"ALTER TABLE market_snapshot ADD COLUMN {column} INTEGER")
 
     item_status_sql = _table_sql(conn, "item_status")
     if item_status_sql is not None and "POTENCIAL_SIN_ORDENES" not in item_status_sql:
@@ -363,15 +367,22 @@ def upsert_market_snapshot(conn: sqlite3.Connection, type_id: int, captured_at: 
         """
         INSERT INTO market_snapshot
             (market_id, type_id, captured_at, best_buy, best_sell, buy_volume, sell_volume,
-             buy_order_count, sell_order_count)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             buy_order_count, sell_order_count, buy_depth_5pct, sell_depth_5pct, buy_gap_bp, sell_gap_bp,
+             buy_top_permille, sell_top_permille)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(market_id, type_id, captured_at) DO UPDATE SET
             best_buy = excluded.best_buy,
             best_sell = excluded.best_sell,
             buy_volume = excluded.buy_volume,
             sell_volume = excluded.sell_volume,
             buy_order_count = excluded.buy_order_count,
-            sell_order_count = excluded.sell_order_count
+            sell_order_count = excluded.sell_order_count,
+            buy_depth_5pct = excluded.buy_depth_5pct,
+            sell_depth_5pct = excluded.sell_depth_5pct,
+            buy_gap_bp = excluded.buy_gap_bp,
+            sell_gap_bp = excluded.sell_gap_bp,
+            buy_top_permille = excluded.buy_top_permille,
+            sell_top_permille = excluded.sell_top_permille
         """,
         (
             market_id,
@@ -383,6 +394,9 @@ def upsert_market_snapshot(conn: sqlite3.Connection, type_id: int, captured_at: 
             row.get("sell_volume"),
             row.get("buy_order_count", 0),
             row.get("sell_order_count", 0),
+            row.get("buy_depth_5pct"), row.get("sell_depth_5pct"),
+            row.get("buy_gap_bp"), row.get("sell_gap_bp"),
+            row.get("buy_top_permille"), row.get("sell_top_permille"),
         ),
     )
 

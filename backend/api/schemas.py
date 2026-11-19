@@ -88,6 +88,13 @@ class SnapshotOut(BaseModel):
     sell_volume: int | None
     buy_order_count: int
     sell_order_count: int
+    # Profundidad del libro de la región (None en snapshots anteriores a su registro o sin órdenes de ese lado).
+    buy_depth_5pct: int | None = None
+    sell_depth_5pct: int | None = None
+    buy_gap_bp: int | None = None
+    sell_gap_bp: int | None = None
+    buy_top_permille: int | None = None
+    sell_top_permille: int | None = None
 
 
 class OpportunityOut(BaseModel):

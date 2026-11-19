@@ -321,7 +321,8 @@ def get_item_detail(type_id: int, market: str = DEFAULT_MARKET):
 
         snapshot_row = conn.execute(
             "SELECT captured_at, best_buy, best_sell, buy_volume, sell_volume, "
-            "buy_order_count, sell_order_count "
+            "buy_order_count, sell_order_count, buy_depth_5pct, sell_depth_5pct, buy_gap_bp, sell_gap_bp, "
+            "buy_top_permille, sell_top_permille "
             "FROM market_snapshot WHERE market_id = ? AND type_id = ? ORDER BY captured_at DESC LIMIT 1",
             (market, type_id),
         ).fetchone()
