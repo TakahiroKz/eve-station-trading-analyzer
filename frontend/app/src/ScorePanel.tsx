@@ -47,7 +47,12 @@ export function ScorePanel({ status, assessment, t, locale }: {
       case "profitability": return t("score.value.profitability", { roi: pct(m.roi) });
       case "liquidity": return t("score.value.liquidity", { position: pct(m.position) });
       case "volume": return t("score.value.volume", { turnover: int(m.turnover) });
-      case "book": return t("score.value.book", { ops: num(m.ops), buy: int(m.buy_orders), sell: int(m.sell_orders) });
+      case "book":
+        return m.depth_ratio == null
+          ? t("score.value.book", { ops: num(m.ops), buy: int(m.buy_orders), sell: int(m.sell_orders) })
+          : t("score.value.bookDepth", {
+            ops: num(m.ops), buy: int(m.buy_orders), sell: int(m.sell_orders), depth: num(m.depth_ratio),
+          });
       case "stability":
         return m.cv == null
           ? t("score.value.stabilityNoCv", { ratio: num(m.ratio, 2) })

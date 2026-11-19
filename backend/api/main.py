@@ -103,7 +103,7 @@ def build_assessment(row, conn) -> dict | None:
             roi=row["roi"], best_buy=row["best_buy"], volume_7d=row["avg_daily_volume_7d"],
             volume_30d=row["volumen_diario_real"], ops_7d=row["avg_daily_order_count_7d"],
             buy_orders=row["buy_order_count"], sell_orders=row["sell_order_count"], status=row["status"],
-            price_cv=extras["cv"],
+            price_cv=extras["cv"], buy_depth=extras["bd"], sell_depth=extras["sd"],
         ),
         row["best_sell"], extras, get_app_settings_dict(conn),
     )

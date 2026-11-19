@@ -126,7 +126,7 @@ def test_validate_weights_rejects_out_of_range_and_bad_sums():
 def test_the_config_version_changes_when_a_weight_changes():
     assert config_version(ScoreConfig()) == config_version(ScoreConfig())
     assert config_version(ScoreConfig()) != config_version(ScoreConfig(score_w_volume=0.2))
-    assert config_version(ScoreConfig()).startswith("1.0.0-")
+    assert config_version(ScoreConfig()).startswith("1.1.0-")
 
 
 def test_the_classification_bands_follow_the_spec():

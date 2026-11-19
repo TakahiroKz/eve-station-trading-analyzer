@@ -45,9 +45,9 @@ def test_screening_stores_the_score_and_the_inputs_needed_to_explain_it(tmp_path
     assert row["score_class"] in {"EXCELLENT", "HIGH", "MODERATE", "LOW", "DISCARDED"}
     assert row["eligibility"] in {"NO_ELIGIBLE", "ELIGIBLE", "RECOMMENDED"}
     assert row["recommendation"] in {"BUY_CANDIDATE", "WAIT", "REJECT"}
-    assert row["score_version"].startswith("1.0.0-")
+    assert row["score_version"].startswith("1.1.0-")
     inputs = json.loads(row["score_inputs"])
-    assert set(inputs) == {"cv", "age", "sane"} and inputs["age"] is not None and inputs["age"] < 5
+    assert set(inputs) == {"cv", "age", "sane", "bd", "sd"} and inputs["age"] is not None and inputs["age"] < 5
     # Precio medio constante en los 7 días: coeficiente de variación cero (hay >= 5 observaciones).
     assert inputs["cv"] == 0
 

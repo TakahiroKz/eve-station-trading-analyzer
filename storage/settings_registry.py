@@ -226,6 +226,11 @@ SETTINGS: list[SettingDef] = [
         "Riesgo = 100 - estabilidad. Por encima de este valor el ítem no es elegible.", 60.0,
     ),
     SettingDef(
+        "min_depth_ratio", "Puntaje", "Profundidad mínima del libro (× posición)",
+        "Unidades dentro del 5 % del mejor precio (el lado con menos) frente a la cantidad de la posición de "
+        "referencia, en la región. Por debajo el ítem no es elegible; 0 desactiva el filtro.", 0.10,
+    ),
+    SettingDef(
         "max_holding_days", "Puntaje", "Días máximos de rotación",
         "Días estimados máximos para vender la posición de referencia y ser candidato a compra.", 7.0,
     ),
