@@ -36,6 +36,7 @@ RUN pip install --no-cache-dir -r requirements.txt \
 
 COPY analytics/ ./analytics/
 COPY backend/ ./backend/
+COPY finance/ ./finance/
 COPY ingestion/ ./ingestion/
 COPY notifications/ ./notifications/
 COPY reporting/ ./reporting/
