@@ -206,11 +206,16 @@ def build_unit_recommendation(status_row, snapshot_row, conn, capital: float | N
                                  volumen_diario_real=status_row["volumen_diario_real"], config=eve_config)
     action = assessment["recommendation"]["action"] if assessment else None
     blocked_by = list(assessment["eligibility"]["failed_filters"]) if assessment and action == "REJECT" else []
-    units = 0 if action == "REJECT" else int(result.unidades_sugeridas or 0)
+    unit_cost = buy * eve_config.buy_fee_factor
+    # La cuenta del motor nunca baja de 1 unidad; si la posición no alcanza ni para una, no se recomienda comprar.
+    max_units = int((used_capital * pct) // unit_cost)   # lo que cabe en la posición, comisión incluida
+    affordable = max_units >= 1
+    units = 0 if (action == "REJECT" or not affordable) else min(int(result.unidades_sugeridas or 0), max_units)
     days = holding_days(units, status_row["avg_daily_volume_7d"], config_from_settings(ScoreConfig, settings)) if units else None
     return UnitRecommendationOut(
         capital=used_capital, position_pct=pct, posicion_isk=round(used_capital * pct), volumen_deseado=round(wanted, 2),
         unidades_sugeridas=units, recomendacion=result.recomendacion, action=action, blocked_by=blocked_by,
+        precio_unidad_isk=round(unit_cost), alcanza=affordable,
         inversion_isk=round(units * buy * eve_config.buy_fee_factor), beneficio_neto_isk=round(units * result.beneficio),
         dias_rotacion=None if days is None else round(days, 2),
     )

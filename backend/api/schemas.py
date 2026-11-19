@@ -128,6 +128,8 @@ class UnitRecommendationOut(BaseModel):
     recomendacion: str
     action: Literal["BUY_CANDIDATE", "WAIT", "REJECT"] | None = None
     blocked_by: list[str] = []
+    precio_unidad_isk: float          # lo que cuesta una unidad (precio de compra con comisión)
+    alcanza: bool                     # ¿la posición alcanza al menos para una unidad?
     inversion_isk: float
     beneficio_neto_isk: float
     dias_rotacion: float | None = None

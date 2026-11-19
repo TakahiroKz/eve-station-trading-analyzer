@@ -37,7 +37,8 @@ def test_without_a_capital_the_reference_capital_and_a_ten_percent_position_are_
     assert block["capital"] == 1_000_000_000 and block["position_pct"] == 0.1
     assert block["posicion_isk"] == 100_000_000
     assert block["volumen_deseado"] == pytest.approx(100_000)          # 100 M ISK / 1000 ISK
-    assert block["unidades_sugeridas"] == 100_000 and block["action"] == "BUY_CANDIDATE"
+    assert block["unidades_sugeridas"] == 97_656                       # lo que cabe con la comisión: 100 M / 1.024
+    assert block["action"] == "BUY_CANDIDATE" and block["alcanza"] is True and block["precio_unidad_isk"] == 1024
 
 
 def test_the_suggested_units_follow_the_chosen_capital(seeded):
@@ -45,15 +46,15 @@ def test_the_suggested_units_follow_the_chosen_capital(seeded):
     big = reco(seeded[0], capital=5_000_000_000)
 
     assert small["capital"] == 50_000_000 and small["posicion_isk"] == 5_000_000
-    assert small["unidades_sugeridas"] == 5_000 and big["unidades_sugeridas"] == 500_000
-    assert big["unidades_sugeridas"] == small["unidades_sugeridas"] * 100
+    assert small["unidades_sugeridas"] == 4_882 and big["unidades_sugeridas"] == 488_281
+    assert big["unidades_sugeridas"] == pytest.approx(small["unidades_sugeridas"] * 100, rel=0.001)
 
 
 def test_the_capital_is_snapped_like_everywhere_else_and_the_snapped_value_is_what_is_used(seeded):
     block = reco(seeded[0], capital=123_000_000)
 
     assert block["capital"] == 120_000_000 and block["posicion_isk"] == 12_000_000
-    assert block["unidades_sugeridas"] == 12_000
+    assert block["unidades_sugeridas"] == 11_718
 
 
 def test_liquidity_trims_the_units_when_the_position_is_too_big_for_the_market(seeded):
@@ -69,8 +70,8 @@ def test_the_amounts_are_consistent_with_the_units(seeded):
     block = reco(seeded[0], capital=250_000_000)
 
     units = block["unidades_sugeridas"]
-    assert units == 25_000
-    assert block["inversion_isk"] == round(units * BUY * 1.024)
+    assert units == 24_414
+    assert block["inversion_isk"] == round(units * BUY * 1.024) and block["inversion_isk"] <= block["posicion_isk"]
     assert block["beneficio_neto_isk"] == pytest.approx(units * UNIT_PROFIT, abs=units * 0.01)
     assert block["dias_rotacion"] == pytest.approx(units / (50_000_000 * 0.1), abs=0.006)  # redondeado a 2 decimales
 
@@ -117,3 +118,23 @@ def test_the_old_per_cycle_log_is_still_returned_but_is_no_longer_the_recommenda
     body = seeded[0].get("/api/items/34").json()
 
     assert "latest_opportunities" in body and body["recommendation"] is not None
+
+
+def test_a_position_that_cannot_buy_even_one_unit_gets_zero_units_and_says_so(seeded):
+    api_client, db_path = seeded
+    prices(db_path, 34, buy=200_000_000.0, sell=260_000_000.0)       # una unidad cuesta ~204,8 M con comisión
+
+    small = reco(api_client, type_id=34)                             # posición de 100 M
+    big = reco(api_client, type_id=34, capital=5_000_000_000)        # posición de 500 M
+
+    assert small["alcanza"] is False and small["unidades_sugeridas"] == 0 and small["inversion_isk"] == 0
+    assert small["precio_unidad_isk"] == 204_800_000 and small["posicion_isk"] == 100_000_000
+    assert big["alcanza"] is True and big["unidades_sugeridas"] == 2
+    assert big["inversion_isk"] == 409_600_000 and big["inversion_isk"] <= big["posicion_isk"]
+
+
+def test_the_investment_never_exceeds_the_position(seeded):
+    for capital in (50_000_000, 123_000_000, 1_000_000_000, 5_000_000_000):
+        block = reco(seeded[0], capital=capital)
+
+        assert block["inversion_isk"] <= block["posicion_isk"]

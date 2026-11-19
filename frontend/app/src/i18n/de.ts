@@ -383,4 +383,5 @@ export const de: Messages = {
   "detail.recBasis": "Berechnet für ein Kapital von {isk} ISK ({position} ISK pro Position).",
   "detail.recBlocked": "Derzeit nicht empfohlen:",
   "detail.recWait": "Die Engine empfiehlt abzuwarten: Diese Stückzahl gilt nur, wenn du dich zum Kauf entscheidest.",
+  "detail.recTooBig": "Eine Einheit kostet ≈ {price} ISK, mehr als deine Position von {position} ISK. Erhöhe dein Kapital, um dieses Item zu handeln.",
 };

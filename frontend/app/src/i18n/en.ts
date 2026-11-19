@@ -383,6 +383,7 @@ export const en = {
   "detail.recBasis": "Calculated for a capital of {isk} ISK ({position} ISK per position).",
   "detail.recBlocked": "Not recommended right now:",
   "detail.recWait": "The engine suggests waiting: these units apply only if you decide to buy.",
+  "detail.recTooBig": "One unit costs ≈ {price} ISK, more than your position of {position} ISK. Raise your capital to trade this item.",
 } as const;
 
 export type MessageKey = keyof typeof en;

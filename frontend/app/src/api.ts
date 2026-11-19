@@ -156,6 +156,8 @@ export interface UnitRecommendation {
   recomendacion: string;
   action: EngineAction | null;
   blocked_by: string[];
+  precio_unidad_isk: number;
+  alcanza: boolean; // false: one unit costs more than the position
   inversion_isk: number;
   beneficio_neto_isk: number;
   dias_rotacion: number | null;
