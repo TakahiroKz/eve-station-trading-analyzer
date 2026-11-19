@@ -20,7 +20,8 @@ export function UnitRecommendationBox({ reco, t, locale, formatIsk }: {
     return [code, key in en ? t(key as MessageKey) : code] as const;
   });
   const tooBig = !reco.alcanza && !rejected;
-  const tone = rejected || tooBig ? " is-reject" : reco.action === "WAIT" ? " is-wait" : "";
+  const noUnits = reco.unidades_sugeridas === 0 && !rejected && !tooBig; // el motor dice «no ejecutar»
+  const tone = rejected || tooBig || noUnits ? " is-reject" : reco.action === "WAIT" ? " is-wait" : "";
 
   return (
     <div className={`recommendation${tone}`}>
@@ -33,8 +34,8 @@ export function UnitRecommendationBox({ reco, t, locale, formatIsk }: {
           {blocked.map(([code, text]) => <li key={code}>✗ {text}</li>)}
         </ul>
       )}
-      {reco.action === "WAIT" && !tooBig && <p className="rec-note">{t("detail.recWait")}</p>}
-      {!rejected && !tooBig && (
+      {reco.action === "WAIT" && !tooBig && !noUnits && <p className="rec-note">{t("detail.recWait")}</p>}
+      {!rejected && !tooBig && !noUnits && (
         <div className="rec-figures">
           <div><span className="label">{t("detail.recUnits")}</span>{formatIsk(reco.unidades_sugeridas)} u</div>
           <div><span className="label">{t("detail.recInvest")}</span>≈ {formatIsk(reco.inversion_isk)} ISK</div>

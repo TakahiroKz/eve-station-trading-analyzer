@@ -117,7 +117,9 @@ def recomendar(spread_eval: str, liquidez: str, posicion: float, volumen_diario_
             f"({config.recomendacion_techo_pct:.0%} del volumen diario) sin salir de una liquidez 'Buena'."
         ), round(volumen_deseado)
 
-    if liquidez == "Buena":
+    # "Excelente liquidez" con un spread que no llega a "Buen margen" también cae aquí: antes pasaba de largo hasta
+    # la rama de liquidez mala y decía «Baja el volumen… capital inmovilizado» con una posición del 1 % del volumen.
+    if liquidez in ("Excelente liquidez", "Buena"):
         return "El volumen deseado está bien calibrado; mantenerlo.", round(volumen_deseado)
 
     if liquidez == "Aceptable":
