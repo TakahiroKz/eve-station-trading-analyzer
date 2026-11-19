@@ -148,11 +148,29 @@ fi
 HISTORY_DATA_CHECK_HOUR="${HISTORY_DATA_CHECK_HOUR:-17}"
 DB_FILE="${DB_FILE:-$APP_DIR/storage/market.db}"
 if [ "$(date -u +%H)" -ge "$HISTORY_DATA_CHECK_HOUR" ] && [ -r "$DB_FILE" ] && command -v sqlite3 >/dev/null 2>&1; then
-  stale_data_markets="$(sqlite3 -readonly "$DB_FILE" \
-    "SELECT group_concat(m.market_id, ', ') FROM market m WHERE m.enabled = 1 AND COALESCE((SELECT MAX(h.date) \
-FROM market_history h WHERE h.market_id = m.market_id), '') < date('now', '-1 day')" 2>/dev/null || true)"
-  if [ -n "$stale_data_markets" ]; then
-    failures+=("histórico de mercado sin el día de ayer en: ${stale_data_markets}")
+  # Escalado: un mercado con 2 días o más de retraso se avisa aparte y con otro texto (un aviso nuevo, no
+  # el mismo de la primera vez); el mercado que se recupera vuelve a ✅ por el mecanismo de siempre.
+  # Una sola lectura: "mercado|última fecha" de cada mercado activo.
+  history_state="$(sqlite3 -readonly "$DB_FILE" \
+    "SELECT m.market_id || '|' || COALESCE((SELECT MAX(h.date) FROM market_history h \
+WHERE h.market_id = m.market_id), '') FROM market m WHERE m.enabled = 1" 2>/dev/null || true)"
+  yesterday="$(date -u -d 'yesterday' +%F)"
+  two_days_ago="$(date -u -d '2 days ago' +%F)"
+  late_markets=""
+  very_late_markets=""
+  while IFS='|' read -r market_id last_date; do
+    [ -n "$market_id" ] || continue
+    if [ -z "$last_date" ] || [ "$last_date" \< "$two_days_ago" ]; then
+      very_late_markets="${very_late_markets:+$very_late_markets, }$market_id"
+    elif [ "$last_date" \< "$yesterday" ]; then
+      late_markets="${late_markets:+$late_markets, }$market_id"
+    fi
+  done <<< "$history_state"
+  if [ -n "$late_markets" ]; then
+    failures+=("histórico de mercado sin el día de ayer en: ${late_markets}")
+  fi
+  if [ -n "$very_late_markets" ]; then
+    failures+=("histórico de mercado con 2 días o más de retraso en: ${very_late_markets} (revisar la ESI y los logs de history)")
   fi
 fi
 

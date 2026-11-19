@@ -254,36 +254,99 @@ def test_daily_history_fills_the_days_missed_by_a_failed_run(engine):
     assert _stored_dates(db_path, 34) == [_day(4), _day(3), _day(2), _day(1)]
     assert _stored_dates(db_path, 35) == [_day(1)]
 
+def _target(offset=0):
+    """Fecha del último día que la ESI ya debe tener publicado (según la hora real), menos `offset` días."""
+    return (run_module.history_expected_date() - timedelta(days=offset)).isoformat()
 
-def test_history_is_current_needs_yesterday_covered_like_the_day_before(engine):
-    _, _, _, db_path = engine
-    _seed_item(db_path, *range(1, 11))
+
+def _seed_history(db_path, rows, market_id="jita"):
     conn = sqlite3.connect(db_path)
-    insert = ("INSERT INTO market_history (market_id, type_id, date, avg_price, highest, lowest, volume, "
-              "order_count) VALUES ('jita', ?, ?, 1, 1, 1, 1, 1)")
-    conn.executemany(insert, [(t, _day(2)) for t in range(1, 11)])
-    conn.commit()
-    assert run_module.history_is_current(db_path, "jita") is False  # ayer sin datos
-
-    conn.executemany(insert, [(t, _day(1)) for t in range(1, 6)])  # cortada a medias: 50 %
-    conn.commit()
-    assert run_module.history_is_current(db_path, "jita") is False
-
-    conn.executemany(insert, [(t, _day(1)) for t in range(6, 10)])  # 90 %
+    conn.executemany("INSERT INTO market_history (market_id, type_id, date, avg_price, highest, lowest, volume, "
+                     "order_count) VALUES (?, ?, ?, 1, 1, 1, 1, 1)", [(market_id, t, d) for t, d in rows])
     conn.commit()
     conn.close()
+
+
+def test_expected_history_date_follows_the_esi_publication_time():
+    day = datetime(2026, 11, 19, tzinfo=timezone.utc)
+    assert run_module.history_expected_date(day.replace(hour=5)).isoformat() == "2026-11-17"  # aún sin publicar
+    assert run_module.history_expected_date(day.replace(hour=11, minute=14)).isoformat() == "2026-11-17"
+    assert run_module.history_expected_date(day.replace(hour=11, minute=35)).isoformat() == "2026-11-18"
+    assert run_module.history_expected_date(day.replace(hour=23)).isoformat() == "2026-11-18"
+
+
+def test_history_is_current_needs_the_target_day_covered_like_the_day_before(engine):
+    _, _, _, db_path = engine
+    _seed_item(db_path, *range(1, 11))
+    _seed_history(db_path, [(t, _target(1)) for t in range(1, 11)])
+    assert run_module.history_is_current(db_path, "jita") is False  # el día esperado sin datos
+
+    _seed_history(db_path, [(t, _target()) for t in range(1, 6)])  # cortada a medias: 50 %
+    assert run_module.history_is_current(db_path, "jita") is False
+
+    _seed_history(db_path, [(t, _target()) for t in range(6, 10)])  # 90 %
     assert run_module.history_is_current(db_path, "jita") is True
     assert run_module.history_is_current(db_path, "amarr") is False  # sin datos
+
+
+def test_history_gaps_flags_missing_days_and_poorly_covered_days(engine):
+    _, _, _, db_path = engine
+    _seed_item(db_path, *range(1, 11))
+    rows = []
+    for offset in range(0, 8):
+        if offset == 3:
+            continue  # día sin ningún dato
+        types = range(1, 3) if offset == 5 else range(1, 11)  # día con solo el 20 % de los tipos
+        rows += [(t, _target(offset)) for t in types]
+    _seed_history(db_path, rows)
+
+    assert run_module.history_gaps(db_path, "jita") == [_target(5), _target(3)]
+    assert run_module.history_gaps(db_path, "amarr") == []  # sin datos no hay huecos que reportar
+
+
+def test_a_new_market_has_no_gaps_before_its_first_day(engine):
+    _, _, _, db_path = engine
+    _seed_item(db_path, 1)
+    _seed_history(db_path, [(1, _target(offset)) for offset in range(0, 4)])
+
+    assert run_module.history_gaps(db_path, "jita") == []
+
+
+def test_audit_history_reports_gaps_without_calling_esi(engine, caplog):
+    run, _, state, db_path = engine
+    _seed_item(db_path, 1, 2)
+    caplog.set_level(logging.INFO)
+    _seed_history(db_path, [(t, _target(offset)) for offset in (0, 1, 3) for t in (1, 2)])  # falta offset 2
+
+    assert run("--audit-history") == 1
+    assert _target(2) in caplog.text and "con huecos" in caplog.text
+    assert state["client"].active_regions == [] and state["client"].history_regions == []
+
+    _seed_history(db_path, [(t, _target(2)) for t in (1, 2)])
+    caplog.clear()
+    assert run("--audit-history") == 0
+    assert "sin huecos" in caplog.text
+
+
+def test_history_only_repairs_a_gap_with_a_backfill_from_the_first_missing_day(engine, caplog):
+    run, _, state, db_path = engine
+    _seed_item(db_path, 34)
+    # el cliente falso devuelve filas de hace 30, 4, 3, 2 y 1 días: hace 3 días hay un hueco
+    _seed_history(db_path, [(34, _day(d)) for d in (5, 4, 2, 1)])
+    state["client"] = _GapClient()
+    caplog.set_level(logging.INFO)
+
+    run("--history-only")
+
+    assert "Huecos de histórico en jita" in caplog.text
+    assert _day(3) in _stored_dates(db_path, 34)
+    assert _day(30) not in _stored_dates(db_path, 34)  # solo desde el primer hueco, no el año entero
 
 
 def test_history_only_skips_a_market_that_is_already_current_but_backfill_does_not(engine, caplog):
     run, _, state, db_path = engine
     _seed_item(db_path, 34)
-    conn = sqlite3.connect(db_path)
-    conn.executemany("INSERT INTO market_history (market_id, type_id, date, avg_price, highest, lowest, volume, "
-                     "order_count) VALUES ('jita', 34, ?, 1, 1, 1, 1, 1)", [(_day(2),), (_day(1),)])
-    conn.commit()
-    conn.close()
+    _seed_history(db_path, [(34, _target(offset)) for offset in range(0, 3)])
     caplog.set_level(logging.INFO)
 
     run("--history-only")

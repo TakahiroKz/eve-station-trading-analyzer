@@ -20,7 +20,8 @@ import logging
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
+from statistics import median
 
 import httpx
 import pandas as pd
@@ -153,29 +154,69 @@ HISTORY_MAX_FAILURE_RATE = 0.02  # fracción de tipos con error que hace fallar 
 HISTORY_CURRENT_COVERAGE = 0.9   # el día de ayer cuenta como completo con el 90 % de los tipos del día anterior
 
 
-def history_is_current(db_path: str, market_id: str, now: datetime | None = None) -> bool:
-    """¿Ya está guardado el histórico de ayer (UTC) de este mercado? La ESI publica el día D-1 a las
-    11:05 UTC; el cron del histórico reintenta cada hora y esta comprobación hace que las corridas
-    posteriores a una exitosa no hagan nada. Se compara la cobertura (tipos con fila ayer frente a
-    los del día anterior) para que una corrida cortada a medias se reintente."""
-    today = (now or datetime.now(timezone.utc)).date()
-    yesterday = (today - timedelta(days=1)).isoformat()
-    day_before = (today - timedelta(days=2)).isoformat()
+HISTORY_PUBLISH_UTC = (11, 15)   # la ESI publica el día D-1 a las 11:05 UTC; margen de 10 min
+HISTORY_AUDIT_DAYS = 30          # ventana que revisa la auditoría de huecos
+HISTORY_GAP_COVERAGE = 0.5       # un día con menos de la mitad de los tipos habituales cuenta como hueco
+
+
+def history_expected_date(now: datetime | None = None) -> date:
+    """Último día de histórico que la ESI ya debe tener publicado: ayer (UTC) desde las 11:15, y
+    anteayer antes de esa hora (así las corridas nocturnas del cron no repiten trabajo inútil)."""
+    now = now or datetime.now(timezone.utc)
+    published = (now.hour, now.minute) >= HISTORY_PUBLISH_UTC
+    return now.date() - timedelta(days=1 if published else 2)
+
+
+def _history_counts(db_path: str, market_id: str, since: str) -> dict[str, int]:
     conn = get_connection(db_path)
     try:
-        counts = {
+        return {
             r["date"]: r["n"]
             for r in conn.execute(
-                "SELECT date, COUNT(*) AS n FROM market_history WHERE market_id = ? AND date IN (?, ?) "
-                "GROUP BY date", (market_id, yesterday, day_before),
+                "SELECT date, COUNT(*) AS n FROM market_history WHERE market_id = ? AND date >= ? GROUP BY date",
+                (market_id, since),
             )
         }
     finally:
         conn.close()
-    have, previous = counts.get(yesterday, 0), counts.get(day_before, 0)
+
+
+def history_is_current(db_path: str, market_id: str, now: datetime | None = None) -> bool:
+    """¿Ya está guardado el último día publicado de este mercado? El cron del histórico reintenta cada
+    hora y esta comprobación hace que las corridas posteriores a una exitosa no hagan nada. Se compara
+    la cobertura (tipos con fila ese día frente a los del día anterior) para que una corrida cortada a
+    medias se reintente."""
+    target = history_expected_date(now)
+    counts = _history_counts(db_path, market_id, (target - timedelta(days=1)).isoformat())
+    have, previous = counts.get(target.isoformat(), 0), counts.get((target - timedelta(days=1)).isoformat(), 0)
     if previous == 0:
         return have > 0
     return have >= previous * HISTORY_CURRENT_COVERAGE
+
+
+def history_gaps(db_path: str, market_id: str, now: datetime | None = None,
+                 days: int = HISTORY_AUDIT_DAYS) -> list[str]:
+    """Fechas (ascendentes) de la ventana de auditoría sin histórico o con menos de la mitad de la
+    cobertura mediana de ese mercado. Solo se miran los días desde el primero que tiene datos (un
+    mercado nuevo no tiene "huecos" antes de existir)."""
+    end = history_expected_date(now)
+    counts = _history_counts(db_path, market_id, (end - timedelta(days=days - 1)).isoformat())
+    counts = {d: n for d, n in counts.items() if d <= end.isoformat()}
+    if not counts:
+        return []
+    typical = median(counts.values())
+    day = date.fromisoformat(min(counts))
+    gaps = []
+    while day <= end:
+        if counts.get(day.isoformat(), 0) < typical * HISTORY_GAP_COVERAGE:
+            gaps.append(day.isoformat())
+        day += timedelta(days=1)
+    return gaps
+
+
+def audit_history(db_path: str, markets: list[str], now: datetime | None = None) -> dict[str, list[str]]:
+    """Huecos de histórico por mercado (solo lectura; no llama a la ESI)."""
+    return {m: history_gaps(db_path, m, now) for m in markets}
 
 
 def ingest_history(client: EsiClient, region_id: int, db_path: str, type_ids: list[int],
@@ -548,12 +589,22 @@ def _run_market(client: EsiClient, market: Market, db_path: str, excel_path: str
     """Un mercado completo según el modo pedido (ver main)."""
     market_id, region_id = market.market_id, market.region_id
     if args.history_only:
-        if not args.backfill and history_is_current(db_path, market_id):
-            logger.info("Histórico de %s ya al día; nada que hacer", market_id)
-            return
+        backfill, history_days = args.backfill, args.history_days
+        if not backfill:
+            gaps = history_gaps(db_path, market_id)
+            if gaps:
+                # Días sin datos (caída larga de la ESI): se rellenan desde el primer hueco, sin esperar
+                # a que alguien lo haga a mano.
+                backfill = True
+                history_days = (datetime.now(timezone.utc).date() - date.fromisoformat(gaps[0])).days + 1
+                logger.warning("Huecos de histórico en %s: %s; se rellenan los últimos %d días",
+                               market_id, ", ".join(gaps), history_days)
+            elif history_is_current(db_path, market_id):
+                logger.info("Histórico de %s ya al día; nada que hacer", market_id)
+                return
         type_ids = client.get_active_type_ids(region_id)
-        ingest_history(client, region_id, db_path, type_ids, backfill=args.backfill, max_workers=max_workers,
-                       market_id=market_id, history_days=args.history_days)
+        ingest_history(client, region_id, db_path, type_ids, backfill=backfill, max_workers=max_workers,
+                       market_id=market_id, history_days=history_days)
         return
 
     if args.rescreen_only:
@@ -604,6 +655,11 @@ def main() -> int:
         "--history-only", action="store_true",
         help="Solo baja el histórico de mercado de ESI (proceso diario); no recalcula el screening",
     )
+    mode.add_argument(
+        "--audit-history", action="store_true",
+        help="Solo lectura: lista los días sin histórico (o con cobertura baja) de los últimos 30 días por "
+             "mercado; sale con código 1 si hay huecos. No llama a la ESI",
+    )
     args = parser.parse_args()
     if args.backfill and args.prices_only:
         parser.error("--backfill descarga histórico: no se combina con --prices-only")
@@ -634,6 +690,15 @@ def main() -> int:
     if not markets:
         logger.warning("No hay mercados activos en la tabla market: no hay nada que procesar")
         return 0
+
+    if args.audit_history:
+        found = {m: g for m, g in audit_history(db_path, [m.market_id for m in markets]).items() if g}
+        for market_id, gaps in found.items():
+            logger.warning("Histórico de %s con huecos: %s", market_id, ", ".join(gaps))
+        if not found:
+            logger.info("Histórico sin huecos en los últimos %d días: %s", HISTORY_AUDIT_DAYS,
+                        ", ".join(m.market_id for m in markets))
+        return 1 if found else 0
 
     start = time.time()
     failed: list[str] = []
