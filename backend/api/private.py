@@ -18,6 +18,7 @@ from analytics.eve_calculator import (
     evaluar_oportunidad,
     resolve_volumen_deseado,
 )
+from analytics.scoring import WEIGHT_KEYS
 from backend.api.deps import ITEM_JOIN, ITEM_SELECT_COLS, _db, require_cf_access_header, resolve_market
 from backend.api.schemas import (
     AppSettingOut,
@@ -45,6 +46,7 @@ from storage.settings_registry import SETTINGS_BY_KEY, STRICTLY_POSITIVE_KEYS
 
 router = APIRouter(prefix="/api/private", dependencies=[Depends(require_cf_access_header)])
 logger = logging.getLogger(__name__)
+SCORE_WEIGHT_SETTINGS = set(WEIGHT_KEYS.values())
 
 
 def _check_limit(limit: int) -> None:
@@ -277,6 +279,10 @@ def update_app_setting_route(key: str, body: AppSettingUpdateIn):
         raise HTTPException(422, "El valor no puede ser negativo")
     if key in STRICTLY_POSITIVE_KEYS and body.value <= 0:
         raise HTTPException(422, f"'{setting_def.label}' es indispensable: no puede ser 0 ni negativo")
+    if key in SCORE_WEIGHT_SETTINGS and body.value > 1:
+        # Los pesos se editan de uno en uno, así que la suma no se exige al guardar: el motor los
+        # normaliza (analytics.scoring.normalized_weights) y el desglose muestra los máximos reales.
+        raise HTTPException(422, "Cada peso del puntaje debe estar entre 0 y 1")
 
     conn = _db()
     try:

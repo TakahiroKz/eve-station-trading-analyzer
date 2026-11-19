@@ -35,7 +35,9 @@ from analytics.eve_calculator import (
     resolve_volumen_deseado,
 )
 from analytics.market_aggregation import build_orders_by_type
+from analytics.opportunity import evaluate_item, inputs_blob
 from analytics.sanity import SanityConfig, is_price_sane
+from analytics.scoring import ScoreInputs
 from analytics.trend import TrendConfig, compute_price_trends
 from analytics.trend_alerts import TrendAlertState, advance
 from ingestion.esi_client import DEFAULT_BASE_URL, EsiClient
@@ -379,6 +381,19 @@ def ingest_categories(client: EsiClient, db_path: str, type_ids: list[int], max_
         conn.close()
 
 
+def _age_minutes(captured_at, now: datetime) -> float | None:
+    """Antigüedad en minutos del snapshot de órdenes (None si la fecha falta o no se entiende)."""
+    if not captured_at:
+        return None
+    try:
+        moment = datetime.fromisoformat(str(captured_at))
+    except ValueError:
+        return None
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return max((now - moment).total_seconds() / 60, 0.0)
+
+
 def screen_opportunities(db_path: str, excel_path: str,
                           fallback_volumen_deseado: float | None = None,
                           market_id: str = DEFAULT_MARKET) -> pd.DataFrame:
@@ -438,6 +453,9 @@ def screen_opportunities(db_path: str, excel_path: str,
         )
 
         trends = compute_price_trends(history, trend_config)
+        # Volatilidad: coeficiente de variación del precio medio diario (30 d); sin 5 observaciones no se calcula.
+        price_stats = recent_history.groupby("type_id")["avg_price"].agg(["mean", "std", "count"])
+        price_cv = (price_stats["std"] / price_stats["mean"]).where(price_stats["count"] >= 5)
         reading_date = str(history["date"].max()) if not history.empty else None
         market_row = conn.execute("SELECT name, region_id FROM market WHERE market_id = ?", (market_id,)).fetchone()
         market_name = market_row["name"] if market_row else market_id
@@ -483,7 +501,8 @@ def screen_opportunities(db_path: str, excel_path: str,
                 avg_daily_volume_7d = float(row["avg_daily_volume_7d"])
                 avg_daily_order_count_7d = float(row["avg_daily_order_count_7d"])
 
-                if is_price_sane(row["best_buy"], row["best_sell"], row["reference_price"], sanity_config):
+                price_sane = is_price_sane(row["best_buy"], row["best_sell"], row["reference_price"], sanity_config)
+                if price_sane:
                     status, reason = classify(
                         result.evaluacion_spread, result.liquidez,
                         avg_daily_volume_7d, avg_daily_order_count_7d,
@@ -500,7 +519,27 @@ def screen_opportunities(db_path: str, excel_path: str,
                 previous = get_item_status(conn, row["type_id"], market_id=market_id)
                 previous_status = previous["status"] if previous else None
 
+                # Puntaje 0-100 y evaluación determinista (complementan al estado; no lo cambian).
+                cv = price_cv.get(row["type_id"])
+                price_cv_value = None if cv is None or pd.isna(cv) else float(cv)
+                data_age_min = _age_minutes(row.get("captured_at"), now_dt)
+                score_result, assessment = evaluate_item(
+                    ScoreInputs(
+                        roi=result.roi, best_buy=result.buy, volume_7d=avg_daily_volume_7d,
+                        volume_30d=result.volumen_diario_real, ops_7d=avg_daily_order_count_7d,
+                        buy_orders=buy_order_count, sell_orders=sell_order_count, status=status,
+                        price_cv=price_cv_value,
+                    ),
+                    result.sell, {"age": data_age_min, "sane": price_sane}, settings,
+                )
+
                 upsert_item_status(conn, {
+                    "score": score_result.score,
+                    "score_class": score_result.classification,
+                    "eligibility": assessment["eligibility"]["status"],
+                    "recommendation": assessment["recommendation"]["action"],
+                    "score_version": score_result.version,
+                    "score_inputs": inputs_blob(price_cv_value, data_age_min, price_sane),
                     "type_id": row["type_id"],
                     "status": status,
                     "reason": reason,

@@ -155,6 +155,84 @@ SETTINGS: list[SettingDef] = [
         "Solo se avisa del cambio de tendencia de ítems con una orden activa tuya y al menos estas "
         "operaciones diarias (promedio 7 días).", 20.0,
     ),
+
+    # --- Puntaje de oportunidad (0-100) ---
+    SettingDef(
+        "score_w_profitability", "Puntaje", "Peso: rentabilidad neta",
+        "Peso de la rentabilidad (ROI neto) en el puntaje 0-100. Los seis pesos se normalizan para sumar 1.",
+        0.25,
+    ),
+    SettingDef(
+        "score_w_liquidity", "Puntaje", "Peso: liquidez",
+        "Peso de la liquidez (posición de referencia frente al volumen diario).", 0.20,
+    ),
+    SettingDef(
+        "score_w_volume", "Puntaje", "Peso: volumen negociado",
+        "Peso del volumen negociado en ISK al día (7 días).", 0.15,
+    ),
+    SettingDef(
+        "score_w_book", "Puntaje", "Peso: libro y actividad",
+        "Peso de las operaciones por día y de la profundidad del libro de órdenes (la competencia).", 0.15,
+    ),
+    SettingDef(
+        "score_w_stability", "Puntaje", "Peso: estabilidad",
+        "Peso de la estabilidad del precio y del volumen (inversa del riesgo).", 0.15,
+    ),
+    SettingDef(
+        "score_w_capital", "Puntaje", "Peso: eficiencia del capital",
+        "Peso del ROI diario según los días de rotación de la posición de referencia.", 0.10,
+    ),
+    SettingDef(
+        "score_reference_capital", "Puntaje", "Capital de referencia (ISK)",
+        "Capital con el que se mide la liquidez y la eficiencia del capital en el puntaje guardado "
+        "(posición = este capital x el % por posición de Ajustes). El puntaje por usuario llegará después.",
+        1_000_000_000.0,
+    ),
+    SettingDef(
+        "capture_participation_rate", "Puntaje", "Participación capturable del volumen",
+        "Parte del volumen diario que se supone capturable al estimar los días de rotación "
+        "(0.10 = 10 %). Es un supuesto, no un dato observado.", 0.10,
+    ),
+    SettingDef(
+        "score_atypical_roi", "Puntaje", "ROI atípico (fracción)",
+        "Por encima de este ROI neto (1.0 = 100 %) el puntaje queda limitado al tope de ROI atípico.", 1.0,
+    ),
+    SettingDef(
+        "score_atypical_cap", "Puntaje", "Tope del puntaje con ROI atípico",
+        "Puntaje máximo de un ítem con ROI atípico.", 64.0,
+    ),
+    SettingDef(
+        "score_discarded_cap", "Puntaje", "Tope del puntaje de un ítem descartado",
+        "Puntaje máximo de un ítem en estado DESCARTADO.", 29.0,
+    ),
+    SettingDef(
+        "min_opportunity_score", "Puntaje", "Puntaje mínimo para recomendar",
+        "Un ítem elegible solo es RECOMMENDED (BUY_CANDIDATE) si alcanza este puntaje.", 65.0,
+    ),
+    SettingDef(
+        "min_net_roi", "Puntaje", "ROI neto mínimo para recomendar (fracción)",
+        "ROI neto mínimo (0.05 = 5 %) para que un ítem sea candidato a compra.", 0.05,
+    ),
+    SettingDef(
+        "min_net_profit", "Puntaje", "Beneficio neto mínimo (ISK)",
+        "Beneficio neto mínimo de la posición de referencia; por debajo, el ítem no es elegible.", 100_000.0,
+    ),
+    SettingDef(
+        "min_liquidity_score", "Puntaje", "Liquidez mínima para recomendar (0-100)",
+        "Puntuación de liquidez mínima para ser candidato a compra.", 60.0,
+    ),
+    SettingDef(
+        "max_risk_score", "Puntaje", "Riesgo máximo permitido (0-100)",
+        "Riesgo = 100 - estabilidad. Por encima de este valor el ítem no es elegible.", 60.0,
+    ),
+    SettingDef(
+        "max_holding_days", "Puntaje", "Días máximos de rotación",
+        "Días estimados máximos para vender la posición de referencia y ser candidato a compra.", 7.0,
+    ),
+    SettingDef(
+        "max_market_data_age_min", "Puntaje", "Antigüedad máxima de los datos (min)",
+        "Con datos de órdenes más viejos que esto la recomendación es esperar (WAIT).", 30.0,
+    ),
 ]
 
 SETTINGS_BY_KEY: dict[str, SettingDef] = {s.key: s for s in SETTINGS}

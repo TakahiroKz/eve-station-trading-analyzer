@@ -85,6 +85,10 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
             conn.execute("ALTER TABLE item_status ADD COLUMN price_trend_label TEXT NOT NULL DEFAULT 'nodata'")
         if not _column_exists(conn, "item_status", "price_trend_threshold"):
             conn.execute("ALTER TABLE item_status ADD COLUMN price_trend_threshold REAL")
+        for column, sql_type in (("score", "INTEGER"), ("score_class", "TEXT"), ("eligibility", "TEXT"),
+                                 ("recommendation", "TEXT"), ("score_version", "TEXT"), ("score_inputs", "TEXT")):
+            if not _column_exists(conn, "item_status", column):
+                conn.execute(f"ALTER TABLE item_status ADD COLUMN {column} {sql_type}")
 
     if _table_sql(conn, "character_order") is not None:
         if not _column_exists(conn, "character_order", "orders_ahead"):
@@ -431,8 +435,9 @@ def upsert_item_status(conn: sqlite3.Connection, row: dict, market_id: str = DEF
             (market_id, type_id, status, reason, spread_bruto, evaluacion_spread, liquidez, roi,
              best_buy, best_sell, volumen_diario_real, buy_order_count, sell_order_count,
              avg_daily_volume_7d, avg_daily_order_count_7d, last_evaluated_at,
-             price_trend, price_trend_label, price_trend_threshold)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             price_trend, price_trend_label, price_trend_threshold,
+             score, score_class, eligibility, recommendation, score_version, score_inputs)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(market_id, type_id) DO UPDATE SET
             status = excluded.status,
             reason = excluded.reason,
@@ -450,7 +455,13 @@ def upsert_item_status(conn: sqlite3.Connection, row: dict, market_id: str = DEF
             last_evaluated_at = excluded.last_evaluated_at,
             price_trend = excluded.price_trend,
             price_trend_label = excluded.price_trend_label,
-            price_trend_threshold = excluded.price_trend_threshold
+            price_trend_threshold = excluded.price_trend_threshold,
+            score = excluded.score,
+            score_class = excluded.score_class,
+            eligibility = excluded.eligibility,
+            recommendation = excluded.recommendation,
+            score_version = excluded.score_version,
+            score_inputs = excluded.score_inputs
         """,
         (
             market_id, row["type_id"], row["status"], row["reason"], row["spread_bruto"],
@@ -460,6 +471,8 @@ def upsert_item_status(conn: sqlite3.Connection, row: dict, market_id: str = DEF
             row["avg_daily_volume_7d"], row["avg_daily_order_count_7d"],
             row["last_evaluated_at"],
             row.get("price_trend"), row.get("price_trend_label") or "nodata", row.get("price_trend_threshold"),
+            row.get("score"), row.get("score_class"), row.get("eligibility"), row.get("recommendation"),
+            row.get("score_version"), row.get("score_inputs"),
         ),
     )
 
