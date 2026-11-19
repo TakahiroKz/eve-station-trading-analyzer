@@ -116,11 +116,29 @@ class OpportunityOut(BaseModel):
     unidades_sugeridas: int | None = None
 
 
+class UnitRecommendationOut(BaseModel):
+    """Recomendación de unidades para un capital: la misma cuenta del motor (evaluar_oportunidad) con la posición
+    = capital x % por posición. Es lo que lee el visitante en el detalle; el propietario con sesión y sin capital
+    elegido ve la suya en vivo con su wallet (/api/private/items/{id}/recommendation)."""
+    capital: float
+    position_pct: float
+    posicion_isk: float
+    volumen_deseado: float
+    unidades_sugeridas: int
+    recomendacion: str
+    action: Literal["BUY_CANDIDATE", "WAIT", "REJECT"] | None = None
+    blocked_by: list[str] = []
+    inversion_isk: float
+    beneficio_neto_isk: float
+    dias_rotacion: float | None = None
+
+
 class ItemDetailOut(BaseModel):
     status: ItemStatusOut
     history: list[HistoryPointOut]
     latest_snapshot: SnapshotOut | None
     latest_opportunities: list[OpportunityOut]
+    recommendation: UnitRecommendationOut | None = None
     # Explicación del puntaje: factores (puntos / máximo / valor / frase), topes, filtros, códigos de motivo y
     # "qué tendría que cambiar". Calculada en el backend; el frontend solo la muestra. None si aún no hay puntaje.
     assessment: dict | None = None

@@ -365,13 +365,24 @@ export const en = {
   "detail.bookDepthValue": "{buy} buy / {sell} sell",
   // --- Capital for the score ---
   "capital.label": "Your capital",
-  "capital.millions": "{n} M ISK",
-  "capital.default": "{n} M ISK (default)",
   "capital.custom": "Other…",
   "capital.customLabel": "Capital in millions of ISK",
-  "capital.note": "Score recalculated for {isk} ISK of capital, using {position} ISK per position.",
-  "capital.help": "The score assumes one position uses 10% of your capital. Changing it recalculates liquidity, order-book depth and capital efficiency; margin and stability do not change.",
+  "capital.help": "Score and recommended units are calculated for this capital. One position uses 10% of it. Changing it recalculates liquidity, order-book depth and capital efficiency; margin and stability do not change.",
   "capital.reset": "Use default",
+  "capital.pill": "{n} M",
+  "capital.pillTitle": "{position} ISK per position",
+  "capital.customSuffix": "M ISK",
+  "capital.position": "Per position ({pct}): {position} ISK",
+  "capital.basis": "Score and recommendation calculated for a capital of {isk} ISK.",
+  "capital.basisDefault": "Score and recommendation calculated for the default capital of {isk} ISK.",
+  "detail.recUnits": "Suggested units",
+  "detail.recInvest": "Investment",
+  "detail.recProfit": "Estimated net profit",
+  "detail.recRotation": "Rotation",
+  "detail.recDays": "≈ {n} days",
+  "detail.recBasis": "Calculated for a capital of {isk} ISK ({position} ISK per position).",
+  "detail.recBlocked": "Not recommended right now:",
+  "detail.recWait": "The engine suggests waiting: these units apply only if you decide to buy.",
 } as const;
 
 export type MessageKey = keyof typeof en;

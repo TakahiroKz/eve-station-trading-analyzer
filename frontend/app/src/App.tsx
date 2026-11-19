@@ -12,6 +12,7 @@ import {
 import { useI18n } from "./i18n/useI18n";
 import { BEST_COUNT, BEST_MIN_ROI, BestNow, FaqSection, Hero, HowItWorks, MarketsSection, SiteFooter, Stats, SupportBand } from "./Landing";
 import { CapitalPicker, MAX_CAPITAL, MIN_CAPITAL } from "./CapitalPicker";
+import { UnitRecommendationBox } from "./UnitRecommendationBox";
 import { ScoreChip, ScorePanel } from "./ScorePanel";
 import "./App.css";
 
@@ -482,7 +483,7 @@ export default function App() {
     setOpenWindowMsg(null);
     setRecommendation(null);
     api.itemDetail(typeId, market, capital ?? undefined).then(setSelected).catch((e) => setError(String(e)));
-    if (authenticated) {
+    if (authenticated && capital == null) {
       api.itemRecommendation(typeId, market).then(setRecommendation).catch(() => setRecommendation(null));
     }
   }
@@ -963,6 +964,7 @@ export default function App() {
           ))}
         </div>
       )}
+      <CapitalPicker value={capital} onChange={changeCapital} t={t} locale={locale} />
       <nav className="tabs">
         {TAB_KEYS.map((key) => (
           <button
@@ -1148,7 +1150,6 @@ export default function App() {
       {error && <p className="error">{authenticated ? error : t("common.loadError")}</p>}
       {loading && <p className="muted">{t("common.loading")}</p>}
 
-      <CapitalPicker value={capital} onChange={changeCapital} t={t} locale={locale} />
       <p className="table-note">{t("screener.pricesInIsk")}</p>
       <div className="glass-panel data-panel">
         <div className="data-row data-header">
@@ -1251,11 +1252,12 @@ export default function App() {
               </div>
             )}
 
-            {(recommendation ?? selected.latest_opportunities[0]) && (
+            {recommendation && capital == null && (
+              /* Signed-in owner, no capital chosen: the live recommendation sized with the real wallet. */
               <div className="recommendation">
                 <strong>{t("detail.recommendation")}</strong>{" "}
-                {translateRecommendation(t, (recommendation ?? selected.latest_opportunities[0]).recomendacion, locale)}
-                {recommendation?.unidades_sugeridas != null && (
+                {translateRecommendation(t, recommendation.recomendacion, locale)}
+                {recommendation.unidades_sugeridas != null && (
                   <>
                     {" "}
                     <span className="muted">
@@ -1264,6 +1266,11 @@ export default function App() {
                   </>
                 )}
               </div>
+            )}
+            {!(recommendation && capital == null) && selected.recommendation && (
+              <UnitRecommendationBox
+                reco={selected.recommendation} t={t} locale={locale} formatIsk={formatIsk}
+              />
             )}
 
             <ScorePanel status={selected.status} assessment={selected.assessment ?? null} t={t} locale={locale} />

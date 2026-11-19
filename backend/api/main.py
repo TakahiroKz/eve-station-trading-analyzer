@@ -41,13 +41,15 @@ from backend.api.schemas import (
     ItemsPageOut,
     ItemStatusOut,
     OpportunityOut,
+    UnitRecommendationOut,
     ScheduleOut,
     SnapshotOut,
     StatusChangeOut,
     SummaryOut,
 )
+from analytics.eve_calculator import EveCalculatorConfig, config_from_settings, evaluar_oportunidad, resolve_volumen_deseado
 from analytics.opportunity import evaluate_item, make_configs, parse_inputs_blob
-from analytics.scoring import ScoreInputs
+from analytics.scoring import ScoreConfig, ScoreInputs, holding_days
 from ingestion.schedule import get_next_run_times
 from storage.db import DEFAULT_MARKET, get_app_settings_dict, init_db
 
@@ -184,6 +186,34 @@ def rescored_market(conn, market_id: str, capital: float, settings: dict, config
             while len(_RESCORE_CACHE) > _RESCORE_CACHE_MAX:
                 _RESCORE_CACHE.popitem(last=False)
         return result
+
+
+def build_unit_recommendation(status_row, snapshot_row, conn, capital: float | None,
+                              assessment: dict | None) -> UnitRecommendationOut | None:
+    """Unidades a comprar según el capital: la posición es capital x `position_size_pct_wallet` (10 %) y la cuenta es
+    la misma del motor (evaluar_oportunidad, que ya recorta por liquidez). Sin capital elegido se usa el de
+    referencia. Si la evaluación del motor es REJECT, las unidades sugeridas son 0 y `blocked_by` dice por qué."""
+    settings = settings_for_capital(conn, capital)
+    used_capital = float(settings["score_reference_capital"])
+    buy = (snapshot_row["best_buy"] if snapshot_row is not None else None) or status_row["best_buy"]
+    sell = (snapshot_row["best_sell"] if snapshot_row is not None else None) or status_row["best_sell"]
+    if not buy or not sell or buy <= 0:
+        return None
+    pct = float(settings["position_size_pct_wallet"])
+    eve_config = config_from_settings(EveCalculatorConfig, settings)
+    wanted = resolve_volumen_deseado(buy, used_capital, pct, settings["volumen_deseado_fallback"])
+    result = evaluar_oportunidad(item=status_row["name"], buy=buy, sell=sell, volumen_deseado=wanted,
+                                 volumen_diario_real=status_row["volumen_diario_real"], config=eve_config)
+    action = assessment["recommendation"]["action"] if assessment else None
+    blocked_by = list(assessment["eligibility"]["failed_filters"]) if assessment and action == "REJECT" else []
+    units = 0 if action == "REJECT" else int(result.unidades_sugeridas or 0)
+    days = holding_days(units, status_row["avg_daily_volume_7d"], config_from_settings(ScoreConfig, settings)) if units else None
+    return UnitRecommendationOut(
+        capital=used_capital, position_pct=pct, posicion_isk=round(used_capital * pct), volumen_deseado=round(wanted, 2),
+        unidades_sugeridas=units, recomendacion=result.recomendacion, action=action, blocked_by=blocked_by,
+        inversion_isk=round(units * buy * eve_config.buy_fee_factor), beneficio_neto_isk=round(units * result.beneficio),
+        dias_rotacion=None if days is None else round(days, 2),
+    )
 
 
 def rescore_row(row, settings: dict, configs: tuple) -> dict:
@@ -457,12 +487,14 @@ def get_item_detail(type_id: int, market: str = DEFAULT_MARKET,
         if capital is not None:  # el número de la cabecera debe coincidir con el desglose del panel
             settings = settings_for_capital(conn, capital)
             status_dict = rescore_row(status_row, settings, make_configs(settings))
+        assessment = build_assessment(status_row, conn, capital)
         return ItemDetailOut(
             status=ItemStatusOut(**status_dict),
             history=[HistoryPointOut(**dict(r)) for r in history_rows],
             latest_snapshot=SnapshotOut(**dict(snapshot_row)) if snapshot_row else None,
             latest_opportunities=[OpportunityOut(**dict(r)) for r in opportunity_rows],
-            assessment=build_assessment(status_row, conn, capital),
+            assessment=assessment,
+            recommendation=build_unit_recommendation(status_row, snapshot_row, conn, capital, assessment),
         )
     finally:
         conn.close()
