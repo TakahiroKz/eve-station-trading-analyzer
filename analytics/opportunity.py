@@ -179,12 +179,19 @@ def parse_inputs_blob(blob: str | None) -> dict:
             "bd": data.get("bd"), "sd": data.get("sd")}
 
 
-def evaluate_item(inputs: ScoreInputs, best_sell: float, extras: dict, settings: dict) -> tuple[ScoreResult, dict]:
+def make_configs(settings: dict) -> tuple[ScoreConfig, OpportunityConfig, EveCalculatorConfig]:
+    """Las tres configuraciones que usa evaluate_item, armadas desde los ajustes. Quien evalúa muchos ítems con los
+    mismos ajustes (el listado de la API con un capital) las arma una vez y las pasa a evaluate_item."""
+    return (config_from_settings(ScoreConfig, settings), config_from_settings(OpportunityConfig, settings),
+            config_from_settings(EveCalculatorConfig, settings))
+
+
+def evaluate_item(inputs: ScoreInputs, best_sell: float, extras: dict, settings: dict,
+                  configs: tuple | None = None) -> tuple[ScoreResult, dict]:
     """Único punto de cálculo del puntaje y la evaluación: lo llaman el ciclo de mercado (que guarda el
-    resultado) y la API del detalle (que recalcula la explicación completa). `extras` = parse_inputs_blob."""
-    score_config = config_from_settings(ScoreConfig, settings)
-    opportunity_config = config_from_settings(OpportunityConfig, settings)
-    eve_config = config_from_settings(EveCalculatorConfig, settings)
+    resultado) y la API (que recalcula la explicación y, con un capital propio, el puntaje). `extras` =
+    parse_inputs_blob; `configs` = make_configs(settings) si ya están armadas."""
+    score_config, opportunity_config, eve_config = configs or make_configs(settings)
     score = score_opportunity(inputs, score_config)
     context = OpportunityContext(
         unit_profit=beneficio_unitario(inputs.best_buy, best_sell, eve_config),

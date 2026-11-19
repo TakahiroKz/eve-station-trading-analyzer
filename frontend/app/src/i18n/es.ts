@@ -363,4 +363,13 @@ export const es: Messages = {
   "score.code.INSUFFICIENT_DEPTH": "El libro es demasiado poco profundo para la posición.",
   "detail.bookDepth": "Profundidad del libro ±5 % (región)",
   "detail.bookDepthValue": "{buy} compra / {sell} venta",
+  // --- Capital for the score ---
+  "capital.label": "Tu capital",
+  "capital.millions": "{n} M ISK",
+  "capital.default": "{n} M ISK (por defecto)",
+  "capital.custom": "Otro…",
+  "capital.customLabel": "Capital en millones de ISK",
+  "capital.note": "Puntaje recalculado para {isk} ISK de capital, con {position} ISK por posición.",
+  "capital.help": "El puntaje supone que una posición usa el 10 % de tu capital. Al cambiarlo se recalculan la liquidez, la profundidad del libro y la eficiencia del capital; el margen y la estabilidad no cambian.",
+  "capital.reset": "Usar el predeterminado",
 };

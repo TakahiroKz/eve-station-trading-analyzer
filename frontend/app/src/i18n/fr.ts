@@ -363,4 +363,13 @@ export const fr: Messages = {
   "score.code.INSUFFICIENT_DEPTH": "Le carnet est trop peu profond pour la position.",
   "detail.bookDepth": "Profondeur du carnet ±5 % (région)",
   "detail.bookDepthValue": "{buy} achat / {sell} vente",
+  // --- Capital for the score ---
+  "capital.label": "Votre capital",
+  "capital.millions": "{n} M ISK",
+  "capital.default": "{n} M ISK (par défaut)",
+  "capital.custom": "Autre…",
+  "capital.customLabel": "Capital en millions d'ISK",
+  "capital.note": "Score recalculé pour {isk} ISK de capital, avec {position} ISK par position.",
+  "capital.help": "Le score suppose qu'une position utilise 10 % de votre capital. Le modifier recalcule la liquidité, la profondeur du carnet et l'efficacité du capital ; la marge et la stabilité ne changent pas.",
+  "capital.reset": "Utiliser la valeur par défaut",
 };

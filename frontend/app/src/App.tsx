@@ -11,6 +11,7 @@ import {
 } from "./i18n";
 import { useI18n } from "./i18n/useI18n";
 import { BEST_COUNT, BEST_MIN_ROI, BestNow, FaqSection, Hero, HowItWorks, MarketsSection, SiteFooter, Stats, SupportBand } from "./Landing";
+import { CapitalPicker, MAX_CAPITAL, MIN_CAPITAL } from "./CapitalPicker";
 import { ScoreChip, ScorePanel } from "./ScorePanel";
 import "./App.css";
 
@@ -46,6 +47,18 @@ function readInitialMarket(): string {
     return window.localStorage.getItem(MARKET_KEY) || DEFAULT_MARKET;
   } catch {
     return DEFAULT_MARKET;
+  }
+}
+
+// The visitor's own capital (ISK) for the score; absent = the server's reference capital.
+const CAPITAL_KEY = "capital";
+
+function readInitialCapital(): number | null {
+  try {
+    const stored = Number(window.localStorage.getItem(CAPITAL_KEY));
+    return Number.isFinite(stored) && stored >= MIN_CAPITAL && stored <= MAX_CAPITAL ? stored : null;
+  } catch {
+    return null;
   }
 }
 
@@ -169,6 +182,7 @@ export default function App() {
   const [tab, setTab] = useState<Status>("POTENCIAL");
   const [filterForm, setFilterForm] = useState<FilterForm>(EMPTY_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<Partial<ItemFilters>>({});
+  const [capital, setCapital] = useState<number | null>(readInitialCapital);
   const [showFilters, setShowFilters] = useState(false);
   const [sortField, setSortField] = useState("volumen_diario_real");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
@@ -412,7 +426,7 @@ export default function App() {
     api
       .items({
         market, status: tab, ...appliedFilters, sort: sortField, order: sortOrder,
-        limit: PAGE_SIZE, offset: page * PAGE_SIZE,
+        limit: PAGE_SIZE, offset: page * PAGE_SIZE, capital: capital ?? undefined,
       })
       .then((res) => {
         setItems(res.items);
@@ -420,7 +434,7 @@ export default function App() {
       })
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false));
-  }, [market, tab, appliedFilters, sortField, sortOrder, page]);
+  }, [market, tab, appliedFilters, sortField, sortOrder, page, capital]);
 
   // Name search: applied on its own 300 ms after the last keystroke (one request per pause, not per letter).
   useEffect(() => {
@@ -453,10 +467,21 @@ export default function App() {
     setPage(0);
   }
 
+  function changeCapital(next: number | null) {
+    setCapital(next);
+    setPage(0);
+    try {
+      if (next == null) window.localStorage.removeItem(CAPITAL_KEY);
+      else window.localStorage.setItem(CAPITAL_KEY, String(next));
+    } catch {
+      // Storage can be blocked: the choice then lasts until the page is closed.
+    }
+  }
+
   function openItem(typeId: number) {
     setOpenWindowMsg(null);
     setRecommendation(null);
-    api.itemDetail(typeId, market).then(setSelected).catch((e) => setError(String(e)));
+    api.itemDetail(typeId, market, capital ?? undefined).then(setSelected).catch((e) => setError(String(e)));
     if (authenticated) {
       api.itemRecommendation(typeId, market).then(setRecommendation).catch(() => setRecommendation(null));
     }
@@ -1123,6 +1148,7 @@ export default function App() {
       {error && <p className="error">{authenticated ? error : t("common.loadError")}</p>}
       {loading && <p className="muted">{t("common.loading")}</p>}
 
+      <CapitalPicker value={capital} onChange={changeCapital} t={t} locale={locale} />
       <p className="table-note">{t("screener.pricesInIsk")}</p>
       <div className="glass-panel data-panel">
         <div className="data-row data-header">

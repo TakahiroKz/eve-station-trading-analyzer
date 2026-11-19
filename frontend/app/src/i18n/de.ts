@@ -363,4 +363,13 @@ export const de: Messages = {
   "score.code.INSUFFICIENT_DEPTH": "Das Orderbuch ist für die Position zu flach.",
   "detail.bookDepth": "Orderbuchtiefe ±5 % (Region)",
   "detail.bookDepthValue": "{buy} Kauf / {sell} Verkauf",
+  // --- Capital for the score ---
+  "capital.label": "Dein Kapital",
+  "capital.millions": "{n} Mio. ISK",
+  "capital.default": "{n} Mio. ISK (Standard)",
+  "capital.custom": "Andere…",
+  "capital.customLabel": "Kapital in Millionen ISK",
+  "capital.note": "Score neu berechnet für {isk} ISK Kapital, mit {position} ISK pro Position.",
+  "capital.help": "Der Score geht davon aus, dass eine Position 10 % deines Kapitals nutzt. Eine Änderung berechnet Liquidität, Orderbuchtiefe und Kapitaleffizienz neu; Marge und Stabilität bleiben gleich.",
+  "capital.reset": "Standard verwenden",
 };

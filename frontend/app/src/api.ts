@@ -36,6 +36,7 @@ export interface ItemsPage {
   total: number;
   limit: number;
   offset: number;
+  capital?: number | null; // capital (snapped by the server) the scores were computed for; null = reference
 }
 
 export interface Category {
@@ -182,6 +183,7 @@ export interface ItemFilters {
   trend?: TrendLabel;
   minScore?: number;
   eligibility?: Eligibility;
+  capital?: number; // ISK: the server recomputes the score for this capital
   sort?: string;
   order?: "asc" | "desc";
   limit?: number;
@@ -295,6 +297,7 @@ function buildQuery(filters: ItemFilters): string {
   if (filters.trend) params.set("trend", filters.trend);
   if (filters.minScore != null) params.set("min_score", String(filters.minScore));
   if (filters.eligibility) params.set("eligibility", filters.eligibility);
+  if (filters.capital != null) params.set("capital", String(filters.capital));
   if (filters.minVolume != null) params.set("min_volume", String(filters.minVolume));
   if (filters.maxVolume != null) params.set("max_volume", String(filters.maxVolume));
   params.set("sort", filters.sort ?? "volumen_diario_real");
@@ -315,7 +318,10 @@ export const api = {
   schedule: () => get<Schedule>("/schedule"),
   items: (filters: ItemFilters) => get<ItemsPage>(`/items?${buildQuery(filters)}`),
   categories: (market?: string) => get<Category[]>(withMarket("/categories", market)),
-  itemDetail: (typeId: number, market?: string) => get<ItemDetail>(withMarket(`/items/${typeId}`, market)),
+  itemDetail: (typeId: number, market?: string, capital?: number) => {
+    const path = withMarket(`/items/${typeId}`, market);
+    return get<ItemDetail>(capital == null ? path : `${path}${path.includes("?") ? "&" : "?"}capital=${capital}`);
+  },
   // Rutas /private/* — detrás de Cloudflare Access (T14). Cualquier rechazo (bloqueo
   // de Access, red) es esperado para un visitante sin sesión; quien llama decide
   // cómo tratarlo (ver el probe authPing en App.tsx).

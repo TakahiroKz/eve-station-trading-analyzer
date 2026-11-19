@@ -41,6 +41,8 @@ class ItemsPageOut(BaseModel):
     total: int
     limit: int
     offset: int
+    # Capital (ISK) con el que se recalculó el puntaje de estos ítems; None = el de referencia guardado.
+    capital: float | None = None
 
 
 class CategoryOut(BaseModel):
