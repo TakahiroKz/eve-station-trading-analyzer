@@ -53,7 +53,7 @@ quedan para otra fase.
 
 ## Calibración (2026-11-19)
 
-Sobre 42.926 ítems reales de los cinco mercados (ver `docs-local` del proyecto): con el capital de referencia, el
+Sobre 42.926 ítems reales de los cinco mercados (exportados de `item_status` en la VM, solo lectura): con el capital de referencia, el
 puntaje medio por estado fue POTENCIAL 64, POTENCIAL_SIN_ORDENES 56, EN_OBSERVACION 49, DESCARTADO 18; 484 ítems
 `BUY_CANDIDATE` (457 de los 1.649 POTENCIAL), ninguno con ROI > 100 %.
 
