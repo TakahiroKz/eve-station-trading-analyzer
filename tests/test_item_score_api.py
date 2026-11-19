@@ -79,7 +79,7 @@ def test_the_detail_returns_the_full_explanation_of_the_score(client):
 
     assert body["status"]["score"] == 91
     assert assessment["stored_version"] == "1.0.0-abc123"
-    assert assessment["algorithm_version"].startswith("1.0.0-")
+    assert assessment["algorithm_version"].startswith("1.1.0-")
     assert assessment["config_changed"] is True  # la versión guardada es de mentira: no coincide con la actual
     factors = assessment["score"]["factors"]
     assert [f["key"] for f in factors] == ["profitability", "liquidity", "volume", "book", "stability", "capital"]

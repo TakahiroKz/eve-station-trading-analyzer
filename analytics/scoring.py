@@ -19,7 +19,7 @@ import hashlib
 import math
 from dataclasses import dataclass, field, fields
 
-SCORING_VERSION = "1.0.0"
+SCORING_VERSION = "1.1.0"  # 1.1.0: la profundidad del libro entra en el factor «libro y actividad»
 
 # Bandas de clasificación (EF-01.06): límite inferior de cada una.
 CLASS_BANDS = [(90, "EXCELLENT"), (80, "HIGH"), (65, "MODERATE"), (50, "LOW"), (0, "DISCARDED")]
@@ -29,6 +29,9 @@ PROFIT_CURVE = [(0, 0), (0.05, 20), (0.12, 60), (0.20, 100), (0.40, 100), (0.60,
 LIQUIDITY_CURVE = [(0, 100), (0.10, 95), (0.25, 70), (0.50, 40), (1.0, 15), (2.0, 0)]  # posición / volumen diario
 VOLUME_CURVE = [(6, 0), (7, 30), (8, 60), (9, 85), (10, 100)]  # log10(ISK negociados al día)
 ACTIVITY_CURVE = [(3, 20), (10, 60), (30, 90), (100, 100)]  # operaciones por día (7 d)
+DEPTH_CURVE = [(0, 0), (0.1, 30), (0.5, 60), (1.0, 80), (3.0, 100)]  # profundidad mínima / cantidad de la posición
+ACTIVITY_WEIGHT, DEPTH_WEIGHT = 0.6, 0.4  # reparto del factor «libro y actividad» cuando hay datos de profundidad
+SHALLOW_DEPTH_RATIO = 0.25  # por debajo, la nota dice que el libro es poco profundo
 CV_CURVE = [(0, 100), (0.05, 100), (0.15, 60), (0.40, 0)]  # coeficiente de variación del precio (30 d)
 RATIO_CURVE = [(0, 0), (0.4, 30), (0.7, 100), (1.4, 100), (2.5, 40), (4, 0)]  # volumen 7 d / volumen 30 d
 EFFICIENCY_CURVE = [(0, 0), (0.005, 30), (0.02, 70), (0.05, 100)]  # ROI diario (ROI acotado / días de rotación)
@@ -41,7 +44,7 @@ NO_DATA_SCORE = 50.0          # factor sin dato suficiente: neutro, y así se di
 # score.cap.*). Un test comprueba que cada uno tiene su texto en los cinco idiomas.
 NOTE_CODES = (
     "ROI_SUSTAINABLE", "ROI_VERY_HIGH", "ROI_THIN", "POSITION_ABSORBABLE", "POSITION_SLOW", "VOLUME_ISK",
-    "BOOK_THIN", "BOOK_ACTIVE", "STABLE", "UNSTABLE", "NO_VOLATILITY_DATA", "FAST_RECOVERY", "SLOW_ROTATION",
+    "BOOK_THIN", "BOOK_SHALLOW", "BOOK_ACTIVE", "STABLE", "UNSTABLE", "NO_VOLATILITY_DATA", "FAST_RECOVERY", "SLOW_ROTATION",
     "NO_RECENT_VOLUME",
 )
 CAP_CODES = ("CLASSIFIED_DISCARDED", "ATYPICAL_ROI", "INSUFFICIENT_DATA")
@@ -101,6 +104,8 @@ class ScoreInputs:
     sell_orders: int
     status: str                  # estado de classify(): POTENCIAL, ..., DESCARTADO
     price_cv: float | None = None  # coeficiente de variación del precio medio diario (30 d)
+    buy_depth: int | None = None   # unidades de compra dentro del 5 % del mejor precio (región); None = sin dato
+    sell_depth: int | None = None  # ídem, lado de venta
 
 
 @dataclass
@@ -177,6 +182,14 @@ def reference_position(config: ScoreConfig, best_buy: float) -> dict:
     return {"capital": config.score_reference_capital, "position_isk": position_isk, "quantity": quantity}
 
 
+def depth_ratio(inputs: ScoreInputs, quantity: float) -> float | None:
+    """Profundidad mínima de los dos lados (dentro del 5 % del mejor precio) sobre la cantidad de la posición de
+    referencia. None si falta el dato de algún lado o la cantidad no es positiva. Es profundidad de la región."""
+    if inputs.buy_depth is None or inputs.sell_depth is None or quantity <= 0:
+        return None
+    return min(inputs.buy_depth, inputs.sell_depth) / quantity
+
+
 def holding_days(quantity: float, volume_7d: float, config: ScoreConfig) -> float | None:
     """Días estimados para rotar la posición: cantidad / (volumen diario x participación capturable).
     La participación capturable es un supuesto configurable, no un dato observado."""
@@ -230,15 +243,26 @@ def score_opportunity(inputs: ScoreInputs, config: ScoreConfig | None = None) ->
                         "VOLUME_ISK", {"turnover": round(turnover)})
 
     book_score = interp(inputs.ops_7d, ACTIVITY_CURVE)
+    depth = depth_ratio(inputs, ref["quantity"])
+    if depth is not None:
+        book_score = book_score * ACTIVITY_WEIGHT + interp(depth, DEPTH_CURVE) * DEPTH_WEIGHT
     thin = min(inputs.buy_orders, inputs.sell_orders) < THIN_BOOK_MIN_ORDERS
     if thin:
         book_score *= THIN_BOOK_FACTOR
+    shallow = depth is not None and depth < SHALLOW_DEPTH_RATIO
+    if thin:
+        book_note, book_code = "Libro fino (menos de 3 órdenes en un lado): se reduce a la mitad.", "BOOK_THIN"
+    elif shallow:
+        book_note, book_code = "Libro poco profundo: la posición de referencia no cabe cerca del mejor precio.", "BOOK_SHALLOW"
+    else:
+        book_note, book_code = "Actividad de operaciones distintas y libro con competidores reales.", "BOOK_ACTIVE"
+    book_value = f"{inputs.ops_7d:.1f} operaciones/día, libro {inputs.buy_orders}/{inputs.sell_orders}"
+    if depth is not None:
+        book_value += f", profundidad {depth:.1f}x la posición"
     scores["book"] = (
-        book_score, f"{inputs.ops_7d:.1f} operaciones/día, libro {inputs.buy_orders}/{inputs.sell_orders}",
-        "Libro fino (menos de 3 órdenes en un lado): se reduce a la mitad." if thin else
-        "Actividad de operaciones distintas y libro con competidores reales.",
-        "BOOK_THIN" if thin else "BOOK_ACTIVE",
-        {"ops": round(inputs.ops_7d, 1), "buy_orders": inputs.buy_orders, "sell_orders": inputs.sell_orders})
+        book_score, book_value, book_note, book_code,
+        {"ops": round(inputs.ops_7d, 1), "buy_orders": inputs.buy_orders, "sell_orders": inputs.sell_orders,
+         "depth_ratio": None if depth is None else round(depth, 3)})
 
     ratio = inputs.volume_7d / inputs.volume_30d
     ratio_score = interp(ratio, RATIO_CURVE)

@@ -1206,6 +1206,15 @@ export default function App() {
                 <div><span className="label">{t("detail.bestSell")}</span>{formatIskValue(selected.latest_snapshot.best_sell)}</div>
                 <div><span className="label">{t("detail.activeBuyOrders")}</span>{formatIsk(selected.latest_snapshot.buy_order_count)}</div>
                 <div><span className="label">{t("detail.activeSellOrders")}</span>{formatIsk(selected.latest_snapshot.sell_order_count)}</div>
+                {selected.latest_snapshot.buy_depth_5pct != null && selected.latest_snapshot.sell_depth_5pct != null && (
+                  <div>
+                    <span className="label">{t("detail.bookDepth")}</span>
+                    {t("detail.bookDepthValue", {
+                      buy: formatIsk(selected.latest_snapshot.buy_depth_5pct),
+                      sell: formatIsk(selected.latest_snapshot.sell_depth_5pct),
+                    })}
+                  </div>
+                )}
                 <div><span className="label">{t("detail.realVolume7d")}</span>{formatIsk(selected.status.avg_daily_volume_7d)} {t("detail.unitsPerDay")}</div>
                 <div><span className="label">{t("detail.trades7d")}</span>{selected.status.avg_daily_order_count_7d.toFixed(1)}{t("detail.perDay")}</div>
                 <div title={t("detail.trendHelp")}>

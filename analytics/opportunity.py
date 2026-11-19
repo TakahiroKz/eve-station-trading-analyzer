@@ -17,6 +17,7 @@ from analytics.scoring import (
     ScoreConfig,
     ScoreInputs,
     ScoreResult,
+    depth_ratio,
     holding_days,
     reference_position,
     score_opportunity,
@@ -26,7 +27,7 @@ from analytics.scoring import (
 # Códigos que viajan en la evaluación (frontend/app/src/i18n: score.code.*); ver NOTE_CODES en scoring.py.
 FILTER_CODES = (
     "CLASSIFIED_DISCARDED", "PRICE_INCONSISTENT", "NO_VALID_ORDERS", "NET_PROFIT_NOT_POSITIVE",
-    "STALE_MARKET_DATA", "VOLUME_BELOW_MINIMUM", "NET_PROFIT_BELOW_MINIMUM", "HIGH_VOLATILITY",
+    "STALE_MARKET_DATA", "VOLUME_BELOW_MINIMUM", "NET_PROFIT_BELOW_MINIMUM", "HIGH_VOLATILITY", "INSUFFICIENT_DEPTH",
 )
 REASON_CODES = (
     "SCORE_ABOVE_MINIMUM", "ROI_ABOVE_MINIMUM", "LIQUIDITY_ABOVE_MINIMUM", "HOLDING_TIME_OK",
@@ -45,6 +46,7 @@ class OpportunityConfig:
     max_market_data_age_min: float = 30.0
     min_opportunity_score: float = 65.0
     min_daily_volume_7d: float = 10.0      # el mismo mínimo de classify()
+    min_depth_ratio: float = 0.10          # profundidad mínima del libro / cantidad de la posición (0 = sin filtro)
 
 
 @dataclass
@@ -88,6 +90,9 @@ def assess_opportunity(inputs: ScoreInputs, context: OpportunityContext, score: 
     if config.min_daily_volume_7d > 0:
         check("MINIMUM_VOLUME", inputs.volume_7d >= config.min_daily_volume_7d)
     check("MINIMUM_PROFIT", net_profit >= config.min_net_profit)
+    depth = depth_ratio(inputs, ref["quantity"])
+    if depth is not None and config.min_depth_ratio > 0:  # sin dato de profundidad no se puede exigir
+        check("SUFFICIENT_DEPTH", depth >= config.min_depth_ratio)
     if risk is not None:
         check("RISK_WITHIN_LIMIT", risk <= config.max_risk_score)
 
@@ -131,6 +136,7 @@ def assess_opportunity(inputs: ScoreInputs, context: OpportunityContext, score: 
         "VALID_ORDERS": "NO_VALID_ORDERS", "NET_PROFIT_POSITIVE": "NET_PROFIT_NOT_POSITIVE",
         "DATA_FRESH": "STALE_MARKET_DATA", "MINIMUM_VOLUME": "VOLUME_BELOW_MINIMUM",
         "MINIMUM_PROFIT": "NET_PROFIT_BELOW_MINIMUM", "RISK_WITHIN_LIMIT": "HIGH_VOLATILITY",
+        "SUFFICIENT_DEPTH": "INSUFFICIENT_DEPTH",
     }
     failed_codes = [failure_codes[c] for c in failed]
     if not hard_ok:
@@ -143,6 +149,7 @@ def assess_opportunity(inputs: ScoreInputs, context: OpportunityContext, score: 
                 "MINIMUM_VOLUME": (round(inputs.volume_7d, 1), config.min_daily_volume_7d),
                 "MINIMUM_PROFIT": (round(net_profit), config.min_net_profit),
                 "RISK_WITHIN_LIMIT": (None if risk is None else round(risk, 1), config.max_risk_score),
+                "SUFFICIENT_DEPTH": (None if depth is None else round(depth, 3), config.min_depth_ratio),
             }.get(code, (None, None))
             to_change.insert(0, {"code": failure_codes[code], "current": current, "needed": needed})
 
@@ -155,11 +162,12 @@ def assess_opportunity(inputs: ScoreInputs, context: OpportunityContext, score: 
     }
 
 
-def inputs_blob(price_cv: float | None, data_age_min: float | None, price_sane: bool) -> str:
+def inputs_blob(price_cv: float | None, data_age_min: float | None, price_sane: bool,
+                buy_depth: int | None = None, sell_depth: int | None = None) -> str:
     """Lo que el puntaje necesita y no está ya en la fila de item_status (se guarda en score_inputs)."""
     return json.dumps({"cv": None if price_cv is None else round(price_cv, 4),
                        "age": None if data_age_min is None else round(data_age_min, 1),
-                       "sane": bool(price_sane)}, separators=(",", ":"))
+                       "sane": bool(price_sane), "bd": buy_depth, "sd": sell_depth}, separators=(",", ":"))
 
 
 def parse_inputs_blob(blob: str | None) -> dict:
@@ -167,7 +175,8 @@ def parse_inputs_blob(blob: str | None) -> dict:
         data = json.loads(blob) if blob else {}
     except ValueError:
         data = {}
-    return {"cv": data.get("cv"), "age": data.get("age"), "sane": data.get("sane", True)}
+    return {"cv": data.get("cv"), "age": data.get("age"), "sane": data.get("sane", True),
+            "bd": data.get("bd"), "sd": data.get("sd")}
 
 
 def evaluate_item(inputs: ScoreInputs, best_sell: float, extras: dict, settings: dict) -> tuple[ScoreResult, dict]:

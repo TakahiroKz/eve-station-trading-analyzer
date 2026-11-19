@@ -358,4 +358,9 @@ export const it: Messages = {
   "score.code.ROI_BELOW_MINIMUM": "ROI sotto il minimo.",
   "score.code.LOW_LIQUIDITY": "Liquidità troppo bassa.",
   "score.code.EXCESSIVE_HOLDING_TIME": "Tempo di detenzione troppo lungo.",
+  "score.note.BOOK_SHALLOW": "Libro poco profondo: la posizione di riferimento non entra vicino al prezzo migliore.",
+  "score.value.bookDepth": "{ops} operazioni/giorno, libro {buy}/{sell}, profondità {depth}× la posizione",
+  "score.code.INSUFFICIENT_DEPTH": "Il libro è troppo poco profondo per la posizione.",
+  "detail.bookDepth": "Profondità del libro ±5 % (regione)",
+  "detail.bookDepthValue": "{buy} acquisto / {sell} vendita",
 };

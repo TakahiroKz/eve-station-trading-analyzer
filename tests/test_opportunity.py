@@ -151,6 +151,6 @@ def test_changing_a_scoring_setting_gives_a_new_version():
 def test_inputs_blob_round_trips_and_tolerates_garbage():
     blob = inputs_blob(0.123456, 3.14159, False)
 
-    assert parse_inputs_blob(blob) == {"cv": 0.1235, "age": 3.1, "sane": False}
-    assert parse_inputs_blob(None) == {"cv": None, "age": None, "sane": True}
-    assert parse_inputs_blob("{no es json") == {"cv": None, "age": None, "sane": True}
+    assert parse_inputs_blob(blob) == {"cv": 0.1235, "age": 3.1, "sane": False, "bd": None, "sd": None}
+    assert parse_inputs_blob(None) == {"cv": None, "age": None, "sane": True, "bd": None, "sd": None}
+    assert parse_inputs_blob("{no es json") == {"cv": None, "age": None, "sane": True, "bd": None, "sd": None}

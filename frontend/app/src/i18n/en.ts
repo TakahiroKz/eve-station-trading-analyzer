@@ -358,6 +358,11 @@ export const en = {
   "score.code.ROI_BELOW_MINIMUM": "ROI below the minimum.",
   "score.code.LOW_LIQUIDITY": "Liquidity too low.",
   "score.code.EXCESSIVE_HOLDING_TIME": "Holding time too long.",
+  "score.note.BOOK_SHALLOW": "Shallow order book: the reference position does not fit near the best price.",
+  "score.value.bookDepth": "{ops} trades/day, book {buy}/{sell}, depth {depth}× the position",
+  "score.code.INSUFFICIENT_DEPTH": "The order book is too shallow for the position.",
+  "detail.bookDepth": "Book depth ±5% (region)",
+  "detail.bookDepthValue": "{buy} buy / {sell} sell",
 } as const;
 
 export type MessageKey = keyof typeof en;

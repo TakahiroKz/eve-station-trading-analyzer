@@ -381,6 +381,11 @@ def ingest_categories(client: EsiClient, db_path: str, type_ids: list[int], max_
         conn.close()
 
 
+def _int_or_none(value) -> int | None:
+    """Entero de una celda de pandas (NaN / None -> None)."""
+    return None if value is None or pd.isna(value) else int(value)
+
+
 def _age_minutes(captured_at, now: datetime) -> float | None:
     """Antigüedad en minutos del snapshot de órdenes (None si la fecha falta o no se entiende)."""
     if not captured_at:
@@ -523,12 +528,13 @@ def screen_opportunities(db_path: str, excel_path: str,
                 cv = price_cv.get(row["type_id"])
                 price_cv_value = None if cv is None or pd.isna(cv) else float(cv)
                 data_age_min = _age_minutes(row.get("captured_at"), now_dt)
+                buy_depth, sell_depth = _int_or_none(row.get("buy_depth_5pct")), _int_or_none(row.get("sell_depth_5pct"))
                 score_result, assessment = evaluate_item(
                     ScoreInputs(
                         roi=result.roi, best_buy=result.buy, volume_7d=avg_daily_volume_7d,
                         volume_30d=result.volumen_diario_real, ops_7d=avg_daily_order_count_7d,
                         buy_orders=buy_order_count, sell_orders=sell_order_count, status=status,
-                        price_cv=price_cv_value,
+                        price_cv=price_cv_value, buy_depth=buy_depth, sell_depth=sell_depth,
                     ),
                     result.sell, {"age": data_age_min, "sane": price_sane}, settings,
                 )
@@ -539,7 +545,7 @@ def screen_opportunities(db_path: str, excel_path: str,
                     "eligibility": assessment["eligibility"]["status"],
                     "recommendation": assessment["recommendation"]["action"],
                     "score_version": score_result.version,
-                    "score_inputs": inputs_blob(price_cv_value, data_age_min, price_sane),
+                    "score_inputs": inputs_blob(price_cv_value, data_age_min, price_sane, buy_depth, sell_depth),
                     "type_id": row["type_id"],
                     "status": status,
                     "reason": reason,

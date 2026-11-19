@@ -71,6 +71,13 @@ export interface Snapshot {
   sell_volume: number | null;
   buy_order_count: number;
   sell_order_count: number;
+  // Order-book depth of the whole region (null in older snapshots or when that side has no orders).
+  buy_depth_5pct?: number | null;
+  sell_depth_5pct?: number | null;
+  buy_gap_bp?: number | null;
+  sell_gap_bp?: number | null;
+  buy_top_permille?: number | null;
+  sell_top_permille?: number | null;
 }
 
 export interface Opportunity {

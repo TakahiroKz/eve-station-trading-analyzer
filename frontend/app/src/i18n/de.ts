@@ -358,4 +358,9 @@ export const de: Messages = {
   "score.code.ROI_BELOW_MINIMUM": "ROI unter dem Minimum.",
   "score.code.LOW_LIQUIDITY": "Liquidität zu gering.",
   "score.code.EXCESSIVE_HOLDING_TIME": "Haltedauer zu lang.",
+  "score.note.BOOK_SHALLOW": "Flaches Orderbuch: Die Referenzposition passt nicht in die Nähe des besten Preises.",
+  "score.value.bookDepth": "{ops} Trades/Tag, Orderbuch {buy}/{sell}, Tiefe {depth}× die Position",
+  "score.code.INSUFFICIENT_DEPTH": "Das Orderbuch ist für die Position zu flach.",
+  "detail.bookDepth": "Orderbuchtiefe ±5 % (Region)",
+  "detail.bookDepthValue": "{buy} Kauf / {sell} Verkauf",
 };

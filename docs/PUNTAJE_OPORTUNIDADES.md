@@ -68,3 +68,14 @@ Profundidad de libro y competencia (fase 2), capital del usuario por petición (
 - Filtros: **Puntaje mínimo** y **Elegibilidad** (Recomendado / Elegible / No elegible); opción de orden "Puntaje".
 - Detalle del ítem: panel **¿Por qué este puntaje?** con el total, la banda, la elegibilidad y la acción del motor, una barra por factor (puntos / máximo, la cifra medida y su frase), los topes aplicados, los filtros que lo bloquean, las condiciones y "qué tendría que cambiar".
 - Todo se calcula en el backend. La API envía códigos estables y cifras (`code`, `metrics`, códigos de filtros y motivos) y la web los traduce a los cinco idiomas (`frontend/app/src/ScorePanel.tsx`, claves `score.*`); un test (`tests/test_score_i18n.py`) comprueba que cada código tiene texto en en/es/de/fr/it.
+
+## Profundidad del libro (fase 2, algoritmo 1.1.0)
+
+Cada ciclo guarda por ítem y lado (en `market_snapshot`, enteros pequeños y **de la región completa**, como los precios): unidades dentro del 5 %% del mejor precio (`*_depth_5pct`), distancia al siguiente nivel de precio en puntos básicos (`*_gap_bp`) y parte del volumen en el mejor precio por mil (`*_top_permille`). Se calculan en `analytics/market_aggregation.py` y se muestran en el detalle del ítem.
+
+Uso en el puntaje (versión 1.1.0, calibrado con 10.477 ítems reales el 2026-11-19):
+
+- **Factor «libro y actividad»**: con datos de profundidad pasa a 60 %% actividad (operaciones/día) + 40 %% profundidad, donde profundidad = unidades del lado menos profundo / cantidad de la posición de referencia (0 → 0 pts, 0,1× → 30, 0,5× → 60, 1× → 80, 3× o más → 100). Sin dato, el factor es solo la actividad, como antes. Nota `BOOK_SHALLOW` si la razón es menor que 0,25×.
+- **Filtro duro `INSUFFICIENT_DEPTH`**: la razón de profundidad debe ser al menos `min_depth_ratio` (Ajustes, 0,10 por defecto; 0 lo desactiva). Sin dato de profundidad no se aplica.
+- Efecto medido: puntaje medio +2,2 (rango −6…+5, ningún cambio mayor de 10 puntos); 682 de 10.477 ítems (6,5 %%) quedan bloqueados por el filtro, casi todos ya en «esperar».
+- `gap` y `top_permille` se guardan y se muestran como información, pero todavía no puntúan: su lectura (guerra de centavos frente a un libro aislado) pide más datos.
