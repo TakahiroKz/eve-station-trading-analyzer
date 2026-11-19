@@ -12,7 +12,10 @@ programados) — scheduler/run.py (mercado, cada 5 min) y scheduler/orders_run.p
 (posiciones de tus órdenes, cada 5 min). Mayormente se lee lo que ya calcularon.
 """
 import logging
+import math
 import os
+import threading
+from collections import OrderedDict
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -43,7 +46,7 @@ from backend.api.schemas import (
     StatusChangeOut,
     SummaryOut,
 )
-from analytics.opportunity import evaluate_item, parse_inputs_blob
+from analytics.opportunity import evaluate_item, make_configs, parse_inputs_blob
 from analytics.scoring import ScoreInputs
 from ingestion.schedule import get_next_run_times
 from storage.db import DEFAULT_MARKET, get_app_settings_dict, init_db
@@ -84,38 +87,116 @@ app.include_router(indexnow_router)
 
 
 TREND_LABELS = {"up", "down", "flat", "lowliq", "nodata"}
+# Capital propio (ISK) con el que el visitante quiere ver el puntaje: recalcula solo lo que depende de él (liquidez,
+# profundidad, eficiencia del capital, beneficio mínimo y rotación); margen y estabilidad no cambian.
+CAPITAL_MIN, CAPITAL_MAX = 1_000_000.0, 1e13
 ELIGIBILITIES = {"NO_ELIGIBLE", "ELIGIBLE", "RECOMMENDED"}
 RECOMMENDATIONS = {"BUY_CANDIDATE", "WAIT", "REJECT"}
 SCORE_CLASSES = {"EXCELLENT", "HIGH", "MODERATE", "LOW", "DISCARDED"}
 
 
-def build_assessment(row, conn) -> dict | None:
+def snap_capital(capital: float | None) -> float | None:
+    """Redondea el capital pedido a 2 cifras significativas (123 M -> 120 M). El puntaje apenas cambia con un 5 %
+    de diferencia, y así las peticiones comparten la caché en vez de recalcular todo el mercado por cada valor."""
+    if capital is None:
+        return None
+    step = 10 ** (math.floor(math.log10(capital)) - 1)
+    return float(round(capital / step) * step)
+
+
+def settings_for_capital(conn, capital: float | None) -> dict:
+    """Ajustes vigentes; con un capital propio, ese capital sustituye al de referencia del puntaje."""
+    settings = get_app_settings_dict(conn)
+    if capital is not None:
+        settings = {**settings, "score_reference_capital": float(capital)}
+    return settings
+
+
+def _score_inputs(row) -> tuple[ScoreInputs, dict]:
+    """Entradas del puntaje de una fila de item_status (más lo guardado en score_inputs)."""
+    extras = parse_inputs_blob(row["score_inputs"])
+    return ScoreInputs(
+        roi=row["roi"], best_buy=row["best_buy"], volume_7d=row["avg_daily_volume_7d"],
+        volume_30d=row["volumen_diario_real"], ops_7d=row["avg_daily_order_count_7d"],
+        buy_orders=row["buy_order_count"], sell_orders=row["sell_order_count"], status=row["status"],
+        price_cv=extras["cv"], buy_depth=extras["bd"], sell_depth=extras["sd"],
+    ), extras
+
+
+def build_assessment(row, conn, capital: float | None = None) -> dict | None:
     """Explicación completa del puntaje de un ítem, recalculada con el mismo código que el motor
     (analytics.opportunity.evaluate_item) a partir de la fila de item_status y de score_inputs. Si los
     ajustes cambiaron desde la última evaluación, `config_changed` lo dice (el número del listado es el
-    guardado; el desglose usa la configuración actual)."""
+    guardado; el desglose usa la configuración actual). Con `capital`, se calcula para ese capital."""
     if "score_version" not in row.keys() or row["score_version"] is None:
         # Sin columna (la API arrancó antes que la migración) o ítem aún sin puntaje.
         return None
-    extras = parse_inputs_blob(row["score_inputs"])
-    score, assessment = evaluate_item(
-        ScoreInputs(
-            roi=row["roi"], best_buy=row["best_buy"], volume_7d=row["avg_daily_volume_7d"],
-            volume_30d=row["volumen_diario_real"], ops_7d=row["avg_daily_order_count_7d"],
-            buy_orders=row["buy_order_count"], sell_orders=row["sell_order_count"], status=row["status"],
-            price_cv=extras["cv"], buy_depth=extras["bd"], sell_depth=extras["sd"],
-        ),
-        row["best_sell"], extras, get_app_settings_dict(conn),
-    )
+    inputs, extras = _score_inputs(row)
+    score, assessment = evaluate_item(inputs, row["best_sell"], extras, settings_for_capital(conn, capital))
     return {
         "algorithm_version": score.version,
         "stored_version": row["score_version"],
-        "config_changed": score.version != row["score_version"],
+        "config_changed": score.version != row["score_version"] and capital is None,
+        "capital": capital,
         "evaluated_at": row["last_evaluated_at"],
         "data_age_min": extras["age"],
         "score": score.to_dict(),
         **assessment,
     }
+
+
+# Recalcular el puntaje de un mercado entero (~17 mil ítems en Jita) cuesta ~1,4 s; los filtros y el orden por
+# puntaje con un capital propio lo necesitan. Se guarda por (mercado, capital, ajustes, ciclo): el ciclo de precios
+# (cada 5 min) cambia `last_evaluated_at` y con ello caduca la entrada, así que nunca se sirve un dato más viejo
+# que el guardado en la base. Pocas entradas: cada una son unos 3 MB.
+_RESCORE_CACHE: "OrderedDict[tuple, dict]" = OrderedDict()
+_RESCORE_LOCK = threading.Lock()
+_RESCORE_COMPUTE = threading.Lock()  # un solo recálculo de mercado entero a la vez; los demás esperan y usan la caché
+_RESCORE_CACHE_MAX = 6
+
+
+def rescored_market(conn, market_id: str, capital: float, settings: dict, configs: tuple) -> dict:
+    """{type_id: (score, score_class, eligibility, recommendation)} de todo el mercado para ese capital."""
+    stamp = conn.execute("SELECT MAX(last_evaluated_at) FROM item_status WHERE market_id = ?", (market_id,)).fetchone()[0]
+    key = (market_id, float(capital), stamp, hash(tuple(sorted(settings.items()))))
+    def cached():
+        with _RESCORE_LOCK:
+            if key in _RESCORE_CACHE:
+                _RESCORE_CACHE.move_to_end(key)
+                return _RESCORE_CACHE[key]
+        return None
+
+    hit = cached()
+    if hit is not None:
+        return hit
+    with _RESCORE_COMPUTE:
+        hit = cached()  # otra petición pudo calcularlo mientras esperábamos
+        if hit is not None:
+            return hit
+        result = {}
+        for row in conn.execute(
+                "SELECT * FROM item_status WHERE market_id = ? AND score_version IS NOT NULL", (market_id,)):
+            updated = rescore_row(row, settings, configs)
+            result[row["type_id"]] = (updated["score"], updated["score_class"], updated["eligibility"],
+                                      updated["recommendation"])
+        with _RESCORE_LOCK:
+            _RESCORE_CACHE[key] = result
+            while len(_RESCORE_CACHE) > _RESCORE_CACHE_MAX:
+                _RESCORE_CACHE.popitem(last=False)
+        return result
+
+
+def rescore_row(row, settings: dict, configs: tuple) -> dict:
+    """La fila (como dict) con score / score_class / eligibility / recommendation recalculados con los ajustes
+    dados (p. ej. con el capital del visitante). Las filas sin puntaje se devuelven igual."""
+    out = dict(row)
+    if "score_version" not in out or out["score_version"] is None:
+        return out
+    inputs, extras = _score_inputs(row)
+    score, assessment = evaluate_item(inputs, row["best_sell"], extras, settings, configs)
+    out.update(score=score.score, score_class=score.classification,
+               eligibility=assessment["eligibility"]["status"], recommendation=assessment["recommendation"]["action"])
+    return out
 
 
 @app.get("/api/markets", response_model=list[MarketOut])
@@ -196,6 +277,7 @@ def list_items(
     score_class: str | None = None,
     eligibility: str | None = None,
     recommendation: str | None = None,
+    capital: float | None = Query(default=None, ge=CAPITAL_MIN, le=CAPITAL_MAX),
     sort: str = "volumen_diario_real",
     order: str = "desc",
     limit: int = 50,
@@ -220,6 +302,12 @@ def list_items(
     if limit < 1 or limit > 500:
         raise HTTPException(400, "limit debe estar entre 1 y 500")
 
+    capital = snap_capital(capital)
+    # Con capital propio, los filtros y el orden por puntaje se aplican DESPUÉS de recalcularlo (el puntaje
+    # guardado es el del capital de referencia y no coincidiría con lo que ve el visitante).
+    recompute_all = capital is not None and (
+        min_score is not None or score_class is not None or eligibility is not None
+        or recommendation is not None or sort == "score")
     filters: list[str] = ["s.market_id = ?"]
     params: list = []
     if status:
@@ -231,14 +319,15 @@ def list_items(
     if trend:
         filters.append("s.price_trend_label = ?")
         params.append(trend)
-    if min_score is not None:
-        filters.append("s.score >= ?")
-        params.append(min_score)
-    for column, value in (("s.score_class", score_class), ("s.eligibility", eligibility),
-                          ("s.recommendation", recommendation)):
-        if value is not None:
-            filters.append(f"{column} = ?")
-            params.append(value)
+    if not recompute_all:
+        if min_score is not None:
+            filters.append("s.score >= ?")
+            params.append(min_score)
+        for column, value in (("s.score_class", score_class), ("s.eligibility", eligibility),
+                              ("s.recommendation", recommendation)):
+            if value is not None:
+                filters.append(f"{column} = ?")
+                params.append(value)
     name_query = (q or "").strip()
     if name_query:
         # Búsqueda por nombre: contiene el texto, sin distinguir mayúsculas (LIKE de SQLite es
@@ -265,23 +354,50 @@ def list_items(
 
     conn = _db()
     try:
-        params.insert(0, resolve_market(conn, market))
+        market_id = resolve_market(conn, market)
+        params.insert(0, market_id)
         total = conn.execute(f"SELECT COUNT(*) as n {ITEM_JOIN}{where}", params).fetchone()["n"]
 
-        sort_col = "i.name" if sort == "name" else f"s.{sort}"
-        tiebreaker = "" if sort == "roi" else ", s.roi DESC"
-        if sort in ("price_trend", "score"):
+        sql_sort = "volumen_diario_real" if (recompute_all and sort == "score") else sort
+        sort_col = "i.name" if sql_sort == "name" else f"s.{sql_sort}"
+        tiebreaker = "" if sql_sort == "roi" else ", s.roi DESC"
+        if sql_sort in ("price_trend", "score"):
             # Items without a reliable trend / without a score yet (NULL) always go last, whichever the direction.
-            sort_col = f"(s.{sort} IS NULL), {sort_col}"
-        query = (
-            f"SELECT {ITEM_SELECT_COLS} {ITEM_JOIN}{where} "
-            f"ORDER BY {sort_col} {order.upper()}{tiebreaker} LIMIT ? OFFSET ?"
-        )
-        rows = conn.execute(query, [*params, limit, offset]).fetchall()
-        return ItemsPageOut(
-            items=[ItemStatusOut(**dict(r)) for r in rows],
-            total=total, limit=limit, offset=offset,
-        )
+            sort_col = f"(s.{sql_sort} IS NULL), {sort_col}"
+        query = f"SELECT {ITEM_SELECT_COLS} {ITEM_JOIN}{where} ORDER BY {sort_col} {order.upper()}{tiebreaker}"
+
+        if capital is None:
+            rows = conn.execute(f"{query} LIMIT ? OFFSET ?", [*params, limit, offset]).fetchall()
+            return ItemsPageOut(items=[ItemStatusOut(**dict(r)) for r in rows], total=total, limit=limit, offset=offset)
+
+        settings = settings_for_capital(conn, capital)
+        configs = make_configs(settings)
+        if not recompute_all:
+            rows = conn.execute(f"{query} LIMIT ? OFFSET ?", [*params, limit, offset]).fetchall()
+            items = [rescore_row(r, settings, configs) for r in rows]
+        else:
+            scores = rescored_market(conn, market_id, capital, settings, configs)
+            scored = []
+            for r in conn.execute(query, params):
+                row = dict(r)
+                hit = scores.get(row["type_id"])
+                if hit is not None:
+                    row.update(score=hit[0], score_class=hit[1], eligibility=hit[2], recommendation=hit[3])
+                scored.append(row)
+            if min_score is not None:
+                scored = [r for r in scored if r["score"] is not None and r["score"] >= min_score]
+            for key, value in (("score_class", score_class), ("eligibility", eligibility),
+                               ("recommendation", recommendation)):
+                if value is not None:
+                    scored = [r for r in scored if r[key] == value]
+            if sort == "score":
+                # Sin puntaje siempre al final; el desempate es el ROI, como en el orden de SQL.
+                scored.sort(key=lambda r: -r["roi"])
+                scored.sort(key=lambda r: (r["score"] is None, (r["score"] or 0) * (-1 if order == "desc" else 1)))
+            total = len(scored)
+            items = scored[offset:offset + limit]
+        return ItemsPageOut(items=[ItemStatusOut(**r) for r in items], total=total, limit=limit, offset=offset,
+                            capital=capital)
     finally:
         conn.close()
 
@@ -302,7 +418,8 @@ def list_categories(market: str = DEFAULT_MARKET):
 
 
 @app.get("/api/items/{type_id}", response_model=ItemDetailOut)
-def get_item_detail(type_id: int, market: str = DEFAULT_MARKET):
+def get_item_detail(type_id: int, market: str = DEFAULT_MARKET,
+                    capital: float | None = Query(default=None, ge=CAPITAL_MIN, le=CAPITAL_MAX)):
     conn = _db()
     try:
         market = resolve_market(conn, market)
@@ -335,12 +452,17 @@ def get_item_detail(type_id: int, market: str = DEFAULT_MARKET):
             (market, type_id),
         ).fetchall()
 
+        capital = snap_capital(capital)
+        status_dict = dict(status_row)
+        if capital is not None:  # el número de la cabecera debe coincidir con el desglose del panel
+            settings = settings_for_capital(conn, capital)
+            status_dict = rescore_row(status_row, settings, make_configs(settings))
         return ItemDetailOut(
-            status=ItemStatusOut(**dict(status_row)),
+            status=ItemStatusOut(**status_dict),
             history=[HistoryPointOut(**dict(r)) for r in history_rows],
             latest_snapshot=SnapshotOut(**dict(snapshot_row)) if snapshot_row else None,
             latest_opportunities=[OpportunityOut(**dict(r)) for r in opportunity_rows],
-            assessment=build_assessment(status_row, conn),
+            assessment=build_assessment(status_row, conn, capital),
         )
     finally:
         conn.close()

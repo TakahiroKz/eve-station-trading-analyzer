@@ -31,6 +31,7 @@ def required_keys() -> set[str]:
     keys |= {f"action.{c}" for c in ("BUY_CANDIDATE", "WAIT", "REJECT")}
     keys |= {"sort.score", "score.col", "score.title", "filters.minScore", "filters.eligibility",
              "score.value.bookDepth", "detail.bookDepth", "detail.bookDepthValue"}
+    keys |= {f"capital.{k}" for k in ("label", "millions", "default", "custom", "customLabel", "note", "help", "reset")}
     return keys
 
 

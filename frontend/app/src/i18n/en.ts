@@ -363,6 +363,15 @@ export const en = {
   "score.code.INSUFFICIENT_DEPTH": "The order book is too shallow for the position.",
   "detail.bookDepth": "Book depth ±5% (region)",
   "detail.bookDepthValue": "{buy} buy / {sell} sell",
+  // --- Capital for the score ---
+  "capital.label": "Your capital",
+  "capital.millions": "{n} M ISK",
+  "capital.default": "{n} M ISK (default)",
+  "capital.custom": "Other…",
+  "capital.customLabel": "Capital in millions of ISK",
+  "capital.note": "Score recalculated for {isk} ISK of capital, using {position} ISK per position.",
+  "capital.help": "The score assumes one position uses 10% of your capital. Changing it recalculates liquidity, order-book depth and capital efficiency; margin and stability do not change.",
+  "capital.reset": "Use default",
 } as const;
 
 export type MessageKey = keyof typeof en;

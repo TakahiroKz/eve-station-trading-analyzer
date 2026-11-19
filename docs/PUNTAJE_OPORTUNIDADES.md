@@ -79,3 +79,12 @@ Uso en el puntaje (versión 1.1.0, calibrado con 10.477 ítems reales el 2026-11
 - **Filtro duro `INSUFFICIENT_DEPTH`**: la razón de profundidad debe ser al menos `min_depth_ratio` (Ajustes, 0,10 por defecto; 0 lo desactiva). Sin dato de profundidad no se aplica.
 - Efecto medido: puntaje medio +2,2 (rango −6…+5, ningún cambio mayor de 10 puntos); 682 de 10.477 ítems (6,5 %) quedan bloqueados por el filtro, casi todos ya en «esperar».
 - `gap` y `top_permille` se guardan y se muestran como información, pero todavía no puntúan: su lectura (guerra de centavos frente a un libro aislado) pide más datos.
+
+## Capital propio (fase 3)
+
+El puntaje guardado se mide con un capital de referencia (1.000 M ISK, 100 M por posición). Cada visitante puede indicar el suyo con el selector **Tu capital** (50 M / 250 M / 1.000 M por defecto / 5.000 M / otro, guardado en su navegador) y la API recalcula el puntaje para ese capital:
+
+- `GET /api/items?capital=ISK` y `GET /api/items/{id}?capital=ISK` (entre 1 M y 10 billones; sin `capital` se devuelve el puntaje guardado). El servidor lo redondea a 2 cifras significativas (123 M → 120 M) y devuelve el valor usado en `capital`; el puntaje apenas cambia un 5 % y así las peticiones comparten caché.
+- Con capital cambian solo los factores que dependen de él: liquidez, profundidad del libro (dentro de «libro y actividad»), eficiencia del capital, beneficio mínimo y días de rotación. Margen, volumen, estabilidad y el estado (POTENCIAL…) no cambian.
+- Los filtros y el orden por puntaje (`min_score`, `score_class`, `eligibility`, `recommendation`, `sort=score`) se aplican después de recalcular. Recalcular un mercado entero (~17 mil ítems en Jita) cuesta ~1,4 s, así que se guarda por (mercado, capital, ajustes, ciclo): caduca con el siguiente ciclo (5 min), hay como máximo 6 entradas y solo se calcula un mercado a la vez. Sin filtros de puntaje solo se recalcula la página pedida (decenas de ms).
+- El panel «¿Por qué este puntaje?» y el número de la cabecera del detalle usan el mismo capital.
