@@ -95,3 +95,41 @@ def test_the_detail_has_no_assessment_until_the_item_is_scored(client):
     seed_scored(db_path)
 
     assert api_client.get("/api/items/36").json()["assessment"] is None
+
+
+def drop_score_columns(db_path):
+    """Deja la tabla como estaba antes de la migración del puntaje (la API arranca antes que el motor)."""
+    conn = sqlite3.connect(db_path)
+    for column in ("score", "score_class", "eligibility", "recommendation", "score_version", "score_inputs"):
+        conn.execute(f"ALTER TABLE item_status DROP COLUMN {column}")
+    conn.commit()
+    conn.close()
+
+
+def test_the_detail_still_works_before_the_score_migration_has_run(client):
+    api_client, db_path = client
+    seed_item(db_path, type_id=34, name="Tritanium")
+    drop_score_columns(db_path)
+
+    response = api_client.get("/api/items/34")
+
+    assert response.status_code == 200
+    assert response.json()["assessment"] is None
+
+
+def test_the_api_migrates_the_schema_when_it_starts(client):
+    from fastapi.testclient import TestClient
+
+    from backend.api.main import app
+
+    _, db_path = client
+    seed_item(db_path, type_id=34, name="Tritanium")
+    drop_score_columns(db_path)
+
+    with TestClient(app) as started:  # el contexto ejecuta el arranque (lifespan)
+        assert started.get("/api/items", params={"sort": "score"}).status_code == 200
+
+    conn = sqlite3.connect(db_path)
+    columns = {r[1] for r in conn.execute("PRAGMA table_info(item_status)")}
+    conn.close()
+    assert {"score", "score_class", "eligibility", "recommendation", "score_version", "score_inputs"} <= columns
