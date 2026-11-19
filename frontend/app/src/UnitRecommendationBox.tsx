@@ -8,9 +8,12 @@ import { translateRecommendation, type MessageKey, type TFunction } from "./i18n
 export function UnitRecommendationBox({ reco, t, locale, formatIsk }: {
   reco: UnitRecommendation; t: TFunction; locale: string; formatIsk: (n: number | null | undefined) => string;
 }) {
+  // A very liquid item rotates in hours: "≈ 0 days" would read as an error, so say "< 1 day".
   const days = reco.dias_rotacion == null
     ? "—"
-    : t("detail.recDays", { n: new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(reco.dias_rotacion) });
+    : reco.dias_rotacion < 1
+      ? t("detail.recUnderDay")
+      : t("detail.recDays", { n: new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(reco.dias_rotacion) });
   const rejected = reco.action === "REJECT";
   const blocked = reco.blocked_by.map((code) => {
     const key = `score.code.${code}`;
