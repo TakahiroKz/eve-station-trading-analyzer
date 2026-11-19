@@ -109,6 +109,16 @@ CREATE TABLE IF NOT EXISTS item_status (
     price_trend_label         TEXT NOT NULL DEFAULT 'nodata',
     price_trend_threshold     REAL,
     last_evaluated_at         TEXT NOT NULL,
+    -- Puntaje 0-100 explicable (analytics/scoring.py) y evaluación determinista (analytics/opportunity.py).
+    -- Complementan al estado; NULL mientras el ítem no se haya vuelto a evaluar. score_inputs guarda solo lo que no
+    -- está ya en la fila (volatilidad, antigüedad del dato, coherencia de precios): la explicación completa se
+    -- recalcula a partir de la fila y de esos tres datos (analytics.opportunity.evaluate_item).
+    score                     INTEGER,
+    score_class               TEXT,
+    eligibility               TEXT,
+    recommendation            TEXT,
+    score_version             TEXT,
+    score_inputs              TEXT,
     PRIMARY KEY (market_id, type_id),
     FOREIGN KEY (market_id) REFERENCES market(market_id),
     FOREIGN KEY (type_id) REFERENCES item_type(type_id)

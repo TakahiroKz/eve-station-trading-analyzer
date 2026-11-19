@@ -25,6 +25,11 @@ class ItemStatusOut(BaseModel):
     price_trend: float | None = None
     price_trend_label: str = "nodata"
     price_trend_threshold: float | None = None
+    # Puntaje 0-100 explicable (None hasta que el motor reevalúa el ítem). El desglose completo va en el detalle.
+    score: int | None = None
+    score_class: Literal["EXCELLENT", "HIGH", "MODERATE", "LOW", "DISCARDED"] | None = None
+    eligibility: Literal["NO_ELIGIBLE", "ELIGIBLE", "RECOMMENDED"] | None = None
+    recommendation: Literal["BUY_CANDIDATE", "WAIT", "REJECT"] | None = None
     category_id: int | None = None
     category_name: str | None = None
     group_id: int | None = None
@@ -107,6 +112,9 @@ class ItemDetailOut(BaseModel):
     history: list[HistoryPointOut]
     latest_snapshot: SnapshotOut | None
     latest_opportunities: list[OpportunityOut]
+    # Explicación del puntaje: factores (puntos / máximo / valor / frase), topes, filtros, códigos de motivo y
+    # "qué tendría que cambiar". Calculada en el backend; el frontend solo la muestra. None si aún no hay puntaje.
+    assessment: dict | None = None
 
 
 class StatusChangeOut(BaseModel):

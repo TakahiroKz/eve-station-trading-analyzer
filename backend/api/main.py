@@ -40,8 +40,10 @@ from backend.api.schemas import (
     StatusChangeOut,
     SummaryOut,
 )
+from analytics.opportunity import evaluate_item, parse_inputs_blob
+from analytics.scoring import ScoreInputs
 from ingestion.schedule import get_next_run_times
-from storage.db import DEFAULT_MARKET
+from storage.db import DEFAULT_MARKET, get_app_settings_dict
 
 load_dotenv()
 
@@ -65,6 +67,37 @@ app.include_router(indexnow_router)
 
 
 TREND_LABELS = {"up", "down", "flat", "lowliq", "nodata"}
+ELIGIBILITIES = {"NO_ELIGIBLE", "ELIGIBLE", "RECOMMENDED"}
+RECOMMENDATIONS = {"BUY_CANDIDATE", "WAIT", "REJECT"}
+SCORE_CLASSES = {"EXCELLENT", "HIGH", "MODERATE", "LOW", "DISCARDED"}
+
+
+def build_assessment(row, conn) -> dict | None:
+    """Explicación completa del puntaje de un ítem, recalculada con el mismo código que el motor
+    (analytics.opportunity.evaluate_item) a partir de la fila de item_status y de score_inputs. Si los
+    ajustes cambiaron desde la última evaluación, `config_changed` lo dice (el número del listado es el
+    guardado; el desglose usa la configuración actual)."""
+    if row["score_version"] is None:
+        return None
+    extras = parse_inputs_blob(row["score_inputs"])
+    score, assessment = evaluate_item(
+        ScoreInputs(
+            roi=row["roi"], best_buy=row["best_buy"], volume_7d=row["avg_daily_volume_7d"],
+            volume_30d=row["volumen_diario_real"], ops_7d=row["avg_daily_order_count_7d"],
+            buy_orders=row["buy_order_count"], sell_orders=row["sell_order_count"], status=row["status"],
+            price_cv=extras["cv"],
+        ),
+        row["best_sell"], extras, get_app_settings_dict(conn),
+    )
+    return {
+        "algorithm_version": score.version,
+        "stored_version": row["score_version"],
+        "config_changed": score.version != row["score_version"],
+        "evaluated_at": row["last_evaluated_at"],
+        "data_age_min": extras["age"],
+        "score": score.to_dict(),
+        **assessment,
+    }
 
 
 @app.get("/api/markets", response_model=list[MarketOut])
@@ -141,6 +174,10 @@ def list_items(
     trend: str | None = None,
     min_trend: float | None = None,
     max_trend: float | None = None,
+    min_score: int | None = Query(default=None, ge=0, le=100),
+    score_class: str | None = None,
+    eligibility: str | None = None,
+    recommendation: str | None = None,
     sort: str = "volumen_diario_real",
     order: str = "desc",
     limit: int = 50,
@@ -149,9 +186,13 @@ def list_items(
     # Prioridad de descubrimiento: volumen diario real (rotación real) primero, ROI como
     # criterio secundario — se aplica siempre como desempate, sin importar el `sort` elegido.
     allowed_sort = {"spread_bruto", "roi", "last_evaluated_at", "name", "volumen_diario_real",
-                     "best_buy", "best_sell", "avg_daily_order_count_7d", "price_trend"}
+                     "best_buy", "best_sell", "avg_daily_order_count_7d", "price_trend", "score"}
     if sort not in allowed_sort:
         raise HTTPException(400, f"sort debe ser uno de {allowed_sort}")
+    for name, value, allowed in (("score_class", score_class, SCORE_CLASSES), ("eligibility", eligibility, ELIGIBILITIES),
+                                 ("recommendation", recommendation, RECOMMENDATIONS)):
+        if value is not None and value not in allowed:
+            raise HTTPException(400, f"{name} debe ser uno de {sorted(allowed)}")
     if order not in {"asc", "desc"}:
         raise HTTPException(400, "order debe ser 'asc' o 'desc'")
     if trend is not None and trend not in TREND_LABELS:
@@ -172,6 +213,14 @@ def list_items(
     if trend:
         filters.append("s.price_trend_label = ?")
         params.append(trend)
+    if min_score is not None:
+        filters.append("s.score >= ?")
+        params.append(min_score)
+    for column, value in (("s.score_class", score_class), ("s.eligibility", eligibility),
+                          ("s.recommendation", recommendation)):
+        if value is not None:
+            filters.append(f"{column} = ?")
+            params.append(value)
     name_query = (q or "").strip()
     if name_query:
         # Búsqueda por nombre: contiene el texto, sin distinguir mayúsculas (LIKE de SQLite es
@@ -203,9 +252,9 @@ def list_items(
 
         sort_col = "i.name" if sort == "name" else f"s.{sort}"
         tiebreaker = "" if sort == "roi" else ", s.roi DESC"
-        if sort == "price_trend":
-            # Items without a reliable trend (NULL) always go last, whichever the direction.
-            sort_col = f"(s.price_trend IS NULL), {sort_col}"
+        if sort in ("price_trend", "score"):
+            # Items without a reliable trend / without a score yet (NULL) always go last, whichever the direction.
+            sort_col = f"(s.{sort} IS NULL), {sort_col}"
         query = (
             f"SELECT {ITEM_SELECT_COLS} {ITEM_JOIN}{where} "
             f"ORDER BY {sort_col} {order.upper()}{tiebreaker} LIMIT ? OFFSET ?"
@@ -272,6 +321,7 @@ def get_item_detail(type_id: int, market: str = DEFAULT_MARKET):
             history=[HistoryPointOut(**dict(r)) for r in history_rows],
             latest_snapshot=SnapshotOut(**dict(snapshot_row)) if snapshot_row else None,
             latest_opportunities=[OpportunityOut(**dict(r)) for r in opportunity_rows],
+            assessment=build_assessment(status_row, conn),
         )
     finally:
         conn.close()
