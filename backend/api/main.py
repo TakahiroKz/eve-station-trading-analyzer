@@ -166,7 +166,8 @@ _RESCORE_CACHE_MAX = 6
 def rescored_market(conn, market_id: str, capital: float, settings: dict, configs: tuple) -> dict:
     """{type_id: (score, score_class, eligibility, recommendation)} de todo el mercado para ese capital."""
     stamp = conn.execute("SELECT MAX(last_evaluated_at) FROM item_status WHERE market_id = ?", (market_id,)).fetchone()[0]
-    key = (market_id, float(capital), stamp, hash(tuple(sorted(settings.items()))))
+    db_file = conn.execute("PRAGMA database_list").fetchone()[2]   # la caché nunca mezcla bases distintas
+    key = (db_file, market_id, float(capital), stamp, hash(tuple(sorted(settings.items()))))
     def cached():
         with _RESCORE_LOCK:
             if key in _RESCORE_CACHE:

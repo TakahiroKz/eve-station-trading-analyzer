@@ -247,3 +247,34 @@ def test_filtered_and_sorted_results_match_a_brute_force_reference(client):
             # lo mostrado en cada fila es el puntaje recalculado, el mismo que en la lista completa
             scores = {r["type_id"]: (r["score"], r["eligibility"], r["recommendation"]) for r in everything}
             assert all((i["score"], i["eligibility"], i["recommendation"]) == scores[i["type_id"]] for i in body["items"])
+
+
+def test_the_cache_never_mixes_two_databases_with_the_same_timestamp_and_capital(client, tmp_path, monkeypatch):
+    """Fallo que destapó la CI: con la misma marca de tiempo y el mismo capital, una base distinta servía los
+    puntajes de otra porque la clave de la caché no incluía la base."""
+    from backend.api import main as api_main
+    from storage.db import init_db
+
+    api_client, first_db = client
+    api_main._RESCORE_CACHE.clear()
+    make_scored(first_db, 34, "Slow mover", volume=200_000, stored_score=10)
+    make_scored(first_db, 35, "Fast mover", volume=50_000_000, stored_score=95)
+    stamp = "2026-11-19T10:00:00+00:00"
+
+    second_db = str(tmp_path / "second.db")
+    init_db(second_db)
+    make_scored(second_db, 34, "Slow mover", volume=50_000_000, stored_score=10)     # mismos ids, otros datos
+    make_scored(second_db, 35, "Fast mover", volume=200_000, stored_score=95)
+    for path in (first_db, second_db):
+        conn = sqlite3.connect(path)
+        conn.execute("UPDATE item_status SET last_evaluated_at = ?", (stamp,))
+        conn.commit()
+        conn.close()
+
+    params = {"capital": 50_000_000, "min_score": 0, "sort": "score"}
+    first = {i["name"]: i["score"] for i in api_client.get("/api/items", params=params).json()["items"]}
+    monkeypatch.setenv("DB_PATH", second_db)
+    second = {i["name"]: i["score"] for i in api_client.get("/api/items", params=params).json()["items"]}
+
+    assert first != second                                   # con otros volúmenes, otros puntajes
+    assert second["Slow mover"] > first["Slow mover"] and first["Fast mover"] > second["Fast mover"]
