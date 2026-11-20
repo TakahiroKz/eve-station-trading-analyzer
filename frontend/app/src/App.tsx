@@ -13,8 +13,8 @@ import { useI18n } from "./i18n/useI18n";
 import { BEST_COUNT, BEST_MIN_ROI, BestNow, FaqSection, Hero, HowItWorks, MarketsSection, SiteFooter, Stats, SupportBand } from "./Landing";
 import { AccountMenu } from "./AccountMenu";
 import { SimulatorButton } from "./SimulatorPanel";
-import { CapitalPicker, MAX_CAPITAL, MIN_CAPITAL } from "./CapitalPicker";
-import { MyFeesSwitch, readUseMyFees, storeUseMyFees, useSignedIn, type FeeProfileInfo } from "./MyFees";
+import { CapitalPicker, MAX_CAPITAL, MIN_CAPITAL, snapCapital } from "./CapitalPicker";
+import { MyFeesSwitch, readUseMyFees, storeUseMyFees, useSignedIn, useWalletCapital, type FeeProfileInfo } from "./MyFees";
 import { UnitRecommendationBox } from "./UnitRecommendationBox";
 import { ScoreChip, ScorePanel } from "./ScorePanel";
 import "./App.css";
@@ -188,6 +188,11 @@ export default function App() {
   const [appliedFilters, setAppliedFilters] = useState<Partial<ItemFilters>>({});
   const [capital, setCapital] = useState<number | null>(readInitialCapital);
   const signedIn = useSignedIn();
+  // With an account the capital is the wallet balance (no selector); without one, what the visitor chose (or the reference).
+  const walletCapital = useWalletCapital(signedIn);
+  const effectiveCapital: number | null = signedIn
+    ? (walletCapital != null ? snapCapital(Math.min(MAX_CAPITAL, Math.max(MIN_CAPITAL, walletCapital))) : null)
+    : capital;
   const [useMyFees, setUseMyFees] = useState<boolean>(readUseMyFees);
   const [feeInfo, setFeeInfo] = useState<FeeProfileInfo | null>(null);
   // The player's own fees apply only with a session; a stored choice without one is ignored (and never sent).
@@ -435,7 +440,7 @@ export default function App() {
     api
       .items({
         market, status: tab, ...appliedFilters, sort: sortField, order: sortOrder,
-        limit: PAGE_SIZE, offset: page * PAGE_SIZE, capital: capital ?? undefined, profile,
+        limit: PAGE_SIZE, offset: page * PAGE_SIZE, capital: effectiveCapital ?? undefined, profile,
       })
       .then((res) => {
         setItems(res.items);
@@ -444,7 +449,7 @@ export default function App() {
       })
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false));
-  }, [market, tab, appliedFilters, sortField, sortOrder, page, capital, profile]);
+  }, [market, tab, appliedFilters, sortField, sortOrder, page, effectiveCapital, profile]);
 
   // Name search: applied on its own 300 ms after the last keystroke (one request per pause, not per letter).
   useEffect(() => {
@@ -491,8 +496,8 @@ export default function App() {
   function openItem(typeId: number) {
     setOpenWindowMsg(null);
     setRecommendation(null);
-    api.itemDetail(typeId, market, capital ?? undefined, profile).then(setSelected).catch((e) => setError(String(e)));
-    if (authenticated && capital == null) {
+    api.itemDetail(typeId, market, effectiveCapital ?? undefined, profile).then(setSelected).catch((e) => setError(String(e)));
+    if (authenticated && effectiveCapital == null) {
       api.itemRecommendation(typeId, market).then(setRecommendation).catch(() => setRecommendation(null));
     }
   }
@@ -975,7 +980,12 @@ export default function App() {
           ))}
         </div>
       )}
-      <CapitalPicker value={capital} onChange={changeCapital} t={t} locale={locale} />
+      {!signedIn && <CapitalPicker value={capital} onChange={changeCapital} t={t} locale={locale} />}
+      {signedIn && effectiveCapital != null && (
+        <p className="myfees-info">
+          {t("capital.fromWallet", { n: new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(effectiveCapital / 1e6) })}
+        </p>
+      )}
       {signedIn && (
         <MyFeesSwitch on={useMyFees} info={feeInfo} t={t}
           onChange={(next) => { setUseMyFees(next); storeUseMyFees(next); setPage(0); }} />
@@ -1270,7 +1280,7 @@ export default function App() {
               </div>
             )}
 
-            {recommendation && capital == null && (
+            {recommendation && effectiveCapital == null && (
               /* Signed-in owner, no capital chosen: the live recommendation sized with the real wallet. */
               <div className="recommendation">
                 <strong>{t("detail.recommendation")}</strong>{" "}
@@ -1285,7 +1295,7 @@ export default function App() {
                 )}
               </div>
             )}
-            {!(recommendation && capital == null) && selected.recommendation && (
+            {!(recommendation && effectiveCapital == null) && selected.recommendation && (
               <UnitRecommendationBox
                 reco={selected.recommendation} t={t} locale={locale} formatIsk={formatIsk}
               />

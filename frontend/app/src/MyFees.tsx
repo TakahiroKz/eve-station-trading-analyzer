@@ -9,16 +9,45 @@ export interface FeeProfileInfo {
 
 const KEY = "useMyFees";
 
-// Whether the visitor has an account session (the switch only exists then).
+const SIGNED_KEY = "signedIn";
+
+// Whether the visitor has an account session. The last known answer is kept so that the capital selector does not flash
+// in and out on every page load for someone who is signed in (or the other way round); the server answer then replaces it.
 export function useSignedIn(): boolean {
-  const [signedIn, setSignedIn] = useState(false);
+  const [signedIn, setSignedIn] = useState<boolean>(() => {
+    try { return window.localStorage.getItem(SIGNED_KEY) === "1"; } catch { return false; }
+  });
   useEffect(() => {
     void fetch("/api/auth/status", { cache: "no-store" })
       .then(async (r) => (r.ok ? ((await r.json()) as { authenticated: boolean; needs_consent?: boolean }) : null))
-      .then((s) => setSignedIn(!!s && s.authenticated && !s.needs_consent))
-      .catch(() => setSignedIn(false));
+      .then((s) => {
+        const ok = !!s && s.authenticated && !s.needs_consent;
+        setSignedIn(ok);
+        try { window.localStorage.setItem(SIGNED_KEY, ok ? "1" : "0"); } catch { /* optional */ }
+      })
+      .catch(() => { /* keep the last known answer */ });
   }, []);
   return signedIn;
+}
+
+// The signed-in player's wallet balance (ISK), read through the server (cached 5 min there) and refreshed every 10 min; it
+// replaces the capital the visitor would otherwise type. null = no session or the balance could not be read.
+export function useWalletCapital(signedIn: boolean): number | null {
+  const [wallet, setWallet] = useState<number | null>(null);
+  useEffect(() => {
+    if (!signedIn) return;
+    let alive = true;
+    const load = () => {
+      void fetch("/api/me/capital", { cache: "no-store" })
+        .then(async (r) => (r.ok ? ((await r.json()) as { wallet_isk: string | null }) : null))
+        .then((d) => { if (alive && d) setWallet(d.wallet_isk != null && Number.isFinite(Number(d.wallet_isk)) ? Number(d.wallet_isk) : null); })
+        .catch(() => { /* keep the previous value */ });
+    };
+    load();
+    const timer = window.setInterval(load, 600_000);
+    return () => { alive = false; window.clearInterval(timer); };
+  }, [signedIn]);
+  return signedIn ? wallet : null;
 }
 
 export function readUseMyFees(): boolean {

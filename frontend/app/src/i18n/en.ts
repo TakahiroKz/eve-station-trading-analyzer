@@ -511,6 +511,7 @@ export const en = {
   "myfees.active": "Your fees here: broker {broker}%, sales tax {tax}%",
   "myfees.same": "same as the reference fees",
   "myfees.detail": "Figures calculated with your fees: broker fee {broker}%, sales tax {tax}%.",
+  "capital.fromWallet": "Capital: {n} M ISK — your wallet balance",
 } as const;
 
 export type MessageKey = keyof typeof en;
