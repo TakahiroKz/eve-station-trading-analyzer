@@ -157,7 +157,9 @@ def sync_profile(conn, character_id: int, client_id: str, secret: str, now: date
         if not force and not needs_sync(profile, now, want_wallet):
             return "NOT_NEEDED"
         gap = _age(profile["last_attempt_at"], now) if profile else None
-        if gap is not None and gap < MIN_ATTEMPT_GAP:
+        # Se frena la actualización manual repetida y los reintentos tras un fallo; una lectura normal que tocaba
+        # (p. ej. el saldo justo después del perfil, que el panel pide a la vez) no se frena: ya la limitan REFRESH_AFTER y WALLET_TTL.
+        if gap is not None and gap < MIN_ATTEMPT_GAP and (force or profile["sync_status"] != "OK"):
             return "THROTTLED"
         token = users_db.get_token(conn, character_id)
         if token is None or token["status"] != "ACTIVE":

@@ -1702,3 +1702,30 @@
   width: 100%; max-width: 110px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--line);
   background: var(--panel-strong); color: var(--ink); font: inherit; font-size: 13px;
 }
+
+/* ---------- simulator ---------- */
+.sim-modal { width: min(820px, 100%); }
+.sim-modal h3 { margin: 16px 0 6px; font-size: 14px; }
+.sim-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 10px 0; align-items: end; }
+.sim-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--ink-dim); position: relative; }
+.sim-grid .sim-wide { grid-column: span 2; }
+.sim-modal input:not([type="checkbox"]), .sim-modal select {
+  width: 100%; max-width: none; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--panel-strong); color: var(--ink); font: inherit; font-size: 13px;
+}
+.sim-modal input:disabled { opacity: 0.5; }
+.sim-grid .sim-check { flex-direction: row; align-items: center; gap: 8px; }
+.sim-hits { list-style: none; margin: 2px 0 0; padding: 4px; position: absolute; top: 100%; left: 0; right: 0; z-index: 5;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--bg-2); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }
+.sim-hits button { width: 100%; text-align: left; padding: 7px 8px; border: 0; background: transparent; color: var(--ink); font: inherit; cursor: pointer; border-radius: 6px; }
+.sim-hits button:hover { background: var(--panel-strong); }
+.sim-result, .sim-scenarios { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 4px; }
+.sim-big { font-size: 15px; font-weight: 600; margin: 8px 0; color: var(--ink); }
+.sim-gain { color: var(--positive, #3ddc97); }
+.sim-loss { color: var(--negative); }
+.sim-save { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.sim-save input { flex: 1; min-width: 160px; }
+.sim-list { list-style: none; padding: 0; margin: 6px 0 10px; display: flex; flex-direction: column; gap: 6px; }
+.sim-list li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sim-list label { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 140px; color: var(--ink); font-size: 13px; }
+.sim-best td { color: var(--accent-cyan); font-weight: 600; }

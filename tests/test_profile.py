@@ -232,6 +232,14 @@ def test_attempts_are_throttled_even_when_forced(world):
     assert sync(conn, NOW + timedelta(minutes=5), force=True) == "OK" and esi.calls
 
 
+def test_the_wallet_can_be_read_right_after_the_profile(world):
+    """El panel pide perfil y saldo a la vez: la segunda lectura no puede quedar frenada por la primera."""
+    conn, esi = world
+    assert sync(conn) == "OK"
+    assert sync(conn, NOW + timedelta(seconds=2), want_wallet=True) == "OK"
+    assert users_db.get_profile(conn, CID)["wallet_isk"] == "5000000.50"
+
+
 def test_failed_attempts_are_throttled_too_and_keep_the_old_data(world):
     conn, esi = world
     sync(conn)

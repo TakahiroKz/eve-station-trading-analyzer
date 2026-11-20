@@ -26,6 +26,7 @@ from fastapi.staticfiles import StaticFiles
 
 from backend.api.analytics import private_router as analytics_private_router
 from backend.api.auth import router as auth_router
+from backend.api.finance import router as finance_router
 from backend.api.me import router as me_router
 from backend.api.analytics import router as analytics_router
 from backend.api.deps import ITEM_JOIN, ITEM_SELECT_COLS, _db, resolve_market
@@ -96,6 +97,7 @@ app.add_middleware(
 app.include_router(private_router)
 app.include_router(auth_router)
 app.include_router(me_router)
+app.include_router(finance_router)
 app.include_router(analytics_private_router)
 app.include_router(analytics_router)
 app.include_router(pages_router)
