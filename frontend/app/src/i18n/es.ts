@@ -511,4 +511,5 @@ export const es: Messages = {
   "myfees.active": "Tus comisiones aquí: broker {broker}%, impuesto de ventas {tax}%",
   "myfees.same": "iguales a las de referencia",
   "myfees.detail": "Cifras calculadas con tus comisiones: broker fee {broker}%, impuesto de ventas {tax}%.",
+  "capital.fromWallet": "Capital: {n} M ISK — el saldo de tu wallet",
 };
