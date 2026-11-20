@@ -3,7 +3,7 @@
 Puro (sin E/S). Cada valor lleva su origen: MANUAL (lo escribió el jugador), ESI (leído de su personaje) o DEFAULT
 (no hay dato; se usa el perfil por defecto del motor, el de las constantes históricas 0,901 / 1,024).
 """
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from finance.fees import Profile, Venue, broker_fee_rate, sales_tax_rate
 from finance.hubs import Hub
@@ -83,3 +83,13 @@ def fee_summary(profile: Profile) -> dict:
     tax = sales_tax_rate(profile)
     pct = Decimal("0.001")
     return {"broker_fee_pct": float((broker * 100).quantize(pct)), "sales_tax_pct": float((tax * 100).quantize(pct))}
+
+
+def screener_factors(profile: Profile) -> tuple[float, float]:
+    """(sales_tax_factor, buy_fee_factor) del Screener para este perfil: una compra y una venta con órdenes límite en una
+    estación NPC. Con el perfil por defecto salen 0,901 y 1,024, las constantes históricas (prueba de regresión).
+    Redondeados a 4 decimales: acota las variantes distintas que hay que calcular y cachear."""
+    broker = broker_fee_rate(profile, Venue("NPC"))
+    tax = sales_tax_rate(profile)
+    step = Decimal("0.0001")
+    return (float((1 - tax - broker).quantize(step, ROUND_HALF_UP)), float((1 + broker).quantize(step, ROUND_HALF_UP)))

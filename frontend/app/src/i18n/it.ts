@@ -506,4 +506,9 @@ export const it: Messages = {
   "sim.compareHint": "Scegli da 2 a 6 scenari.",
   "sim.saved": "Salvato.",
   "sim.full": "Hai raggiunto il limite di scenari salvati. Eliminane uno prima.",
+  "myfees.label": "Usa le mie commissioni",
+  "myfees.help": "Ricalcola ROI, stato e punteggio con la commissione di broker e la tassa sulle vendite derivate dalle tue skill e dai tuoi standing EVE.",
+  "myfees.active": "Le tue commissioni qui: broker {broker}%, tassa sulle vendite {tax}%",
+  "myfees.same": "uguali a quelle di riferimento",
+  "myfees.detail": "Cifre calcolate con le tue commissioni: broker {broker}%, tassa sulle vendite {tax}%.",
 };

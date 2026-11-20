@@ -506,4 +506,9 @@ export const es: Messages = {
   "sim.compareHint": "Elige de 2 a 6 escenarios.",
   "sim.saved": "Guardado.",
   "sim.full": "Llegaste al límite de escenarios guardados. Borra uno primero.",
+  "myfees.label": "Usar mis comisiones",
+  "myfees.help": "Recalcula el ROI, el estado y el puntaje con el broker fee y el impuesto de ventas de tus habilidades y standings de EVE.",
+  "myfees.active": "Tus comisiones aquí: broker {broker}%, impuesto de ventas {tax}%",
+  "myfees.same": "iguales a las de referencia",
+  "myfees.detail": "Cifras calculadas con tus comisiones: broker fee {broker}%, impuesto de ventas {tax}%.",
 };

@@ -1729,3 +1729,8 @@
 .sim-list li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .sim-list label { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 140px; color: var(--ink); font-size: 13px; }
 .sim-best td { color: var(--accent-cyan); font-weight: 600; }
+
+/* ---------- screener with the player's own fees ---------- */
+.myfees { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 6px 0; font-size: 13px; }
+.myfees-toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; color: var(--ink); }
+.myfees-info { color: var(--accent-cyan); }

@@ -14,6 +14,7 @@ import { BEST_COUNT, BEST_MIN_ROI, BestNow, FaqSection, Hero, HowItWorks, Market
 import { AccountMenu } from "./AccountMenu";
 import { SimulatorButton } from "./SimulatorPanel";
 import { CapitalPicker, MAX_CAPITAL, MIN_CAPITAL } from "./CapitalPicker";
+import { MyFeesSwitch, readUseMyFees, storeUseMyFees, useSignedIn, type FeeProfileInfo } from "./MyFees";
 import { UnitRecommendationBox } from "./UnitRecommendationBox";
 import { ScoreChip, ScorePanel } from "./ScorePanel";
 import "./App.css";
@@ -186,6 +187,11 @@ export default function App() {
   const [filterForm, setFilterForm] = useState<FilterForm>(EMPTY_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<Partial<ItemFilters>>({});
   const [capital, setCapital] = useState<number | null>(readInitialCapital);
+  const signedIn = useSignedIn();
+  const [useMyFees, setUseMyFees] = useState<boolean>(readUseMyFees);
+  const [feeInfo, setFeeInfo] = useState<FeeProfileInfo | null>(null);
+  // The player's own fees apply only with a session; a stored choice without one is ignored (and never sent).
+  const profile = signedIn && useMyFees ? ("mine" as const) : undefined;
   const [showFilters, setShowFilters] = useState(false);
   const [sortField, setSortField] = useState("volumen_diario_real");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
@@ -429,15 +435,16 @@ export default function App() {
     api
       .items({
         market, status: tab, ...appliedFilters, sort: sortField, order: sortOrder,
-        limit: PAGE_SIZE, offset: page * PAGE_SIZE, capital: capital ?? undefined,
+        limit: PAGE_SIZE, offset: page * PAGE_SIZE, capital: capital ?? undefined, profile,
       })
       .then((res) => {
         setItems(res.items);
         setTotal(res.total);
+        setFeeInfo(res.profile ?? null);
       })
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false));
-  }, [market, tab, appliedFilters, sortField, sortOrder, page, capital]);
+  }, [market, tab, appliedFilters, sortField, sortOrder, page, capital, profile]);
 
   // Name search: applied on its own 300 ms after the last keystroke (one request per pause, not per letter).
   useEffect(() => {
@@ -484,7 +491,7 @@ export default function App() {
   function openItem(typeId: number) {
     setOpenWindowMsg(null);
     setRecommendation(null);
-    api.itemDetail(typeId, market, capital ?? undefined).then(setSelected).catch((e) => setError(String(e)));
+    api.itemDetail(typeId, market, capital ?? undefined, profile).then(setSelected).catch((e) => setError(String(e)));
     if (authenticated && capital == null) {
       api.itemRecommendation(typeId, market).then(setRecommendation).catch(() => setRecommendation(null));
     }
@@ -969,6 +976,10 @@ export default function App() {
         </div>
       )}
       <CapitalPicker value={capital} onChange={changeCapital} t={t} locale={locale} />
+      {signedIn && (
+        <MyFeesSwitch on={useMyFees} info={feeInfo} t={t}
+          onChange={(next) => { setUseMyFees(next); storeUseMyFees(next); setPage(0); }} />
+      )}
       <nav className="tabs">
         {TAB_KEYS.map((key) => (
           <button
@@ -1223,6 +1234,9 @@ export default function App() {
               {selected.status.category_name ? `${selected.status.category_name} · ${selected.status.group_name}` : ""}
             </p>
             <p className="muted">{translateReason(t, selected.status.reason)}</p>
+            {selected.profile?.personalized && (
+              <p className="muted">{t("myfees.detail", { broker: selected.profile.broker_fee_pct, tax: selected.profile.sales_tax_pct })}</p>
+            )}
 
             {authenticated && (
               <button className="btn-secondary open-client-btn" onClick={() => openInClient(selected.status.type_id)}>

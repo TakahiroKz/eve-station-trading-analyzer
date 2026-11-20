@@ -506,4 +506,9 @@ export const de: Messages = {
   "sim.compareHint": "Wähle 2 bis 6 Szenarien.",
   "sim.saved": "Gespeichert.",
   "sim.full": "Du hast das Limit gespeicherter Szenarien erreicht. Lösche zuerst eines.",
+  "myfees.label": "Meine Gebühren verwenden",
+  "myfees.help": "Berechnet ROI, Status und Punktzahl mit der Brokergebühr und der Verkaufssteuer aus deinen EVE-Skills und Standings neu.",
+  "myfees.active": "Deine Gebühren hier: Broker {broker}%, Verkaufssteuer {tax}%",
+  "myfees.same": "wie die Referenzgebühren",
+  "myfees.detail": "Zahlen mit deinen Gebühren berechnet: Brokergebühr {broker}%, Verkaufssteuer {tax}%.",
 };
