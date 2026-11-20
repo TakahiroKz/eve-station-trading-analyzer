@@ -13,7 +13,7 @@ from jwt.algorithms import RSAAlgorithm
 JWKS_URL = "https://login.eveonline.com/oauth/jwks"
 ISSUERS = ["login.eveonline.com", "https://login.eveonline.com"]
 REQUIRED_SCOPES = ("esi-skills.read_skills.v1", "esi-characters.read_standings.v1",
-                   "esi-wallet.read_character_wallet.v1")
+                   "esi-wallet.read_character_wallet.v1", "esi-markets.read_character_orders.v1")
 _TTL = 3600.0
 _lock = threading.Lock()
 _cache: dict = {"at": 0.0, "jwks": None}

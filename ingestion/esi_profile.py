@@ -23,6 +23,8 @@ SKILL_IDS = {3446: "broker_relations", 16597: "advanced_broker_relations", 16622
 SCOPE_SKILLS = "esi-skills.read_skills.v1"
 SCOPE_STANDINGS = "esi-characters.read_standings.v1"
 SCOPE_WALLET = "esi-wallet.read_character_wallet.v1"
+SCOPE_ORDERS = "esi-markets.read_character_orders.v1"
+MAX_ORDERS = 5000                        # tope de órdenes que se recorren (una cuenta real tiene decenas o pocos cientos)
 
 REFRESH_AFTER = timedelta(hours=24)     # habilidades y standings se releen como mucho una vez al día
 STALE_AFTER = timedelta(hours=48)       # pasado esto sin poder leer, se avisa de que el perfil puede estar desactualizado
@@ -125,6 +127,30 @@ def fetch_wallet(access_token: str, character_id: int) -> str:
     return format(value.quantize(Decimal("0.01")), "f")
 
 
+def fetch_orders(access_token: str, character_id: int) -> dict:
+    """Capital comprometido: ISK retenido (escrow) en las órdenes de COMPRA abiertas y cuántas órdenes hay de cada tipo.
+    El saldo del wallet ya descuenta ese escrow, así que el capital libre es el saldo y el comprometido se suma aparte.
+    Las órdenes de venta no retienen ISK (son inventario). De cada orden solo se leen el tipo y el escrow; no se guarda ninguna."""
+    data = _get(f"/characters/{character_id}/orders/", access_token)
+    if not isinstance(data, list):
+        raise EsiProfileError("UNAVAILABLE")
+    committed, buys, sells = Decimal("0"), 0, 0
+    for order in data[:MAX_ORDERS]:
+        if not isinstance(order, dict):
+            continue
+        if order.get("is_buy_order") is True:
+            buys += 1
+            try:
+                escrow = Decimal(str(order.get("escrow", 0)))
+            except InvalidOperation:
+                continue
+            if escrow.is_finite() and escrow > 0:
+                committed += escrow
+        else:
+            sells += 1
+    return {"committed_isk": format(committed.quantize(Decimal("0.01")), "f"), "buy_orders": buys, "sell_orders": sells}
+
+
 def _age(stamp: str | None, now: datetime) -> timedelta | None:
     if not stamp:
         return None
@@ -191,6 +217,10 @@ def sync_profile(conn, character_id: int, client_id: str, secret: str, now: date
             if do_wallet:
                 if SCOPE_WALLET in scopes:
                     users_db.save_wallet(conn, character_id, fetch_wallet(access, character_id), now)
+                else:
+                    status = "PARTIAL"
+                if SCOPE_ORDERS in scopes:
+                    users_db.save_orders(conn, character_id, fetch_orders(access, character_id), now)
                 else:
                     status = "PARTIAL"
         except EsiProfileError as exc:

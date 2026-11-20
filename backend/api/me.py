@@ -73,7 +73,7 @@ def _loads(raw: str | None) -> dict | None:
 
 def _sync_label(profile, token, now) -> dict:
     scopes = set((token["scopes"] if token else "").split())
-    required = {esi_profile.SCOPE_SKILLS, esi_profile.SCOPE_STANDINGS, esi_profile.SCOPE_WALLET}
+    required = {esi_profile.SCOPE_SKILLS, esi_profile.SCOPE_STANDINGS, esi_profile.SCOPE_WALLET, esi_profile.SCOPE_ORDERS}
     status = profile["sync_status"] if profile else "NEVER"
     if token is not None and token["status"] == "REVOKED":
         status = "REVOKED"
@@ -165,7 +165,13 @@ def get_capital(request: Request):
         profile = users_db.get_profile(conn, user["character_id"])
         token = users_db.get_token(conn, user["character_id"])
         isk = profile["wallet_isk"] if profile else None
+        committed = profile["committed_isk"] if profile else None
+        total = None
+        if isk is not None and committed is not None:
+            total = format(Decimal(isk) + Decimal(committed), "f")    # el saldo ya descuenta el escrow: se suma, no se resta
         return _json({"wallet_isk": isk, "wallet_at": profile["wallet_at"] if profile else None,
+                      "committed_isk": committed, "open_buy_orders": profile["buy_orders"] if profile else None,
+                      "open_sell_orders": profile["sell_orders"] if profile else None, "total_isk": total,
                       "sync": _sync_label(profile, token, now)})
     finally:
         conn.close()

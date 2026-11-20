@@ -424,6 +424,7 @@ export const it: Messages = {
   "profile.updated": "Letto da EVE: {when}",
   "profile.wallet": "Wallet",
   "profile.walletNone": "non disponibile",
+  "profile.committed": "In ordini di acquisto: {n} ISK ({count} ordini aperti)",
   "profile.stale": "Questi dati hanno più di 2 giorni e non è stato possibile aggiornarli.",
   "profile.revoked": "L'accesso a EVE è stato revocato o è scaduto. Esci e accedi di nuovo.",
   "profile.unavailable": "EVE non risponde al momento. Vengono mostrati gli ultimi dati disponibili.",

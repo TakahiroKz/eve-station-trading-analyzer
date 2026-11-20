@@ -19,7 +19,7 @@ interface ProfileData {
   markets: MarketInfo[];
   has_override: boolean;
 }
-interface CapitalData { wallet_isk: string | null; wallet_at: string | null }
+interface CapitalData { wallet_isk: string | null; wallet_at: string | null; committed_isk?: string | null; open_buy_orders?: number | null }
 interface Draft { skills: Record<SkillKey, string>; standings: Record<string, { faction: string; corp: string }> }
 
 const SOURCE_KEY: Record<Source, MessageKey> = {
@@ -148,6 +148,15 @@ export function ProfilePanel({ t, onClose }: { t: TFunction; onClose: () => void
               {t("profile.wallet")}: {capital?.wallet_isk != null
                 ? `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(Number(capital.wallet_isk))} ISK`
                 : t("profile.walletNone")}
+              {capital?.committed_isk != null && (
+                <>
+                  {" · "}
+                  {t("profile.committed", {
+                    n: new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(Number(capital.committed_isk)),
+                    count: capital.open_buy_orders ?? 0,
+                  })}
+                </>
+              )}
             </p>
 
             <h3>{t("profile.skills")}</h3>

@@ -382,7 +382,7 @@ def test_export_includes_scenarios_and_delete_account_removes_them(api):  # noqa
     conn.close()
 
 
-def test_schema_is_version_3_and_upgrades_an_existing_v2_file(tmp_path):
+def test_schema_is_version_4_and_upgrades_an_existing_v2_file(tmp_path):
     path = str(tmp_path / "old.db")
     conn = users_db.connect(path)
     conn.executescript(users_db.SCHEMA.split("CREATE TABLE IF NOT EXISTS financial_scenario")[0])
@@ -391,6 +391,29 @@ def test_schema_is_version_3_and_upgrades_an_existing_v2_file(tmp_path):
     conn.close()
     users_db.init_users_db(path)
     conn = users_db.connect(path)
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == 3
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 4 == users_db.SCHEMA_VERSION
     assert conn.execute("SELECT COUNT(*) FROM financial_scenario").fetchone()[0] == 0
+    conn.close()
+
+
+def test_an_existing_v3_profile_table_gets_the_order_columns_without_losing_data(tmp_path):
+    path = str(tmp_path / "v3.db")
+    conn = users_db.connect(path)
+    conn.executescript("""
+        CREATE TABLE user (character_id INTEGER PRIMARY KEY, name TEXT NOT NULL, created_at TEXT NOT NULL,
+            last_seen_at TEXT NOT NULL, consent_version TEXT NOT NULL, consent_at TEXT NOT NULL);
+        CREATE TABLE user_profile (character_id INTEGER PRIMARY KEY REFERENCES user(character_id) ON DELETE CASCADE,
+            skills_json TEXT, skills_at TEXT, standings_json TEXT, standings_at TEXT, wallet_isk TEXT, wallet_at TEXT,
+            override_json TEXT, sync_status TEXT NOT NULL DEFAULT 'NEVER', last_attempt_at TEXT);
+        INSERT INTO user VALUES (1, 'P', 'a', 'a', 'v', 'a');
+        INSERT INTO user_profile (character_id, wallet_isk) VALUES (1, '42.00');
+    """)
+    conn.execute("PRAGMA user_version = 3")
+    conn.commit()
+    conn.close()
+    users_db.init_users_db(path)
+    users_db.init_users_db(path)                       # repetir no falla: las columnas ya existen
+    conn = users_db.connect(path)
+    row = users_db.get_profile(conn, 1)
+    assert row["wallet_isk"] == "42.00" and row["committed_isk"] is None and row["orders_at"] is None
     conn.close()
