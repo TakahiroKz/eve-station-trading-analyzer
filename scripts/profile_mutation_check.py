@@ -51,6 +51,16 @@ mc.MUTATIONS = [
     ("el perfil sobrevive al borrado del usuario", "storage/users_db.py",
      "character_id INTEGER PRIMARY KEY REFERENCES user(character_id) ON DELETE CASCADE,\n    skills_json",
      "character_id INTEGER PRIMARY KEY,\n    skills_json"),
+    ("las órdenes de venta también retienen ISK", E, "if order.get(\"is_buy_order\") is True:", "if True:"),
+    ("el escrow negativo o cero suma", E, "if escrow.is_finite() and escrow > 0:", "if escrow.is_finite():"),
+    ("se cuentan todas las órdenes sin tope", E, "for order in data[:MAX_ORDERS]:", "for order in data:"),
+    ("un total que no es lista no se rechaza", E, "if not isinstance(data, list):\n        raise EsiProfileError(\"UNAVAILABLE\")\n    committed", "committed"),
+    ("sin permiso de órdenes no se marca parcial", E,
+     "if SCOPE_ORDERS in scopes:\n                    users_db.save_orders(conn, character_id, fetch_orders(access, character_id), now)\n                else:\n                    status = \"PARTIAL\"",
+     "users_db.save_orders(conn, character_id, fetch_orders(access, character_id), now)"),
+    ("el total resta el escrow en vez de sumarlo", M, "Decimal(isk) + Decimal(committed)", "Decimal(isk) - Decimal(committed)"),
+    ("el permiso de órdenes no se pide al entrar", "ingestion/eve_login.py", ", \"esi-markets.read_character_orders.v1\")", ")"),
+    ("las órdenes no se guardan", "storage/users_db.py", "(orders[\"committed_isk\"], orders[\"buy_orders\"], orders[\"sell_orders\"], iso(now), character_id))", "(None, None, None, None, character_id))"),
 ]
 
 if __name__ == "__main__":

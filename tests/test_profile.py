@@ -166,6 +166,9 @@ class Esi:
         self.fail: dict[str, str] = {}
         self.rotate_to: str | None = None
         self.wallet = 5_000_000.5
+        self.orders = [{"is_buy_order": True, "escrow": 1_000_000.25, "volume_remain": 10},
+                       {"is_buy_order": True, "escrow": 250.5},
+                       {"is_buy_order": False, "price": 9_000_000, "volume_remain": 3}]   # una venta no retiene ISK
         self.skills = {"skills": [{"skill_id": 3446, "active_skill_level": 5}, {"skill_id": 16622, "active_skill_level": 4}]}
         self.standings = [{"from_id": 500001, "from_type": "faction", "standing": 3.0}]
 
@@ -183,7 +186,8 @@ class Esi:
         self.calls.append(what)
         if what in self.fail:
             raise esi_profile.EsiProfileError(self.fail[what])
-        return {"skills": self.skills, "standings": self.standings, "wallet": self.wallet}[what]
+        return {"skills": self.skills, "standings": self.standings, "wallet": self.wallet,
+                "orders": self.orders}[what]
 
 
 @pytest.fixture
@@ -256,13 +260,58 @@ def test_wallet_is_read_on_demand_and_cached_five_minutes(world):
     sync(conn)
     esi.calls.clear()
     assert sync(conn, NOW + timedelta(minutes=5), want_wallet=True) == "OK"
-    assert esi.calls == ["refresh", "wallet"]                     # no vuelve a pedir habilidades
+    assert esi.calls == ["refresh", "wallet", "orders"]           # no vuelve a pedir habilidades
     assert users_db.get_profile(conn, CID)["wallet_isk"] == "5000000.50"
     esi.calls.clear()
     assert sync(conn, NOW + timedelta(minutes=9), want_wallet=True) == "NOT_NEEDED" and esi.calls == []
     esi.wallet = 7.0
     assert sync(conn, NOW + timedelta(minutes=10, seconds=1), want_wallet=True) == "OK"
     assert users_db.get_profile(conn, CID)["wallet_isk"] == "7.00"
+
+
+def test_orders_give_the_isk_held_in_buy_escrow_and_the_counts(world):
+    conn, esi = world
+    assert sync(conn, want_wallet=True) == "OK"
+    p = users_db.get_profile(conn, CID)
+    assert p["committed_isk"] == "1000250.75" and p["buy_orders"] == 2 and p["sell_orders"] == 1
+    assert p["orders_at"] == "2026-11-20T12:00:00Z"
+    esi.calls.clear()
+    assert sync(conn, NOW + timedelta(minutes=1), want_wallet=True) == "NOT_NEEDED" and esi.calls == []   # misma caché de 5 min
+
+
+def test_orders_ignore_garbage_and_sell_orders_never_count(world):
+    conn, esi = world
+    esi.orders = [{"is_buy_order": True, "escrow": "nan"}, {"is_buy_order": True, "escrow": -5}, "x", {"is_buy_order": "yes", "escrow": 9},
+                  {"is_buy_order": True}, {"is_buy_order": False, "escrow": 777}]
+    assert sync(conn, want_wallet=True) == "OK"
+    p = users_db.get_profile(conn, CID)
+    assert p["committed_isk"] == "0.00" and p["buy_orders"] == 3 and p["sell_orders"] == 2
+
+
+def test_orders_that_are_not_a_list_make_esi_unavailable_and_keep_the_wallet(world):
+    conn, esi = world
+    esi.orders = "garbage"
+    assert sync(conn, want_wallet=True) == "UNAVAILABLE"
+    assert users_db.get_profile(conn, CID)["committed_isk"] is None
+
+
+def test_only_a_bounded_number_of_orders_is_walked(world, monkeypatch):
+    conn, esi = world
+    monkeypatch.setattr(esi_profile, "MAX_ORDERS", 2)
+    esi.orders = [{"is_buy_order": True, "escrow": 1}] * 5
+    assert sync(conn, want_wallet=True) == "OK"
+    p = users_db.get_profile(conn, CID)
+    assert p["buy_orders"] == 2 and p["committed_isk"] == "2.00"
+
+
+def test_without_the_orders_permission_the_wallet_still_works_but_the_status_is_partial(world):
+    conn, esi = world
+    conn.execute("UPDATE user_token SET scopes = ?", (" ".join(s for s in REQUIRED_SCOPES if "orders" not in s),))
+    conn.commit()
+    assert sync(conn, want_wallet=True) == "PARTIAL"
+    assert "orders" not in esi.calls
+    p = users_db.get_profile(conn, CID)
+    assert p["wallet_isk"] == "5000000.50" and p["committed_isk"] is None
 
 
 def test_revoked_token_is_marked_and_no_more_calls_are_made(world):
@@ -436,6 +485,22 @@ def test_capital_returns_the_wallet_and_caches_it(api):
     api.esi.calls.clear()
     api.get("/api/me/capital")
     assert "wallet" not in api.esi.calls
+
+
+def test_capital_adds_the_committed_isk_without_subtracting_it_twice(api):
+    body = api.get("/api/me/capital").json()
+    assert body["wallet_isk"] == "5000000.50" and body["committed_isk"] == "1000250.75"
+    assert body["open_buy_orders"] == 2 and body["open_sell_orders"] == 1
+    assert body["total_isk"] == "6000251.25"          # el saldo ya descuenta el escrow: el total lo suma
+
+
+def test_the_orders_permission_is_requested_and_listed_when_missing(api):
+    assert "esi-markets.read_character_orders.v1" in REQUIRED_SCOPES
+    conn = users_db.connect()
+    conn.execute("UPDATE user_token SET scopes = ?", (" ".join(s for s in REQUIRED_SCOPES if "orders" not in s),))
+    conn.commit()
+    conn.close()
+    assert api.get("/api/me/capital").json()["sync"]["missing_scopes"] == ["esi-markets.read_character_orders.v1"]
 
 
 def test_revoked_access_is_reported_to_the_user(api):

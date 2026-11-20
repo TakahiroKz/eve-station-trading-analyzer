@@ -134,3 +134,14 @@ Las rutas de usuario son de bajo tráfico y escritura pequeña. El recálculo pe
 - **Filtros**: `min_roi`/`max_roi` son una condición exacta en SQL sobre los precios; `status`, `min_score`, `score_class`, `eligibility`, `recommendation` y `sort=score` recorren el mercado entero una vez por (mercado, comisiones, ciclo) con la misma caché del capital propio (ahora de 24 entradas). Un jugador con comisiones distintas de las de referencia paga ese recálculo (~1,4 s en Jita) la primera vez en cada ciclo de precios; los factores se redondean a 4 decimales para acotar las variantes.
 - **Privacidad y caché**: las respuestas personales llevan `Cache-Control: private, no-store` y `Vary: Cookie` (Cloudflare no las guarda ni las sirve a otros). `profile=mine` sin sesión responde 401 (nunca cae en silencio al perfil por defecto) y 503 si las cuentas están apagadas. Se usa el perfil ya guardado; este endpoint no llama a ESI.
 - **Límites**: el Screener asume órdenes límite de compra y venta y no aplica el mínimo de 100 ISK por orden ni los relists (eso es del Simulador); el ROI personal usa las comisiones de la estación NPC de referencia del mercado, no de una estructura Upwell.
+
+## 14. Capital comprometido en órdenes (permiso `esi-markets.read_character_orders.v1`)
+
+- **Qué se lee:** `GET /characters/{id}/orders/` (órdenes abiertas), junto con el saldo y con la misma caché de 5 minutos.
+  Solo se usa el tipo de cada orden y su `escrow`; **no se guarda ninguna orden**, solo el total y los contadores
+  (`committed_isk`, `buy_orders`, `sell_orders`, `orders_at` en `user_profile`, esquema v4 con `ALTER TABLE` para bases anteriores).
+- **Definición:** comprometido = suma del `escrow` de las órdenes de **compra** abiertas. Las de venta no retienen ISK (son inventario).
+- **Sin doble conteo:** el saldo del wallet ya descuenta el escrow, así que el **capital libre es el saldo** (lo que usa el
+  Screener) y `total_isk = saldo + comprometido` se informa aparte en `/api/me/capital` y en «Mi perfil».
+- **Consentimiento:** versión `2026-11-20.3` (se pide aceptar de nuevo y volver a entrar para conceder el permiso nuevo); política de
+  privacidad actualizada en los 5 idiomas. Sin el permiso, el estado de sincronización es `PARTIAL` y el panel lista el permiso que falta.

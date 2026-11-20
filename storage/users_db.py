@@ -11,7 +11,7 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 MAX_SCENARIOS = 50
 SESSION_TTL_DAYS = 30
 INACTIVE_MONTHS = 12
@@ -48,6 +48,10 @@ CREATE TABLE IF NOT EXISTS user_profile (
     standings_at TEXT,
     wallet_isk TEXT,
     wallet_at TEXT,
+    committed_isk TEXT,
+    buy_orders INTEGER,
+    sell_orders INTEGER,
+    orders_at TEXT,
     override_json TEXT,
     sync_status TEXT NOT NULL DEFAULT 'NEVER',
     last_attempt_at TEXT
@@ -103,6 +107,11 @@ def init_users_db(path: str | None = None) -> None:
     conn = connect(path)
     try:
         conn.executescript(SCHEMA)
+        existing = {row[1] for row in conn.execute("PRAGMA table_info(user_profile)")}
+        for column, kind in (("committed_isk", "TEXT"), ("buy_orders", "INTEGER"), ("sell_orders", "INTEGER"),
+                             ("orders_at", "TEXT")):                       # v4: bases creadas antes no tienen estas columnas
+            if column not in existing:
+                conn.execute(f"ALTER TABLE user_profile ADD COLUMN {column} {kind}")
         conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
         conn.commit()
     finally:
@@ -164,6 +173,14 @@ def save_wallet(conn: sqlite3.Connection, character_id: int, isk: str, now: date
     _ensure_profile(conn, character_id)
     conn.execute("UPDATE user_profile SET wallet_isk = ?, wallet_at = ? WHERE character_id = ?",
                  (isk, iso(now), character_id))
+
+
+def save_orders(conn: sqlite3.Connection, character_id: int, orders: dict, now: datetime) -> None:
+    """Solo el total retenido y los contadores; las órdenes en sí no se guardan."""
+    _ensure_profile(conn, character_id)
+    conn.execute("UPDATE user_profile SET committed_isk = ?, buy_orders = ?, sell_orders = ?, orders_at = ? "
+                 "WHERE character_id = ?",
+                 (orders["committed_isk"], orders["buy_orders"], orders["sell_orders"], iso(now), character_id))
 
 
 def save_sync_result(conn: sqlite3.Connection, character_id: int, status: str, now: datetime) -> None:

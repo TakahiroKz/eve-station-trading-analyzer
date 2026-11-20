@@ -424,6 +424,7 @@ export const en = {
   "profile.updated": "Read from EVE: {when}",
   "profile.wallet": "Wallet",
   "profile.walletNone": "not available",
+  "profile.committed": "In buy orders: {n} ISK ({count} open orders)",
   "profile.stale": "This data is more than 2 days old and could not be refreshed.",
   "profile.revoked": "EVE access was revoked or has expired. Sign out and sign in again.",
   "profile.unavailable": "EVE is not answering right now. Showing the last data we have.",
