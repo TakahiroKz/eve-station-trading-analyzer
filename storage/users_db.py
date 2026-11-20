@@ -11,7 +11,8 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
+MAX_SCENARIOS = 50
 SESSION_TTL_DAYS = 30
 INACTIVE_MONTHS = 12
 _SLIDE_EVERY = timedelta(hours=1)   # la sesión se prolonga como mucho una vez por hora (evita una escritura por petición)
@@ -51,6 +52,17 @@ CREATE TABLE IF NOT EXISTS user_profile (
     sync_status TEXT NOT NULL DEFAULT 'NEVER',
     last_attempt_at TEXT
 );
+CREATE TABLE IF NOT EXISTS financial_scenario (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    character_id INTEGER NOT NULL REFERENCES user(character_id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    request_json TEXT NOT NULL,
+    result_json TEXT NOT NULL,
+    engine_version TEXT NOT NULL,
+    rules_version TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_scenario_char ON financial_scenario(character_id);
 CREATE INDEX IF NOT EXISTS idx_user_session_char ON user_session(character_id);
 CREATE INDEX IF NOT EXISTS idx_user_session_exp ON user_session(expires_at);
 """
@@ -166,6 +178,33 @@ def save_override(conn: sqlite3.Connection, character_id: int, override: dict | 
                  (json.dumps(override, sort_keys=True) if override else None, character_id))
 
 
+def count_scenarios(conn: sqlite3.Connection, character_id: int) -> int:
+    return conn.execute("SELECT COUNT(*) FROM financial_scenario WHERE character_id = ?", (character_id,)).fetchone()[0]
+
+
+def add_scenario(conn: sqlite3.Connection, character_id: int, name: str, request: dict, result: dict,
+                 engine_version: str, rules_version: str, now: datetime) -> int | None:
+    """Guarda una foto reproducible (entrada con el libro usado + resultado). None si se alcanzó el tope por usuario."""
+    if count_scenarios(conn, character_id) >= MAX_SCENARIOS:
+        return None
+    cur = conn.execute(
+        "INSERT INTO financial_scenario (character_id, name, request_json, result_json, engine_version, rules_version, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (character_id, name, json.dumps(request, sort_keys=True), json.dumps(result, sort_keys=True),
+         engine_version, rules_version, iso(now)))
+    return cur.lastrowid
+
+
+def list_scenarios(conn: sqlite3.Connection, character_id: int) -> list[sqlite3.Row]:
+    return conn.execute("SELECT * FROM financial_scenario WHERE character_id = ? ORDER BY id DESC",
+                        (character_id,)).fetchall()
+
+
+def delete_scenario(conn: sqlite3.Connection, character_id: int, scenario_id: int) -> bool:
+    cur = conn.execute("DELETE FROM financial_scenario WHERE id = ? AND character_id = ?", (scenario_id, character_id))
+    return cur.rowcount > 0
+
+
 def create_session(conn: sqlite3.Connection, character_id: int, now: datetime) -> str:
     """Devuelve el token en claro (va solo a la cookie); en la base queda su hash."""
     raw = secrets.token_urlsafe(32)
@@ -229,4 +268,5 @@ def export_user(conn: sqlite3.Connection, character_id: int) -> dict | None:
                             (character_id,)).fetchall()
     profile = get_profile(conn, character_id)
     return {"user": dict(user), "token": dict(token) if token else None, "sessions": [dict(s) for s in sessions],
-            "profile": dict(profile) if profile else None}
+            "profile": dict(profile) if profile else None,
+            "scenarios": [dict(s) for s in list_scenarios(conn, character_id)]}

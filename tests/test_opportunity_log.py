@@ -14,7 +14,8 @@ from storage.db import (
     recent_opportunity_times,
 )
 
-NOW = datetime(2026, 11, 18, 12, 0, 0, tzinfo=timezone.utc)
+# La purga cuenta desde el reloj real, así que el "ahora" de la prueba también lo es (con una fecha fija la prueba caduca).
+NOW = datetime.now(timezone.utc).replace(microsecond=0)
 
 
 def _iso(minutes_ago: float) -> str:

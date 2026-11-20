@@ -10,7 +10,9 @@ mc.TESTS = ["tests/test_profile.py"]
 E, U, M = "ingestion/esi_profile.py", "finance/user_profile.py", "backend/api/me.py"
 mc.MUTATIONS = [
     ("las habilidades se releen cada 24 días", E, "REFRESH_AFTER = timedelta(hours=24)", "REFRESH_AFTER = timedelta(days=24)"),
-    ("sin límite entre intentos", E, "if gap is not None and gap < MIN_ATTEMPT_GAP:", "if False:"),
+    ("sin límite entre intentos", E, "if gap is not None and gap < MIN_ATTEMPT_GAP and (force or profile[\"sync_status\"] != \"OK\"):", "if False:"),
+    ("la actualización manual no se frena tras una lectura correcta", E, "(force or profile[\"sync_status\"] != \"OK\")", "(profile[\"sync_status\"] != \"OK\")"),
+    ("un fallo no frena el reintento inmediato", E, "(force or profile[\"sync_status\"] != \"OK\")", "force"),
     ("el saldo casi no se cachea", E, "WALLET_TTL = timedelta(minutes=5)", "WALLET_TTL = timedelta(seconds=1)"),
     ("el aviso de perfil viejo tarda 20 días", E, "STALE_AFTER = timedelta(hours=48)", "STALE_AFTER = timedelta(hours=480)"),
     ("id equivocado de Broker Relations", E, "3446: \"broker_relations\"", "3447: \"broker_relations\""),
@@ -45,7 +47,7 @@ mc.MUTATIONS = [
     ("se aceptan mercados inventados", M, "if market_id not in HUB_BY_MARKET:", "if False:"),
     ("se aceptan campos desconocidos", M, "model_config = ConfigDict(extra=\"forbid\")", "model_config = ConfigDict()"),
     ("el nivel de Accounting no se acota", M, "accounting: int | None = Field(None, ge=0, le=5)", "accounting: int | None = Field(None)"),
-    ("la exportación omite el perfil", "storage/users_db.py", "\"profile\": dict(profile) if profile else None}", "\"profile\": None}"),
+    ("la exportación omite el perfil", "storage/users_db.py", "\"profile\": dict(profile) if profile else None,", "\"profile\": None,"),
     ("el perfil sobrevive al borrado del usuario", "storage/users_db.py",
      "character_id INTEGER PRIMARY KEY REFERENCES user(character_id) ON DELETE CASCADE,\n    skills_json",
      "character_id INTEGER PRIMARY KEY,\n    skills_json"),

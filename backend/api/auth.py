@@ -21,7 +21,7 @@ from storage import token_crypto, users_db
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-CONSENT_VERSION = "2026-11-20"           # sube cuando cambie la lista de datos o su uso (pide consentir de nuevo)
+CONSENT_VERSION = "2026-11-20.2"           # sube cuando cambie la lista de datos o su uso (pide consentir de nuevo)
 SESSION_COOKIE = "eve_session"
 STATE_COOKIE = "eve_oauth"
 STATE_TTL = 600
