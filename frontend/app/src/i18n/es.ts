@@ -394,7 +394,7 @@ export const es: Messages = {
   "account.deleteConfirm": "¿Borrar todos tus datos de este sitio? No se puede deshacer.",
   "account.consentTitle": "Entra con tu personaje de EVE",
   "account.consentIntro": "Te llevaremos al inicio de sesión oficial de EVE Online (CCP). Nunca vemos tu contraseña. Con tu permiso, el sitio leerá solo:",
-  "account.consentData": "Tus habilidades de comercio (Broker Relations, Accounting, Advanced Broker Relations), tus standings y el saldo de tu wallet, para calcular tus propias comisiones, capital y recomendaciones.",
+  "account.consentData": "Tus habilidades de comercio (Broker Relations, Accounting, Advanced Broker Relations), tus standings y el saldo de tu wallet, además de tus órdenes de mercado abiertas (solo para sumar el ISK retenido en tus órdenes de compra), para calcular tus propias comisiones, capital y recomendaciones.",
   "account.consentKept": "Guardamos el ID y el nombre de tu personaje, un token de acceso cifrado y la fecha en que aceptaste, además de los últimos valores leídos de tu personaje (los tres niveles de habilidad, los standings con las facciones y corporaciones de los hubs y tu saldo) para no consultar a CCP en cada visita. No se guarda historial. Los escenarios que decidas guardar se conservan con tu cuenta hasta que los borres.",
   "account.consentNever": "No leemos tus activos, contactos, correo ni historial del wallet, y nunca compartimos tus datos.",
   "account.consentRights": "Al cerrar sesión se elimina el token de acceso. Puedes descargar o borrar todo cuando quieras, y las cuentas sin uso durante 12 meses se borran solas.",
