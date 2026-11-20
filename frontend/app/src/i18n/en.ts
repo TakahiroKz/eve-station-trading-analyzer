@@ -506,6 +506,11 @@ export const en = {
   "sim.compareHint": "Pick 2 to 6 scenarios.",
   "sim.saved": "Saved.",
   "sim.full": "You reached the limit of saved scenarios. Delete one first.",
+  "myfees.label": "Use my fees",
+  "myfees.help": "Recalculate ROI, status and score with the broker fee and sales tax from your EVE skills and standings.",
+  "myfees.active": "Your fees here: broker {broker}%, sales tax {tax}%",
+  "myfees.same": "same as the reference fees",
+  "myfees.detail": "Figures calculated with your fees: broker fee {broker}%, sales tax {tax}%.",
 } as const;
 
 export type MessageKey = keyof typeof en;

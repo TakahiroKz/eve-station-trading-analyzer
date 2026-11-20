@@ -147,7 +147,7 @@ def test_the_cache_never_grows_past_its_limit(seeded):
     from backend.api import main as api_main
 
     api_main._RESCORE_CACHE.clear()
-    for capital in range(1, 12):
+    for capital in range(1, api_main._RESCORE_CACHE_MAX + 6):
         seeded.get("/api/items", params={"capital": capital * 10_000_000, "min_score": 1})
 
     assert len(api_main._RESCORE_CACHE) == api_main._RESCORE_CACHE_MAX

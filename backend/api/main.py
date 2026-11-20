@@ -20,7 +20,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -28,6 +28,7 @@ from backend.api.analytics import private_router as analytics_private_router
 from backend.api.auth import router as auth_router
 from backend.api.finance import router as finance_router
 from backend.api.me import router as me_router
+from backend.api.personalize import PRIVATE, ProfileContext, load_context, personalize_row, roi_filter_sql
 from backend.api.analytics import router as analytics_router
 from backend.api.deps import ITEM_JOIN, ITEM_SELECT_COLS, _db, resolve_market
 from backend.api.indexnow import router as indexnow_router
@@ -142,7 +143,7 @@ def _score_inputs(row) -> tuple[ScoreInputs, dict]:
     ), extras
 
 
-def build_assessment(row, conn, capital: float | None = None) -> dict | None:
+def build_assessment(row, conn, capital: float | None = None, profile: "ProfileContext | None" = None) -> dict | None:
     """Explicación completa del puntaje de un ítem, recalculada con el mismo código que el motor
     (analytics.opportunity.evaluate_item) a partir de la fila de item_status y de score_inputs. Si los
     ajustes cambiaron desde la última evaluación, `config_changed` lo dice (el número del listado es el
@@ -150,12 +151,16 @@ def build_assessment(row, conn, capital: float | None = None) -> dict | None:
     if "score_version" not in row.keys() or row["score_version"] is None:
         # Sin columna (la API arrancó antes que la migración) o ítem aún sin puntaje.
         return None
+    settings = settings_for_capital(conn, capital)
+    if profile is not None and profile.active:
+        settings = profile.apply(settings)
+        row = personalize_row(row, settings)      # ROI y estado con las comisiones del jugador
     inputs, extras = _score_inputs(row)
-    score, assessment = evaluate_item(inputs, row["best_sell"], extras, settings_for_capital(conn, capital))
+    score, assessment = evaluate_item(inputs, row["best_sell"], extras, settings)
     return {
         "algorithm_version": score.version,
         "stored_version": row["score_version"],
-        "config_changed": score.version != row["score_version"] and capital is None,
+        "config_changed": score.version != row["score_version"] and capital is None and profile is None,
         "capital": capital,
         "evaluated_at": row["last_evaluated_at"],
         "data_age_min": extras["age"],
@@ -171,14 +176,15 @@ def build_assessment(row, conn, capital: float | None = None) -> dict | None:
 _RESCORE_CACHE: "OrderedDict[tuple, dict]" = OrderedDict()
 _RESCORE_LOCK = threading.Lock()
 _RESCORE_COMPUTE = threading.Lock()  # un solo recálculo de mercado entero a la vez; los demás esperan y usan la caché
-_RESCORE_CACHE_MAX = 6
+_RESCORE_CACHE_MAX = 24   # los perfiles personales (factores distintos) comparten esta caché con los capitales
 
 
-def rescored_market(conn, market_id: str, capital: float, settings: dict, configs: tuple) -> dict:
-    """{type_id: (score, score_class, eligibility, recommendation)} de todo el mercado para ese capital."""
+def rescored_market(conn, market_id: str, capital: float, settings: dict, configs: tuple, personal: bool = False) -> dict:
+    """{type_id: (score, score_class, eligibility, recommendation, roi, status, evaluacion_spread, reason)} de todo el
+    mercado para ese capital y esos ajustes; con `personal` el ROI y el estado también son los del jugador."""
     stamp = conn.execute("SELECT MAX(last_evaluated_at) FROM item_status WHERE market_id = ?", (market_id,)).fetchone()[0]
     db_file = conn.execute("PRAGMA database_list").fetchone()[2]   # la caché nunca mezcla bases distintas
-    key = (db_file, market_id, float(capital), stamp, hash(tuple(sorted(settings.items()))))
+    key = (db_file, market_id, float(capital), stamp, personal, hash(tuple(sorted(settings.items()))))
     def cached():
         with _RESCORE_LOCK:
             if key in _RESCORE_CACHE:
@@ -196,9 +202,10 @@ def rescored_market(conn, market_id: str, capital: float, settings: dict, config
         result = {}
         for row in conn.execute(
                 "SELECT * FROM item_status WHERE market_id = ? AND score_version IS NOT NULL", (market_id,)):
-            updated = rescore_row(row, settings, configs)
+            updated = rescore_row(row, settings, configs, personal)
             result[row["type_id"]] = (updated["score"], updated["score_class"], updated["eligibility"],
-                                      updated["recommendation"])
+                                      updated["recommendation"], updated["roi"], updated["status"],
+                                      updated["evaluacion_spread"], updated["reason"])
         with _RESCORE_LOCK:
             _RESCORE_CACHE[key] = result
             while len(_RESCORE_CACHE) > _RESCORE_CACHE_MAX:
@@ -207,11 +214,13 @@ def rescored_market(conn, market_id: str, capital: float, settings: dict, config
 
 
 def build_unit_recommendation(status_row, snapshot_row, conn, capital: float | None,
-                              assessment: dict | None) -> UnitRecommendationOut | None:
+                              assessment: dict | None, profile: "ProfileContext | None" = None) -> UnitRecommendationOut | None:
     """Unidades a comprar según el capital: la posición es capital x `position_size_pct_wallet` (10 %) y la cuenta es
     la misma del motor (evaluar_oportunidad, que ya recorta por liquidez). Sin capital elegido se usa el de
     referencia. Si la evaluación del motor es REJECT, las unidades sugeridas son 0 y `blocked_by` dice por qué."""
     settings = settings_for_capital(conn, capital)
+    if profile is not None:
+        settings = profile.apply(settings)       # beneficio por unidad y precio de la unidad con sus comisiones
     used_capital = float(settings["score_reference_capital"])
     buy = (snapshot_row["best_buy"] if snapshot_row is not None else None) or status_row["best_buy"]
     sell = (snapshot_row["best_sell"] if snapshot_row is not None else None) or status_row["best_sell"]
@@ -243,10 +252,13 @@ def build_unit_recommendation(status_row, snapshot_row, conn, capital: float | N
     )
 
 
-def rescore_row(row, settings: dict, configs: tuple) -> dict:
+def rescore_row(row, settings: dict, configs: tuple, personal: bool = False) -> dict:
     """La fila (como dict) con score / score_class / eligibility / recommendation recalculados con los ajustes
     dados (p. ej. con el capital del visitante). Las filas sin puntaje se devuelven igual."""
     out = dict(row)
+    if personal:                                   # ROI y estado con las comisiones del jugador (settings ya son los suyos)
+        out = personalize_row(out, settings)       # también los ítems aún sin puntaje: su ROI no puede ser el de referencia
+        row = out
     if "score_version" not in out or out["score_version"] is None:
         return out
     inputs, extras = _score_inputs(row)
@@ -254,6 +266,15 @@ def rescore_row(row, settings: dict, configs: tuple) -> dict:
     out.update(score=score.score, score_class=score.classification,
                eligibility=assessment["eligibility"]["status"], recommendation=assessment["recommendation"]["action"])
     return out
+
+
+def _profile_context(request: Request, market: str) -> ProfileContext:
+    """Contexto del jugador (comisiones de su perfil en ese mercado) para `profile=mine`; exige sesión."""
+    conn = _db()
+    try:
+        return load_context(request, resolve_market(conn, market), get_app_settings_dict(conn))
+    finally:
+        conn.close()
 
 
 @app.get("/api/markets", response_model=list[MarketOut])
@@ -313,6 +334,8 @@ def get_schedule():
 
 @app.get("/api/items", response_model=ItemsPageOut)
 def list_items(
+    request: Request,
+    response: Response,
     market: str = DEFAULT_MARKET,
     status: str | None = None,
     category_id: int | None = None,
@@ -335,6 +358,7 @@ def list_items(
     eligibility: str | None = None,
     recommendation: str | None = None,
     capital: float | None = Query(default=None, ge=CAPITAL_MIN, le=CAPITAL_MAX),
+    profile: str | None = Query(default=None, pattern="^mine$"),
     sort: str = "volumen_diario_real",
     order: str = "desc",
     limit: int = 50,
@@ -360,14 +384,18 @@ def list_items(
         raise HTTPException(400, "limit debe estar entre 1 y 500")
 
     capital = snap_capital(capital)
-    # Con capital propio, los filtros y el orden por puntaje se aplican DESPUÉS de recalcularlo (el puntaje
-    # guardado es el del capital de referencia y no coincidiría con lo que ve el visitante).
-    recompute_all = capital is not None and (
+    ctx = _profile_context(request, market) if profile == "mine" else None
+    if ctx is not None:
+        response.headers.update(PRIVATE)       # datos del jugador: nunca en cachés compartidas (Cloudflare incluido)
+    personal = ctx is not None and ctx.active
+    # Con capital propio (o comisiones propias), los filtros y el orden por puntaje se aplican DESPUÉS de recalcularlo
+    # (lo guardado es de las comisiones y el capital de referencia y no coincidiría con lo que ve el jugador).
+    recompute_all = (capital is not None or personal) and (
         min_score is not None or score_class is not None or eligibility is not None
-        or recommendation is not None or sort == "score")
+        or recommendation is not None or sort == "score" or (personal and status is not None))
     filters: list[str] = ["s.market_id = ?"]
     params: list = []
-    if status:
+    if status and not personal:               # con comisiones propias el estado se recalcula (más abajo)
         filters.append("s.status = ?")
         params.append(status)
     if category_id is not None:
@@ -392,6 +420,13 @@ def list_items(
         escaped = name_query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         filters.append("i.name LIKE ? ESCAPE '\\'")
         params.append(f"%{escaped}%")
+    if personal:                              # ROI propio: condición exacta sobre precios, sin pasar por el ROI guardado
+        own = {"sales_tax_factor": ctx.factors[0], "buy_fee_factor": ctx.factors[1]}
+        for value, operator in ((min_roi, ">="), (max_roi, "<=")):
+            if value is not None:
+                filters.append(roi_filter_sql("s.best_buy", "s.best_sell", own, operator))
+                params.append(value)
+        min_roi = max_roi = None
     for column, value in [
         ("s.roi", min_roi), ("s.spread_bruto", min_spread), ("s.best_buy", min_buy),
         ("s.best_sell", min_sell), ("s.volumen_diario_real", min_volume), ("s.price_trend", min_trend),
@@ -423,20 +458,24 @@ def list_items(
             sort_col = f"(s.{sql_sort} IS NULL), {sort_col}"
         query = f"SELECT {ITEM_SELECT_COLS} {ITEM_JOIN}{where} ORDER BY {sort_col} {order.upper()}{tiebreaker}"
 
-        if capital is None:
+        info = ctx.info if ctx is not None else None
+        if capital is None and not personal:
             rows = conn.execute(f"{query} LIMIT ? OFFSET ?", [*params, limit, offset]).fetchall()
-            return ItemsPageOut(items=[ItemStatusOut(**dict(r)) for r in rows], total=total, limit=limit, offset=offset)
+            return ItemsPageOut(items=[ItemStatusOut(**dict(r)) for r in rows], total=total, limit=limit, offset=offset,
+                                profile=info)
 
         settings = settings_for_capital(conn, capital)
+        if personal:
+            settings = ctx.apply(settings)
         configs = make_configs(settings)
         if not recompute_all:
             rows = conn.execute(f"{query} LIMIT ? OFFSET ?", [*params, limit, offset]).fetchall()
-            items = [rescore_row(r, settings, configs) for r in rows]
+            items = [rescore_row(r, settings, configs, personal) for r in rows]
         else:
             # Solo se piden id y ROI de todas las filas (no las ~30 columnas de 17 mil): se filtra y ordena por el puntaje
             # recalculado y únicamente las filas de la página se leen completas. Antes cada petición construía 17 mil
             # diccionarios (~350 ms de CPU) y con varios clientes a la vez la mediana pasaba de 9 s.
-            scores = rescored_market(conn, market_id, capital, settings, configs)
+            scores = rescored_market(conn, market_id, settings["score_reference_capital"], settings, configs, personal)
             ids_query = f"SELECT s.type_id, s.roi {ITEM_JOIN}{where} ORDER BY {sort_col} {order.upper()}{tiebreaker}"
             kept = []
             for type_id, roi in conn.execute(ids_query, params):
@@ -448,6 +487,8 @@ def list_items(
                 if eligibility is not None and (hit is None or hit[2] != eligibility):
                     continue
                 if recommendation is not None and (hit is None or hit[3] != recommendation):
+                    continue
+                if personal and status is not None and (hit is None or hit[5] != status):
                     continue
                 kept.append((type_id, roi, hit))
             if sort == "score":
@@ -471,9 +512,11 @@ def list_items(
                     continue
                 if hit is not None:
                     row.update(score=hit[0], score_class=hit[1], eligibility=hit[2], recommendation=hit[3])
+                    if personal:
+                        row.update(roi=hit[4], status=hit[5], evaluacion_spread=hit[6], reason=hit[7])
                 items.append(row)
         return ItemsPageOut(items=[ItemStatusOut(**r) for r in items], total=total, limit=limit, offset=offset,
-                            capital=capital)
+                            capital=capital, profile=info)
     finally:
         conn.close()
 
@@ -494,8 +537,13 @@ def list_categories(market: str = DEFAULT_MARKET):
 
 
 @app.get("/api/items/{type_id}", response_model=ItemDetailOut)
-def get_item_detail(type_id: int, market: str = DEFAULT_MARKET,
-                    capital: float | None = Query(default=None, ge=CAPITAL_MIN, le=CAPITAL_MAX)):
+def get_item_detail(request: Request, response: Response, type_id: int, market: str = DEFAULT_MARKET,
+                    capital: float | None = Query(default=None, ge=CAPITAL_MIN, le=CAPITAL_MAX),
+                    profile: str | None = Query(default=None, pattern="^mine$")):
+    ctx = _profile_context(request, market) if profile == "mine" else None
+    if ctx is not None:
+        response.headers.update(PRIVATE)
+    personal = ctx is not None and ctx.active
     conn = _db()
     try:
         market = resolve_market(conn, market)
@@ -530,17 +578,21 @@ def get_item_detail(type_id: int, market: str = DEFAULT_MARKET,
 
         capital = snap_capital(capital)
         status_dict = dict(status_row)
-        if capital is not None:  # el número de la cabecera debe coincidir con el desglose del panel
+        if capital is not None or personal:  # el número de la cabecera debe coincidir con el desglose del panel
             settings = settings_for_capital(conn, capital)
-            status_dict = rescore_row(status_row, settings, make_configs(settings))
-        assessment = build_assessment(status_row, conn, capital)
+            if personal:
+                settings = ctx.apply(settings)
+            status_dict = rescore_row(status_row, settings, make_configs(settings), personal)
+        assessment = build_assessment(status_row, conn, capital, ctx if personal else None)
         return ItemDetailOut(
             status=ItemStatusOut(**status_dict),
             history=[HistoryPointOut(**dict(r)) for r in history_rows],
             latest_snapshot=SnapshotOut(**dict(snapshot_row)) if snapshot_row else None,
             latest_opportunities=[OpportunityOut(**dict(r)) for r in opportunity_rows],
             assessment=assessment,
-            recommendation=build_unit_recommendation(status_row, snapshot_row, conn, capital, assessment),
+            recommendation=build_unit_recommendation(status_row, snapshot_row, conn, capital, assessment,
+                                                     ctx if personal else None),
+            profile=ctx.info if ctx is not None else None,
         )
     finally:
         conn.close()

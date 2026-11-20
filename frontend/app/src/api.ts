@@ -1,3 +1,4 @@
+import type { FeeProfileInfo } from "./MyFees";
 export type Status = "POTENCIAL" | "POTENCIAL_SIN_ORDENES" | "DESCARTADO" | "EN_OBSERVACION";
 
 export interface ItemStatus {
@@ -37,6 +38,7 @@ export interface ItemsPage {
   limit: number;
   offset: number;
   capital?: number | null; // capital (snapped by the server) the scores were computed for; null = reference
+  profile?: FeeProfileInfo | null; // the player's fees applied (profile=mine); null = reference fees
 }
 
 export interface Category {
@@ -170,6 +172,7 @@ export interface ItemDetail {
   latest_snapshot: Snapshot | null;
   latest_opportunities: Opportunity[];
   assessment?: Assessment | null;
+  profile?: FeeProfileInfo | null;
 }
 
 export type TrendLabel = "up" | "down" | "flat" | "lowliq" | "nodata";
@@ -202,6 +205,7 @@ export interface ItemFilters {
   minScore?: number;
   eligibility?: Eligibility;
   capital?: number; // ISK: the server recomputes the score for this capital
+  profile?: "mine"; // recalculate ROI, status and score with the signed-in player's own fees
   sort?: string;
   order?: "asc" | "desc";
   limit?: number;
@@ -316,6 +320,7 @@ function buildQuery(filters: ItemFilters): string {
   if (filters.minScore != null) params.set("min_score", String(filters.minScore));
   if (filters.eligibility) params.set("eligibility", filters.eligibility);
   if (filters.capital != null) params.set("capital", String(filters.capital));
+  if (filters.profile) params.set("profile", filters.profile);
   if (filters.minVolume != null) params.set("min_volume", String(filters.minVolume));
   if (filters.maxVolume != null) params.set("max_volume", String(filters.maxVolume));
   params.set("sort", filters.sort ?? "volumen_diario_real");
@@ -336,9 +341,11 @@ export const api = {
   schedule: () => get<Schedule>("/schedule"),
   items: (filters: ItemFilters) => get<ItemsPage>(`/items?${buildQuery(filters)}`),
   categories: (market?: string) => get<Category[]>(withMarket("/categories", market)),
-  itemDetail: (typeId: number, market?: string, capital?: number) => {
-    const path = withMarket(`/items/${typeId}`, market);
-    return get<ItemDetail>(capital == null ? path : `${path}${path.includes("?") ? "&" : "?"}capital=${capital}`);
+  itemDetail: (typeId: number, market?: string, capital?: number, profile?: "mine") => {
+    let path = withMarket(`/items/${typeId}`, market);
+    if (capital != null) path += `${path.includes("?") ? "&" : "?"}capital=${capital}`;
+    if (profile) path += `${path.includes("?") ? "&" : "?"}profile=${profile}`;
+    return get<ItemDetail>(path);
   },
   // Rutas /private/* — detrás de Cloudflare Access (T14). Cualquier rechazo (bloqueo
   // de Access, red) es esperado para un visitante sin sesión; quien llama decide

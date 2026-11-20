@@ -506,4 +506,9 @@ export const fr: Messages = {
   "sim.compareHint": "Choisissez de 2 à 6 scénarios.",
   "sim.saved": "Enregistré.",
   "sim.full": "Vous avez atteint la limite de scénarios enregistrés. Supprimez-en un d'abord.",
+  "myfees.label": "Utiliser mes frais",
+  "myfees.help": "Recalcule le ROI, le statut et le score avec les frais de courtage et la taxe de vente issus de vos compétences et standings EVE.",
+  "myfees.active": "Vos frais ici : courtage {broker}%, taxe de vente {tax}%",
+  "myfees.same": "identiques aux frais de référence",
+  "myfees.detail": "Chiffres calculés avec vos frais : courtage {broker}%, taxe de vente {tax}%.",
 };

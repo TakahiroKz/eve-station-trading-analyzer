@@ -43,6 +43,8 @@ class ItemsPageOut(BaseModel):
     offset: int
     # Capital (ISK) con el que se recalculó el puntaje de estos ítems; None = el de referencia guardado.
     capital: float | None = None
+    # Comisiones del jugador aplicadas (profile=mine): fuente, broker fee y sales tax; None = valores de referencia.
+    profile: dict | None = None
 
 
 class CategoryOut(BaseModel):
@@ -144,6 +146,7 @@ class ItemDetailOut(BaseModel):
     # Explicación del puntaje: factores (puntos / máximo / valor / frase), topes, filtros, códigos de motivo y
     # "qué tendría que cambiar". Calculada en el backend; el frontend solo la muestra. None si aún no hay puntaje.
     assessment: dict | None = None
+    profile: dict | None = None
 
 
 class StatusChangeOut(BaseModel):
