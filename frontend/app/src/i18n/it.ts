@@ -394,7 +394,7 @@ export const it: Messages = {
   "account.deleteConfirm": "Eliminare tutti i tuoi dati da questo sito? Non è reversibile.",
   "account.consentTitle": "Accedi con il tuo personaggio EVE",
   "account.consentIntro": "Verrai indirizzato al login ufficiale di EVE Online (CCP). Non vediamo mai la tua password. Con il tuo permesso, il sito leggerà solo:",
-  "account.consentData": "Le tue abilità di commercio (Broker Relations, Accounting, Advanced Broker Relations), i tuoi standing e il saldo del wallet, per calcolare le tue commissioni, il tuo capitale e le tue raccomandazioni.",
+  "account.consentData": "Le tue abilità di commercio (Broker Relations, Accounting, Advanced Broker Relations), i tuoi standing e il saldo del wallet, oltre ai tuoi ordini di mercato aperti (solo per sommare gli ISK vincolati negli ordini di acquisto), per calcolare le tue commissioni, il tuo capitale e le tue raccomandazioni.",
   "account.consentKept": "Conserviamo l'ID e il nome del tuo personaggio, un token di accesso cifrato e la data del tuo consenso, oltre agli ultimi valori letti dal tuo personaggio (i tre livelli di skill, gli standing con le fazioni e le corporazioni degli hub e il tuo saldo) per non interrogare CCP a ogni visita. Non viene conservato alcuno storico. Gli scenari che scegli di salvare restano associati al tuo account finché non li elimini.",
   "account.consentNever": "Non leggiamo i tuoi asset, contatti, mail né lo storico del wallet e non condividiamo mai i tuoi dati.",
   "account.consentRights": "Uscendo si elimina il token di accesso. Puoi scaricare o eliminare tutto in qualsiasi momento e gli account non usati da 12 mesi vengono eliminati automaticamente.",

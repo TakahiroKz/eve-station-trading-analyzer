@@ -394,7 +394,7 @@ export const de: Messages = {
   "account.deleteConfirm": "Alle deine Daten auf dieser Seite löschen? Das kann nicht rückgängig gemacht werden.",
   "account.consentTitle": "Mit deinem EVE-Charakter anmelden",
   "account.consentIntro": "Du wirst zur offiziellen EVE-Online-Anmeldung (CCP) weitergeleitet. Wir sehen dein Passwort nie. Mit deiner Erlaubnis liest die Seite nur:",
-  "account.consentData": "Deine Handelsfertigkeiten (Broker Relations, Accounting, Advanced Broker Relations), deine Standings und dein Wallet-Guthaben, um deine eigenen Gebühren, dein Kapital und deine Empfehlungen zu berechnen.",
+  "account.consentData": "Deine Handelsfertigkeiten (Broker Relations, Accounting, Advanced Broker Relations), deine Standings und dein Wallet-Guthaben sowie deine offenen Marktaufträge (nur um das in Kauforders gebundene ISK zu summieren), um deine eigenen Gebühren, dein Kapital und deine Empfehlungen zu berechnen.",
   "account.consentKept": "Wir speichern deine Charakter-ID und deinen Namen, ein verschlüsseltes Zugriffstoken und das Datum deiner Zustimmung sowie die zuletzt gelesenen Werte deines Charakters (die drei Skill-Stufen, die Standings zu den Fraktionen und Korporationen der Hubs und dein Guthaben), damit wir CCP nicht bei jedem Besuch abfragen. Es wird kein Verlauf gespeichert. Szenarien, die du speicherst, bleiben bei deinem Konto, bis du sie löschst.",
   "account.consentNever": "Wir lesen weder deine Assets, Kontakte, Mails noch deinen Wallet-Verlauf und geben deine Daten nie weiter.",
   "account.consentRights": "Beim Abmelden wird das Zugriffstoken entfernt. Du kannst jederzeit alles herunterladen oder löschen; Konten ohne Nutzung seit 12 Monaten werden automatisch gelöscht.",

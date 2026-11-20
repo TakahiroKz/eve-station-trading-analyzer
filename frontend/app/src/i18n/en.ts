@@ -394,7 +394,7 @@ export const en = {
   "account.deleteConfirm": "Delete all your data from this site? This cannot be undone.",
   "account.consentTitle": "Sign in with your EVE character",
   "account.consentIntro": "You will be sent to the official EVE Online login (CCP). We never see your password. The site will read, with your permission, only:",
-  "account.consentData": "Your trade skills (Broker Relations, Accounting, Advanced Broker Relations), your standings and your wallet balance, to calculate your own fees, capital and recommendations.",
+  "account.consentData": "Your trade skills (Broker Relations, Accounting, Advanced Broker Relations), your standings and your wallet balance, plus your open market orders (only to add up the ISK held in buy orders), to calculate your own fees, capital and recommendations.",
   "account.consentKept": "We keep your character ID and name, an encrypted access token and the date you agreed, plus the latest values read from your character (the three skill levels, the standings with the hub factions and corporations, and your balance) so we do not query CCP on every visit. No history is kept. Scenarios you choose to save are kept with your account until you delete them.",
   "account.consentNever": "We do not read your assets, contacts, mail or wallet history, and we never share your data.",
   "account.consentRights": "Signing out removes the access token. You can download or delete everything at any time, and accounts unused for 12 months are deleted automatically.",
