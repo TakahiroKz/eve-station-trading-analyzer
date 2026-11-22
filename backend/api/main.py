@@ -15,6 +15,7 @@ import logging
 import math
 import os
 import threading
+import time
 from collections import OrderedDict
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -58,6 +59,7 @@ from analytics.eve_calculator import (
     evaluar_oportunidad,
     resolve_volumen_deseado,
 )
+from analytics.history_calendar import history_info
 from analytics.opportunity import evaluate_item, make_configs, parse_inputs_blob
 from analytics.scoring import ScoreConfig, ScoreInputs, holding_days
 from ingestion.schedule import get_next_run_times
@@ -536,6 +538,22 @@ def list_categories(market: str = DEFAULT_MARKET):
         conn.close()
 
 
+_HISTORY_LATEST: dict[tuple, tuple[float, str | None]] = {}   # (base, mercado) -> (momento, último día guardado)
+_HISTORY_LATEST_TTL = 600.0
+
+
+def market_history_latest(conn, market_id: str) -> str | None:
+    """Último día de histórico guardado del mercado (no del ítem: un ítem sin operaciones no tiene fila ese día). Caché de 10 min."""
+    now = time.monotonic()
+    key = (conn.execute("PRAGMA database_list").fetchone()[2], market_id)   # la caché nunca mezcla bases distintas
+    hit = _HISTORY_LATEST.get(key)
+    if hit is not None and now - hit[0] < _HISTORY_LATEST_TTL:
+        return hit[1]
+    latest = conn.execute("SELECT MAX(date) FROM market_history WHERE market_id = ?", (market_id,)).fetchone()[0]
+    _HISTORY_LATEST[key] = (now, latest)
+    return latest
+
+
 @app.get("/api/items/{type_id}", response_model=ItemDetailOut)
 def get_item_detail(request: Request, response: Response, type_id: int, market: str = DEFAULT_MARKET,
                     capital: float | None = Query(default=None, ge=CAPITAL_MIN, le=CAPITAL_MAX),
@@ -593,6 +611,7 @@ def get_item_detail(request: Request, response: Response, type_id: int, market: 
             recommendation=build_unit_recommendation(status_row, snapshot_row, conn, capital, assessment,
                                                      ctx if personal else None),
             profile=ctx.info if ctx is not None else None,
+            history_info=history_info(market_history_latest(conn, market)),
         )
     finally:
         conn.close()

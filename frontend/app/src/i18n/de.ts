@@ -139,6 +139,8 @@ export const de: Messages = {
   "detail.perDay": "/Tag",
   "detail.unitsPerDay": "Stk./Tag",
   "detail.history": "Letzter Verlauf",
+  "detail.historyUntil": "Tagesverlauf bis {date}. ESI veröffentlicht den {next} gegen {time} UTC.",
+  "detail.historyLate": "Der Tagesverlauf ist verzögert: zuletzt gespeichert ist der {date}, ESI müsste bereits den {expected} haben. Es wird stündlich erneut versucht.",
   "detail.colDate": "Datum",
   "detail.colAvg": "Ø",
   "detail.colVol": "Vol",

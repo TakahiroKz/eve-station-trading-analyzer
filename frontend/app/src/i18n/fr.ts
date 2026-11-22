@@ -139,6 +139,8 @@ export const fr: Messages = {
   "detail.perDay": "/jour",
   "detail.unitsPerDay": "u/jour",
   "detail.history": "Historique récent",
+  "detail.historyUntil": "Historique quotidien jusqu'au {date}. L'ESI publie le {next} vers {time} UTC.",
+  "detail.historyLate": "L'historique quotidien a du retard : le dernier jour enregistré est le {date}, alors que l'ESI devrait déjà avoir le {expected}. Nouvelle tentative toutes les heures.",
   "detail.colDate": "Date",
   "detail.colAvg": "Moy.",
   "detail.colVol": "Vol",
