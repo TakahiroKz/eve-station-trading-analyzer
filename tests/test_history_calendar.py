@@ -29,9 +29,15 @@ def test_before_publication_the_previous_day_is_not_late_and_says_when_the_next_
 
 
 def test_after_publication_a_missing_day_is_late():
-    assert history_info("2026-11-20", at("2026-11-22", 11, 15))["late"] is True
+    assert history_info("2026-11-20", at("2026-11-22", 11, 50))["late"] is True
     assert history_info("2026-11-20", at("2026-11-22", 18))["late"] is True
     assert history_info("2026-11-21", at("2026-11-22", 18))["late"] is False
+
+
+def test_no_alert_while_the_first_hourly_run_has_not_happened_yet():
+    # la ESI publica 11:05 y el cron corre a las :35: entre 11:15 y 11:50 el día nuevo aún no puede estar guardado
+    for minute in (15, 35, 49):
+        assert history_info("2026-11-20", at("2026-11-22", 11, minute))["late"] is False
 
 
 def test_next_publication_after_a_current_day_is_tomorrow():
