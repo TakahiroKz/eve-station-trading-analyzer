@@ -28,6 +28,7 @@ import pandas as pd
 from dotenv import load_dotenv
 
 from analytics.classification import classify
+from analytics.history_calendar import expected_date
 from analytics.eve_calculator import (
     EveCalculatorConfig,
     config_from_settings,
@@ -156,17 +157,11 @@ HISTORY_MAX_FAILURE_RATE = 0.02  # fracción de tipos con error que hace fallar 
 HISTORY_CURRENT_COVERAGE = 0.9   # el día de ayer cuenta como completo con el 90 % de los tipos del día anterior
 
 
-HISTORY_PUBLISH_UTC = (11, 15)   # la ESI publica el día D-1 a las 11:05 UTC; margen de 10 min
 HISTORY_AUDIT_DAYS = 30          # ventana que revisa la auditoría de huecos
 HISTORY_GAP_COVERAGE = 0.5       # un día con menos de la mitad de los tipos habituales cuenta como hueco
 
 
-def history_expected_date(now: datetime | None = None) -> date:
-    """Último día de histórico que la ESI ya debe tener publicado: ayer (UTC) desde las 11:15, y
-    anteayer antes de esa hora (así las corridas nocturnas del cron no repiten trabajo inútil)."""
-    now = now or datetime.now(timezone.utc)
-    published = (now.hour, now.minute) >= HISTORY_PUBLISH_UTC
-    return now.date() - timedelta(days=1 if published else 2)
+history_expected_date = expected_date   # el calendario de publicación vive en analytics/history_calendar.py
 
 
 def _history_counts(db_path: str, market_id: str, since: str) -> dict[str, int]:

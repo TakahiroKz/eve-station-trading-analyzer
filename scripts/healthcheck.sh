@@ -145,7 +145,7 @@ fi
 # 6b: datos del histórico -- el log se toca aunque la corrida falle (así pasó el 18-nov: ESI devolvió 503,
 # el log existía y nadie se enteró del hueco). Pasada la ventana de reintentos del cron, cada mercado activo
 # debe tener ya el día de ayer (UTC). Lectura directa de la base; el texto no lleva fechas (anti-spam).
-HISTORY_DATA_CHECK_HOUR="${HISTORY_DATA_CHECK_HOUR:-17}"
+HISTORY_DATA_CHECK_HOUR="${HISTORY_DATA_CHECK_HOUR:-13}"
 DB_FILE="${DB_FILE:-$APP_DIR/storage/market.db}"
 if [ "$(date -u +%H)" -ge "$HISTORY_DATA_CHECK_HOUR" ] && [ -r "$DB_FILE" ] && command -v sqlite3 >/dev/null 2>&1; then
   # Escalado: un mercado con 2 días o más de retraso se avisa aparte y con otro texto (un aviso nuevo, no

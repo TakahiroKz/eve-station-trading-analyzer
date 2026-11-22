@@ -147,6 +147,8 @@ class ItemDetailOut(BaseModel):
     # "qué tendría que cambiar". Calculada en el backend; el frontend solo la muestra. None si aún no hay puntaje.
     assessment: dict | None = None
     profile: dict | None = None
+    # Último día de histórico guardado del mercado, el siguiente y cuándo lo publica la ESI; "late" = falta un día ya publicado.
+    history_info: dict | None = None
 
 
 class StatusChangeOut(BaseModel):

@@ -1304,6 +1304,13 @@ export default function App() {
             <ScorePanel status={selected.status} assessment={selected.assessment ?? null} t={t} locale={locale} />
 
             <h3>{t("detail.history")}</h3>
+            {selected.history_info && (
+              <p className={selected.history_info.late ? "profile-warn" : "muted"} role={selected.history_info.late ? "alert" : undefined}>
+                {selected.history_info.late
+                  ? t("detail.historyLate", { date: selected.history_info.latest_date ?? "—", expected: selected.history_info.expected_date })
+                  : t("detail.historyUntil", { date: selected.history_info.latest_date ?? "—", next: selected.history_info.next_date, time: selected.history_info.next_publish_at.slice(11, 16) })}
+              </p>
+            )}
             <table className="history-table">
               <thead>
                 <tr><th>{t("detail.colDate")}</th><th>{t("detail.colAvg")}</th><th>{t("detail.colVol")}</th></tr>

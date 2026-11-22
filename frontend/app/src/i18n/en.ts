@@ -139,6 +139,8 @@ export const en = {
   "detail.perDay": "/day",
   "detail.unitsPerDay": "u/day",
   "detail.history": "Recent history",
+  "detail.historyUntil": "Daily history up to {date}. ESI publishes {next} each day at about {time} UTC.",
+  "detail.historyLate": "The daily history is delayed: the latest day stored is {date}, but ESI should already have {expected}. It retries every hour.",
   "detail.colDate": "Date",
   "detail.colAvg": "Avg",
   "detail.colVol": "Vol",

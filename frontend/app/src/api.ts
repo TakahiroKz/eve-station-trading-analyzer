@@ -173,6 +173,7 @@ export interface ItemDetail {
   latest_opportunities: Opportunity[];
   assessment?: Assessment | null;
   profile?: FeeProfileInfo | null;
+  history_info?: { latest_date: string | null; expected_date: string; next_date: string; next_publish_at: string; late: boolean } | null;
 }
 
 export type TrendLabel = "up" | "down" | "flat" | "lowliq" | "nodata";
