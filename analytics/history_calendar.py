@@ -8,6 +8,7 @@ from datetime import date, datetime, time, timedelta, timezone
 
 HISTORY_PUBLISH_UTC = (11, 15)    # la ESI publica a las 11:05 UTC; margen de 10 min
 _ESI_PUBLISH_AT = time(11, 5)
+HISTORY_LATE_AFTER_UTC = (11, 50)   # el cron corre a :35: hasta aquí el día nuevo aún no tuvo su primera corrida, no es retraso
 
 
 def expected_date(now: datetime | None = None) -> date:
@@ -16,6 +17,11 @@ def expected_date(now: datetime | None = None) -> date:
     now = now or datetime.now(timezone.utc)
     published = (now.hour, now.minute) >= HISTORY_PUBLISH_UTC
     return now.date() - timedelta(days=1 if published else 2)
+
+
+def alert_date(now: datetime) -> date:
+    """Día que ya debería estar guardado para avisar de retraso: como expected_date, pero con margen para la primera corrida horaria."""
+    return now.date() - timedelta(days=1 if (now.hour, now.minute) >= HISTORY_LATE_AFTER_UTC else 2)
 
 
 def history_info(latest: str | None, now: datetime | None = None) -> dict:
@@ -31,4 +37,4 @@ def history_info(latest: str | None, now: datetime | None = None) -> dict:
     publish_at = datetime.combine(next_day + timedelta(days=1), _ESI_PUBLISH_AT, tzinfo=timezone.utc)
     return {"latest_date": latest_day.isoformat() if latest_day else None, "expected_date": expected.isoformat(),
             "next_date": next_day.isoformat(), "next_publish_at": publish_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "late": latest_day is None or latest_day < expected}
+            "late": latest_day is None or latest_day < alert_date(now)}
