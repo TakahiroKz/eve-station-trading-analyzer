@@ -16,6 +16,9 @@ explícitamente por él — ajustable si el screening resulta demasiado laxo/est
       mientras que el histórico de transacciones ejecutadas sí lo refleja.
     - POTENCIAL en caso contrario.
 - EN_OBSERVACION: todo lo demás — spread o liquidez borderline, se necesita más historial.
+
+La actividad (volumen y operaciones de 7 días, volumen de 30 días para la liquidez) se mide en días NATURALES hasta el
+último día publicado del mercado, con 0 en los días sin operaciones (analytics/activity_window.py).
 """
 GOOD_SPREADS = {"🟢 Buen margen", "🟢🟢 Muy bueno", "🟢🟢🟢 Excelente, si existe volumen"}
 GOOD_LIQUIDITY = {"Excelente liquidez", "Buena"}
@@ -29,7 +32,7 @@ UNEVALUATED_REASONS = {
     "no_book": "Sin órdenes en el libro: no hay órdenes de compra ni de venta abiertas con que evaluarlo.",
     "no_buy": "Sin órdenes de compra en el libro: no hay precio de compra con que evaluarlo.",
     "no_sell": "Sin órdenes de venta en el libro: no hay precio de venta con que evaluarlo.",
-    "no_history": "Sin operaciones en el histórico: no se puede medir su actividad real.",
+    "no_history": "Sin operaciones en los últimos 30 días: no se puede medir su actividad real.",
 }
 NO_PRICE_SPREAD = "— Sin precio"
 NO_DATA_LIQUIDITY = "Sin datos"

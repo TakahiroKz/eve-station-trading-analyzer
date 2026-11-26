@@ -27,6 +27,7 @@ import httpx
 import pandas as pd
 from dotenv import load_dotenv
 
+from analytics.activity_window import activity_windows
 from analytics.classification import NO_DATA_LIQUIDITY, NO_PRICE_SPREAD, UNEVALUATED_REASONS, classify
 from analytics.history_calendar import expected_date
 from analytics.eve_calculator import (
@@ -420,8 +421,8 @@ def screen_opportunities(db_path: str, excel_path: str,
                     settings["min_daily_volume_7d"], settings["min_daily_order_count_7d"])
 
         # Solo lo que el screening realmente usa: el ÚLTIMO snapshot de cada ítem y sus
-        # últimas HISTORY_WINDOW filas de histórico (más abajo se hace tail(30)/tail(7)
-        # por ítem). Cargar las tablas completas (1,3 GB en la VM de 1 GB de RAM) llevaba
+        # últimas HISTORY_WINDOW filas de histórico (bastan para los 30 días naturales de actividad: no hay más de una
+        # fila por día). Cargar las tablas completas (1,3 GB en la VM de 1 GB de RAM) llevaba
         # al swap thrashing y la corrida nunca terminaba.
         snapshot = pd.read_sql_query(
             "SELECT s.*, i.name FROM market_snapshot s JOIN item_type i ON i.type_id = s.type_id "
@@ -438,19 +439,22 @@ def screen_opportunities(db_path: str, excel_path: str,
         )
 
         latest_snapshot = snapshot.sort_values("captured_at").groupby("type_id").tail(1)
+        # Últimas 30 filas: solo para lo que es de PRECIO (referencia contra órdenes basura y volatilidad).
         recent_history = history.sort_values("date").groupby("type_id").tail(30)
-        recent_volume = recent_history.groupby("type_id")["volume"].mean().rename("volumen_diario_real")
         # Precio de referencia = mediano del histórico reciente (transacciones reales ejecutadas),
         # usado para descartar snapshots de órdenes activas que son basura (ver analytics/sanity.py).
         reference_price = recent_history.groupby("type_id")["avg_price"].median().rename("reference_price")
 
-        # Actividad real de mercado (últimos 7 días de TRANSACCIONES EJECUTADAS, no del libro de
-        # órdenes abiertas) — gate de analytics/classification.py contra "una sola ballena".
-        recent_history_7d = history.sort_values("date").groupby("type_id").tail(7)
-        avg_daily_volume_7d = recent_history_7d.groupby("type_id")["volume"].mean().rename("avg_daily_volume_7d")
-        avg_daily_order_count_7d = (
-            recent_history_7d.groupby("type_id")["order_count"].mean().rename("avg_daily_order_count_7d")
-        )
+        # Actividad real de mercado (TRANSACCIONES EJECUTADAS, no el libro de órdenes abiertas) en días NATURALES hasta
+        # el último día publicado del mercado: 7 días para el gate contra "una sola ballena" y 30 para la liquidez. Los
+        # días sin operaciones cuentan 0 (antes eran "las últimas 7/30 filas", que en ítems poco líquidos abarcaban meses).
+        first_dates = pd.read_sql_query(
+            "SELECT type_id, MIN(date) AS first_date FROM market_history WHERE market_id = ? GROUP BY type_id",
+            conn, params=(market_id,)).set_index("type_id")["first_date"]
+        windows = activity_windows(history, history["date"].max() if not history.empty else None, first_dates)
+        recent_volume = windows["volumen_diario_real"]
+        avg_daily_volume_7d = windows["avg_daily_volume_7d"]
+        avg_daily_order_count_7d = windows["avg_daily_order_count_7d"]
         # Copia de las series: dentro del bucle esos nombres pasan a ser los valores (float) de cada ítem.
         activity = {"volumen_diario_real": recent_volume, "avg_daily_volume_7d": avg_daily_volume_7d,
                     "avg_daily_order_count_7d": avg_daily_order_count_7d}

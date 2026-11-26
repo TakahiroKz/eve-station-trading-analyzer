@@ -557,6 +557,7 @@ def test_an_item_that_loses_one_side_of_the_book_is_discarded_with_its_reason(
     assert (lost_sell["buy_order_count"], lost_sell["sell_order_count"]) == (1, 0)
     assert lost_sell["evaluacion_spread"] == run.NO_PRICE_SPREAD and lost_sell["liquidez"] == run.NO_DATA_LIQUIDITY
     assert lost_sell["score"] is None and lost_sell["score_version"] is None
+    # su único día de histórico es hoy: lleva 1 día de vida, así que la media es la de ese día
     assert lost_sell["avg_daily_volume_7d"] == 40 and lost_sell["avg_daily_order_count_7d"] == 4
     assert rows[62518]["avg_daily_volume_7d"] == 0          # sin histórico no hay actividad que conservar
     assert all(r["last_evaluated_at"][:10] == fresh[:10] and r["last_evaluated_at"] > "2026-11" for r in rows.values())

@@ -165,7 +165,7 @@ export const it: Messages = {
   "reason.noBook": "Nessun ordine nel book: non ci sono ordini di acquisto o di vendita aperti per valutarlo.",
   "reason.noBuy": "Nessun ordine di acquisto nel book: non c'è un prezzo di acquisto per valutarlo.",
   "reason.noSell": "Nessun ordine di vendita nel book: non c'è un prezzo di vendita per valutarlo.",
-  "reason.noHistory": "Nessuno scambio nello storico: non si può misurare la sua attività reale.",
+  "reason.noHistory": "Nessuno scambio negli ultimi 30 giorni: non si può misurare la sua attività reale.",
 
   "rec.noTrade": "Non eseguire il trade a questi prezzi: lo spread non copre i costi in modo costante.",
   "rec.scale":
