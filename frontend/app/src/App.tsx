@@ -162,6 +162,8 @@ export default function App() {
     // ("2830") while 5-digit ones get a separator ("12.080"), which reads as two formats.
     return new Intl.NumberFormat(locale, { maximumFractionDigits: 2, useGrouping: "always" }).format(value);
   };
+  // Un precio 0 significa que ese lado del libro no tiene órdenes (el motor lo deja DESCARTADO sin ROI).
+  const priced = (item: { best_buy: number; best_sell: number }) => item.best_buy > 0 && item.best_sell > 0;
   const formatIskValue = (value: number | null | undefined) =>
     value == null ? "—" : `${formatIsk(value)} ISK`;
   // Percentages and per-day counts follow the language too (they used a fixed "." decimal).
@@ -1200,10 +1202,10 @@ export default function App() {
                 {item.price_trend != null && ` · ${trendText(item)}`}
               </span>
             </span>
-            <span className="col-num">{formatIsk(item.best_buy)}</span>
-            <span className="col-num">{formatIsk(item.best_sell)}</span>
-            <span className="col-num col-extra">{formatIsk(item.best_sell - item.best_buy)}</span>
-            <span className={item.roi >= 0 ? "col-num positive" : "col-num negative"}>{formatPct(item.roi)}</span>
+            <span className="col-num">{formatIsk(item.best_buy || null)}</span>
+            <span className="col-num">{formatIsk(item.best_sell || null)}</span>
+            <span className="col-num col-extra">{formatIsk(priced(item) ? item.best_sell - item.best_buy : null)}</span>
+            <span className={item.roi >= 0 ? "col-num positive" : "col-num negative"}>{priced(item) ? formatPct(item.roi) : "—"}</span>
             <span className="col-num col-extra col-score">
               <ScoreChip score={item.score} scoreClass={item.score_class} t={t} />
             </span>

@@ -1,4 +1,5 @@
 """SEO: páginas HTML por ítem, índice y sitemap dinámico."""
+import sqlite3
 
 from backend.api.pages import item_path, slugify
 from tests.conftest import seed_item
@@ -130,3 +131,23 @@ def test_indexnow_key_file_is_served_and_does_not_shadow_other_txt(client):
     assert response.status_code == 200
     assert response.text == INDEXNOW_KEY
     assert http.get("/otra-clave.txt").text != INDEXNOW_KEY
+
+
+def test_an_item_without_sell_orders_says_so_in_english_and_shows_no_roi(client):
+    from analytics.classification import NO_DATA_LIQUIDITY, NO_PRICE_SPREAD, UNEVALUATED_REASONS
+    http, db_path = client
+    seed_item(db_path, 34, "Tritanium", "DESCARTADO")
+    conn = sqlite3.connect(db_path)
+    conn.execute("UPDATE item_status SET reason = ?, evaluacion_spread = ?, liquidez = ?, best_sell = 0, roi = 0, "
+                 "spread_bruto = 0 WHERE type_id = 34",
+                 (UNEVALUATED_REASONS["no_sell"], NO_PRICE_SPREAD, NO_DATA_LIQUIDITY))
+    conn.commit()
+    conn.close()
+
+    page = http.get("/items/34-tritanium").text
+
+    assert "there are no sell orders, so there is no sell price to evaluate it." in page
+    assert "The best buy order is 4.00 ISK; there are no sell orders." in page
+    assert "0.00 ISK" not in page and "0.0%" not in page
+    assert "No price" in page and "No data" in page
+    assert NO_PRICE_SPREAD not in page and NO_DATA_LIQUIDITY not in page and "its spread is losing" not in page
