@@ -116,7 +116,16 @@ export function translateRecommendation(t: TFunction, text: string, locale: stri
   return text;
 }
 
+const REASON_STATIC: [string, MessageKey][] = [
+  [es["reason.noBook"], "reason.noBook"],
+  [es["reason.noBuy"], "reason.noBuy"],
+  [es["reason.noSell"], "reason.noSell"],
+  [es["reason.noHistory"], "reason.noHistory"],
+];
+
 export function translateReason(t: TFunction, text: string): string {
+  const fixed = REASON_STATIC.find(([spanish]) => spanish === text);
+  if (fixed) return t(fixed[1]);
   const sp = (label: string) => translateSpread(t, label);
   const lq = (label: string) => translateLiquidity(t, label);
 

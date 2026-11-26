@@ -76,6 +76,18 @@ logger = logging.getLogger(__name__)
 
 HISTORY_WINDOW = 30  # filas de histórico por ítem que usa el screening (ventana de 30 días)
 
+# Ítems con fila en item_status que el ciclo no puede evaluar (les falta un lado del libro o el histórico). Antes
+# conservaban el estado viejo indefinidamente (p. ej. POTENCIAL con precios de hace semanas); ahora quedan DESCARTADO
+# en cada ciclo con el motivo. Los textos deben coincidir con "reason.no*" de frontend/app/src/i18n/es.ts.
+UNEVALUATED_REASONS = {
+    "no_book": "Sin órdenes en el libro: no hay órdenes de compra ni de venta abiertas con que evaluarlo.",
+    "no_buy": "Sin órdenes de compra en el libro: no hay precio de compra con que evaluarlo.",
+    "no_sell": "Sin órdenes de venta en el libro: no hay precio de venta con que evaluarlo.",
+    "no_history": "Sin operaciones en el histórico: no se puede medir su actividad real.",
+}
+NO_PRICE_SPREAD = "— Sin precio"
+NO_DATA_LIQUIDITY = "Sin datos"
+
 # opportunity_log: un ítem se registra como mucho una vez por intervalo (y siempre que cambie de
 # estado). Antes se insertaba una fila por ítem y por ciclo: con ciclos de 5 min eran ~4,7 millones
 # de filas al día. La app solo muestra la última recomendación del ítem.
@@ -451,6 +463,9 @@ def screen_opportunities(db_path: str, excel_path: str,
         avg_daily_order_count_7d = (
             recent_history_7d.groupby("type_id")["order_count"].mean().rename("avg_daily_order_count_7d")
         )
+        # Copia de las series: dentro del bucle esos nombres pasan a ser los valores (float) de cada ítem.
+        activity = {"volumen_diario_real": recent_volume, "avg_daily_volume_7d": avg_daily_volume_7d,
+                    "avg_daily_order_count_7d": avg_daily_order_count_7d}
 
         trends = compute_price_trends(history, trend_config)
         # Volatilidad: coeficiente de variación del precio medio diario (30 d); sin 5 observaciones no se calcula.
@@ -616,6 +631,14 @@ def screen_opportunities(db_path: str, excel_path: str,
                     conn.commit()  # visibilidad incremental para lectores (ej. la API) y checkpoint ante cortes
 
         conn.commit()
+        snapshots = {int(r["type_id"]): r for r in latest_snapshot.to_dict("records")}
+        retired = retire_unevaluated(
+            conn, market_id, {int(t) for t in merged["type_id"]}, snapshots,
+            activity,
+            datetime.now(timezone.utc).isoformat())
+        conn.commit()
+        if retired:
+            logger.info("%d ítems sin libro completo o sin histórico pasan a DESCARTADO en %s", retired, market_id)
         purged = purge_opportunity_log(conn, log_retention_days)
         if purged:
             logger.info("opportunity_log: %d filas de más de %g días borradas", purged, log_retention_days)
@@ -623,6 +646,51 @@ def screen_opportunities(db_path: str, excel_path: str,
         return pd.DataFrame([r.__dict__ for _, r in results])
     finally:
         conn.close()
+
+
+def _price(snap: dict | None, key: str) -> float:
+    value = None if snap is None else snap.get(key)
+    return float(value) if value is not None and not pd.isna(value) and value > 0 else 0.0
+
+
+def unevaluated_reason(snap: dict | None) -> str:
+    """Por qué no se pudo evaluar un ítem: le falta el libro entero, un lado o (con los dos) el histórico."""
+    has_buy, has_sell = _price(snap, "best_buy") > 0, _price(snap, "best_sell") > 0
+    if not has_buy and not has_sell:
+        return UNEVALUATED_REASONS["no_book"]
+    if not has_buy:
+        return UNEVALUATED_REASONS["no_buy"]
+    if not has_sell:
+        return UNEVALUATED_REASONS["no_sell"]
+    return UNEVALUATED_REASONS["no_history"]
+
+
+def retire_unevaluated(conn, market_id: str, evaluated: set[int], snapshots: dict[int, dict],
+                       activity: dict[str, pd.Series], now: str) -> int:
+    """Deja DESCARTADO, con su motivo y los datos de hoy, cada ítem del mercado que este ciclo no evaluó; así ninguna fila
+    muestra un estado viejo. Sin puntaje (no hay precios con que calcularlo). Devuelve cuántos cambiaron de estado."""
+    changed = 0
+    for row in conn.execute("SELECT type_id, status FROM item_status WHERE market_id = ?", (market_id,)).fetchall():
+        type_id = int(row["type_id"])
+        if type_id in evaluated:
+            continue
+        snap = snapshots.get(type_id)
+        reason = unevaluated_reason(snap)
+        values = {key: float(series.get(type_id, 0.0) or 0.0) for key, series in activity.items()}
+        conn.execute(
+            "UPDATE item_status SET status = 'DESCARTADO', reason = ?, spread_bruto = 0, evaluacion_spread = ?, "
+            "liquidez = ?, roi = 0, best_buy = ?, best_sell = ?, buy_order_count = ?, sell_order_count = ?, "
+            "volumen_diario_real = ?, avg_daily_volume_7d = ?, avg_daily_order_count_7d = ?, last_evaluated_at = ?, "
+            "score = NULL, score_class = NULL, eligibility = NULL, recommendation = NULL, score_version = NULL, "
+            "score_inputs = NULL WHERE market_id = ? AND type_id = ?",
+            (reason, NO_PRICE_SPREAD, NO_DATA_LIQUIDITY, _price(snap, "best_buy"), _price(snap, "best_sell"),
+             int((snap or {}).get("buy_order_count") or 0), int((snap or {}).get("sell_order_count") or 0),
+             values["volumen_diario_real"], values["avg_daily_volume_7d"], values["avg_daily_order_count_7d"],
+             now, market_id, type_id))
+        if row["status"] != "DESCARTADO":
+            insert_status_history(conn, type_id, row["status"], "DESCARTADO", now, reason, market_id=market_id)
+            changed += 1
+    return changed
 
 
 def _run_market(client: EsiClient, market: Market, db_path: str, excel_path: str, args, max_workers: int) -> None:

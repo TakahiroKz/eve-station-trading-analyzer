@@ -154,12 +154,18 @@ export const en = {
   "spread.good": "🟢 Good margin",
   "spread.veryGood": "🟢🟢 Very good",
   "spread.excellent": "🟢🟢🟢 Excellent, if volume exists",
+  "spread.noPrice": "— No price",
 
   "liquidity.excellent": "Excellent liquidity",
   "liquidity.good": "Good",
   "liquidity.acceptable": "Acceptable",
   "liquidity.careful": "Careful",
   "liquidity.tooSlow": "Too slow for your capital",
+  "liquidity.noData": "No data",
+  "reason.noBook": "No orders in the book: there are no open buy or sell orders to evaluate it.",
+  "reason.noBuy": "No buy orders in the book: there is no buy price to evaluate it.",
+  "reason.noSell": "No sell orders in the book: there is no sell price to evaluate it.",
+  "reason.noHistory": "No trades in the history: its real activity cannot be measured.",
 
   "rec.noTrade": "Do not execute the trade at these prices: the spread does not consistently cover costs.",
   "rec.scale":
