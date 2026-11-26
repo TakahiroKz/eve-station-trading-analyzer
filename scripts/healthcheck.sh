@@ -20,6 +20,11 @@
 #   6. Histórico diario de mercado: su log (history_*.log) se tocó hace menos de
 #      HISTORY_MAX_AGE_HOURS horas (default 36). Si todavía no existe ningún log del
 #      histórico (primer día tras instalar el cron), no avisa.
+#   7. Clasificación de ítems: una vez al día, desde CLASSIFICATION_AUDIT_HOUR (UTC, default 14, lejos del
+#      mantenimiento de EVE de las 11:00), corre scripts/audit_classification.py dentro del contenedor de la API
+#      (solo lectura) y guarda el resultado del día en CLASSIFICATION_AUDIT_FILE; avisa mientras el último resultado
+#      sea un fallo (filas congeladas o estados que contradicen sus datos). El informe completo queda en
+#      logs/classification_audit.json. CHECK_CLASSIFICATION_AUDIT=0 lo apaga.
 #
 # Anti-spam: guarda el último estado en STATE_FILE y avisa por Telegram solo cuando
 # cambia (OK -> falla, cambia el motivo, o falla -> recuperado), no en cada corrida.
@@ -171,6 +176,32 @@ WHERE h.market_id = m.market_id), '') FROM market m WHERE m.enabled = 1" 2>/dev/
   fi
   if [ -n "$very_late_markets" ]; then
     failures+=("histórico de mercado con 2 días o más de retraso en: ${very_late_markets} (revisar la ESI y los logs de history)")
+  fi
+fi
+
+# 7: auditoría diaria de la clasificación (ver cabecera). El resultado se guarda con la fecha para correrla una
+# sola vez al día y seguir avisando (o no) en las demás corridas del cron sin repetirla.
+CHECK_CLASSIFICATION_AUDIT="${CHECK_CLASSIFICATION_AUDIT:-1}"
+CLASSIFICATION_AUDIT_HOUR="${CLASSIFICATION_AUDIT_HOUR:-14}"
+CLASSIFICATION_AUDIT_FILE="${CLASSIFICATION_AUDIT_FILE:-$APP_DIR/.classification_audit.state}"
+if [ "$CHECK_CLASSIFICATION_AUDIT" = "1" ] && command -v docker > /dev/null 2>&1; then
+  today="$(date -u +%F)"
+  audit_state="$(cat "$CLASSIFICATION_AUDIT_FILE" 2>/dev/null || true)"
+  if [ "${audit_state%%|*}" != "$today" ] && [ "$(date -u +%H)" -ge "$CLASSIFICATION_AUDIT_HOUR" ]; then
+    # El motor calcula la liquidez con el wallet de su último ciclo: la auditoría usa el mismo.
+    wallet="$(grep -h "Wallet ISK" "$LOG_DIR/scheduler_${today}.log" 2>/dev/null | tail -n1 \
+      | sed -E 's/.*Wallet ISK: ([0-9.]+).*/\1/')"
+    docker exec -i evemarket-api python - ${wallet:+--wallet "$wallet"} \
+      < "$APP_DIR/scripts/audit_classification.py" > "$LOG_DIR/classification_audit.json" 2>&1
+    case $? in
+      0) echo "${today}|OK" > "$CLASSIFICATION_AUDIT_FILE" ;;
+      1) echo "${today}|FAIL" > "$CLASSIFICATION_AUDIT_FILE" ;;
+      *) ;;   # la auditoría no pudo correr (API caída, etc.): ya lo cubren los chequeos de arriba; se reintenta
+    esac
+    audit_state="$(cat "$CLASSIFICATION_AUDIT_FILE" 2>/dev/null || true)"
+  fi
+  if [ "${audit_state#*|}" = "FAIL" ]; then   # el último resultado manda hasta la auditoría del día siguiente
+    failures+=("la auditoría de clasificación encontró filas congeladas o estados incoherentes (ver logs/classification_audit.json)")
   fi
 fi
 
