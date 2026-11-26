@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
+from analytics.classification import NO_DATA_LIQUIDITY, NO_PRICE_SPREAD, UNEVALUATED_REASONS
 from backend.api.deps import _db
 from backend.api.seo import CANONICAL_HOST
 from storage.db import DEFAULT_MARKET, MARKETS_SEED
@@ -61,6 +62,13 @@ STATUS_BLURB = {
     "EN_OBSERVACION": "it is a borderline case and needs more history.",
     "DESCARTADO": "its spread is losing or its liquidity is unviable.",
 }
+# Ítems que el motor no pudo evaluar (falta un lado del libro o el histórico): su motivo, en inglés.
+UNEVALUATED_BLURB = {
+    UNEVALUATED_REASONS["no_book"]: "there are no open buy or sell orders to evaluate it.",
+    UNEVALUATED_REASONS["no_buy"]: "there are no buy orders, so there is no buy price to evaluate it.",
+    UNEVALUATED_REASONS["no_sell"]: "there are no sell orders, so there is no sell price to evaluate it.",
+    UNEVALUATED_REASONS["no_history"]: "there are no trades in its history, so its real activity cannot be measured.",
+}
 # The engines store these labels in Spanish; they are shown here in English.
 SPREAD_EN = {
     "❌ Pérdida": "Loss",
@@ -69,6 +77,7 @@ SPREAD_EN = {
     "🟢 Buen margen": "Good margin",
     "🟢🟢 Muy bueno": "Very good",
     "🟢🟢🟢 Excelente, si existe volumen": "Excellent, if volume exists",
+    NO_PRICE_SPREAD: "No price",
 }
 LIQUIDITY_EN = {
     "Excelente liquidez": "Excellent liquidity",
@@ -76,6 +85,7 @@ LIQUIDITY_EN = {
     "Aceptable": "Acceptable",
     "Cuidado": "Careful",
     "Muy lenta para tu capital": "Too slow for your capital",
+    NO_DATA_LIQUIDITY: "No data",
 }
 
 # Look and feel shared with the React app (same tokens as frontend/app/src/App.css). The
@@ -189,7 +199,17 @@ def _e(value) -> str:
 
 
 def _isk(value: float | None) -> str:
-    return "—" if value is None else f"{value:,.2f} ISK"
+    return "—" if not value else f"{value:,.2f} ISK"     # 0 = ese lado del libro no tiene órdenes
+
+
+def _book_sentence(buy: float | None, sell: float | None) -> str:
+    if buy and sell:
+        return f"The best buy order is {_isk(buy)} and the best sell order is {_isk(sell)}."
+    if buy:
+        return f"The best buy order is {_isk(buy)}; there are no sell orders."
+    if sell:
+        return f"The best sell order is {_isk(sell)}; there are no buy orders."
+    return "There are no open orders."
 
 
 def _pct(value: float | None) -> str:
@@ -375,11 +395,12 @@ def _hubs_section(name: str, hubs) -> tuple[str, str]:
         if trend in ("Rising", "Falling") and hub["price_trend"] is not None:
             trend = f"{trend} {hub['price_trend'] * 100:+.1f}%"
         roi_class = "pos" if (hub["roi"] or 0) >= 0 else "neg"
+        hub_roi = hub["roi"] if hub["best_buy"] and hub["best_sell"] else None
         trades_text = f"{(hub['trades'] or 0):,.0f}"
         rows.append(
             f"<tr><td>{hub_link}</td>"
             f'<td class="num">{_e(_isk(hub["best_buy"]))}</td><td class="num">{_e(_isk(hub["best_sell"]))}</td>'
-            f'<td class="num {roi_class}">{_e(_pct(hub["roi"]))}</td>'
+            f'<td class="num {roi_class}">{_e(_pct(hub_roi))}</td>'
             f'<td class="num">{_e(trades_text)}</td>'
             f'<td class="num">{_e(STATUS_EN.get(hub["status"], hub["status"]))}</td>'
             f'<td class="num">{_e(trend)}</td></tr>'
@@ -469,6 +490,9 @@ def item_page(item_ref: str):
     spread_label = SPREAD_EN.get(row["evaluacion_spread"], row["evaluacion_spread"])
     liquidity_label = LIQUIDITY_EN.get(row["liquidez"], row["liquidez"])
     roi_class = "pos" if (row["roi"] or 0) >= 0 else "neg"
+    priced = bool(row["best_buy"] and row["best_sell"])
+    roi_value, spread_value = (row["roi"], row["spread_bruto"]) if priced else (None, None)
+    blurb = UNEVALUATED_BLURB.get(row["reason"] or "", STATUS_BLURB.get(status, ""))
     evaluated = row["last_evaluated_at"] or ""
     volume = row["avg_daily_volume_7d"]
     trades = row["avg_daily_order_count_7d"]
@@ -478,8 +502,8 @@ def item_page(item_ref: str):
         ("Classification", _e(status_label)),
         ("Best buy price", _e(_isk(row["best_buy"]))),
         ("Best sell price", _e(_isk(row["best_sell"]))),
-        ("ROI", f'<span class="{roi_class}">{_e(_pct(row["roi"]))}</span>'),
-        ("Gross spread", _e(_pct(row["spread_bruto"]))),
+        ("ROI", f'<span class="{roi_class}">{_e(_pct(roi_value))}</span>'),
+        ("Gross spread", _e(_pct(spread_value))),
         ("Spread rating", _e(spread_label)),
         ("Liquidity", _e(liquidity_label)),
         ("Average daily volume (7 days)", _e(f"{volume:,.0f} units" if volume is not None else "—")),
@@ -518,8 +542,7 @@ def item_page(item_ref: str):
     hubs_html, hubs_sentence = _hubs_section(name, hubs)
     summary = (
         f"{_e(name)} is currently classified as <strong>{_e(status_label)}</strong> for station "
-        f"trading in The Forge (Jita): {_e(STATUS_BLURB.get(status, ''))} The best buy order is "
-        f"{_e(_isk(row['best_buy']))} and the best sell order is {_e(_isk(row['best_sell']))}."
+        f"trading in The Forge (Jita): {_e(blurb)} {_e(_book_sentence(row['best_buy'], row['best_sell']))}"
         + (f" {_e(hubs_sentence)}" if hubs_sentence else "")
     )
     crumbs = (
@@ -528,7 +551,7 @@ def item_page(item_ref: str):
     )
     kpis = (
         '<div class="kpis">'
-        f'<div class="kpi"><span>ROI</span><strong class="{roi_class}">{_e(_pct(row["roi"]))}</strong></div>'
+        f'<div class="kpi"><span>ROI</span><strong class="{roi_class}">{_e(_pct(roi_value))}</strong></div>'
         f'<div class="kpi"><span>Buy → sell</span><strong>{_e(_isk(row["best_buy"]))} → '
         f'{_e(_isk(row["best_sell"]))}</strong></div>'
         f'<div class="kpi"><span>Trades per day (7d)</span>'
@@ -544,7 +567,7 @@ def item_page(item_ref: str):
     description = _trim(
         f"{name} in EVE Online: buy and sell price, ROI and trades per day across Jita, Amarr, Dodixie, "
         f"Rens and Hek. In Jita: {status_label}, buy {_isk(row['best_buy'])}, sell "
-        f"{_isk(row['best_sell'])}, ROI {_pct(row['roi'])}.", 158,
+        f"{_isk(row['best_sell'])}, ROI {_pct(roi_value)}.", 158,
     )
     ld = _json_ld(
         f"{name} — station trading in EVE's trade hubs", canonical_path,

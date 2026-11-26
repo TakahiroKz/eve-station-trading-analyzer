@@ -22,6 +22,18 @@ GOOD_LIQUIDITY = {"Excelente liquidez", "Buena"}
 BAD_SPREADS = {"❌ Pérdida"}
 BAD_LIQUIDITY = {"Muy lenta para tu capital"}
 
+# Ítems con fila en item_status que el ciclo no puede evaluar (les falta un lado del libro o el histórico). Antes
+# conservaban el estado viejo indefinidamente (p. ej. POTENCIAL con precios de hace semanas); ahora quedan DESCARTADO
+# en cada ciclo con el motivo. Los textos deben coincidir con "reason.no*" de frontend/app/src/i18n/es.ts.
+UNEVALUATED_REASONS = {
+    "no_book": "Sin órdenes en el libro: no hay órdenes de compra ni de venta abiertas con que evaluarlo.",
+    "no_buy": "Sin órdenes de compra en el libro: no hay precio de compra con que evaluarlo.",
+    "no_sell": "Sin órdenes de venta en el libro: no hay precio de venta con que evaluarlo.",
+    "no_history": "Sin operaciones en el histórico: no se puede medir su actividad real.",
+}
+NO_PRICE_SPREAD = "— Sin precio"
+NO_DATA_LIQUIDITY = "Sin datos"
+
 MIN_DAILY_VOLUME_7D = 10        # unidades/día promedio (últimos 7 días) para considerar flujo real
 MIN_DAILY_ORDER_COUNT_7D = 3    # operaciones distintas/día promedio, para descartar "una sola ballena"
 # Los dos de arriba son los DEFAULTS — el valor efectivo es configurable en runtime

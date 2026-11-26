@@ -27,7 +27,7 @@ import httpx
 import pandas as pd
 from dotenv import load_dotenv
 
-from analytics.classification import classify
+from analytics.classification import NO_DATA_LIQUIDITY, NO_PRICE_SPREAD, UNEVALUATED_REASONS, classify
 from analytics.history_calendar import expected_date
 from analytics.eve_calculator import (
     EveCalculatorConfig,
@@ -75,18 +75,6 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 HISTORY_WINDOW = 30  # filas de histórico por ítem que usa el screening (ventana de 30 días)
-
-# Ítems con fila en item_status que el ciclo no puede evaluar (les falta un lado del libro o el histórico). Antes
-# conservaban el estado viejo indefinidamente (p. ej. POTENCIAL con precios de hace semanas); ahora quedan DESCARTADO
-# en cada ciclo con el motivo. Los textos deben coincidir con "reason.no*" de frontend/app/src/i18n/es.ts.
-UNEVALUATED_REASONS = {
-    "no_book": "Sin órdenes en el libro: no hay órdenes de compra ni de venta abiertas con que evaluarlo.",
-    "no_buy": "Sin órdenes de compra en el libro: no hay precio de compra con que evaluarlo.",
-    "no_sell": "Sin órdenes de venta en el libro: no hay precio de venta con que evaluarlo.",
-    "no_history": "Sin operaciones en el histórico: no se puede medir su actividad real.",
-}
-NO_PRICE_SPREAD = "— Sin precio"
-NO_DATA_LIQUIDITY = "Sin datos"
 
 # opportunity_log: un ítem se registra como mucho una vez por intervalo (y siempre que cambie de
 # estado). Antes se insertaba una fila por ítem y por ciclo: con ciclos de 5 min eran ~4,7 millones
