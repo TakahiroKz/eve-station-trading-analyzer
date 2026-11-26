@@ -154,12 +154,18 @@ export const fr: Messages = {
   "spread.good": "🟢 Bonne marge",
   "spread.veryGood": "🟢🟢 Très bon",
   "spread.excellent": "🟢🟢🟢 Excellent, si le volume existe",
+  "spread.noPrice": "— Pas de prix",
 
   "liquidity.excellent": "Excellente liquidité",
   "liquidity.good": "Bonne",
   "liquidity.acceptable": "Acceptable",
   "liquidity.careful": "Prudence",
   "liquidity.tooSlow": "Trop lente pour votre capital",
+  "liquidity.noData": "Pas de données",
+  "reason.noBook": "Aucun ordre dans le carnet : il n'y a aucun ordre d'achat ou de vente ouvert pour l'évaluer.",
+  "reason.noBuy": "Aucun ordre d'achat dans le carnet : il n'y a pas de prix d'achat pour l'évaluer.",
+  "reason.noSell": "Aucun ordre de vente dans le carnet : il n'y a pas de prix de vente pour l'évaluer.",
+  "reason.noHistory": "Aucune transaction dans l'historique : son activité réelle ne peut pas être mesurée.",
 
   "rec.noTrade": "Ne pas exécuter le trade à ces prix : le spread ne couvre pas les coûts de façon régulière.",
   "rec.scale":

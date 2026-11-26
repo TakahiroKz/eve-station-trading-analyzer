@@ -2,9 +2,13 @@
 ingest_categories()/screen_opportunities(), y cuándo se dispara cada evento. Las
 funciones puras que ya usan (classify, is_price_sane, evaluar_oportunidad) tienen su
 propio test en analytics/ -- acá se mockean para aislar solo la orquestación."""
+import json
+from pathlib import Path
+
 import pytest
 
 from notifications.events import NewOpportunity
+from scheduler import run
 from scheduler.run import ingest, ingest_categories, screen_opportunities
 from storage.db import get_connection, init_db
 
@@ -499,3 +503,96 @@ def test_ingest_history_does_not_hold_the_write_lock_while_waiting_for_esi(db_pa
     stored = conn.execute("SELECT COUNT(*) FROM market_history").fetchone()[0]
     conn.close()
     assert stored == 120  # el buffer se escribe completo, incluido el último lote parcial
+
+
+# ---------- ítems que el ciclo no puede evaluar: nunca conservan un estado viejo ----------
+
+def _stale_row(db_path, type_id, name, *, buy, sell, with_history=True):
+    """Ítem con estado POTENCIAL de hace semanas y una foto del libro de hoy a la que le falta un lado (o entera)."""
+    conn = get_connection(db_path)
+    conn.execute("INSERT INTO item_type (type_id, name) VALUES (?, ?)", (type_id, name))
+    conn.execute(
+        "INSERT INTO item_status (type_id, status, reason, spread_bruto, evaluacion_spread, liquidez, roi, best_buy, "
+        "best_sell, volumen_diario_real, score, score_class, score_version, last_evaluated_at) "
+        "VALUES (?, 'POTENCIAL', 'viejo', 0.7, '🟢🟢🟢 Excelente, si existe volumen', 'Buena', 0.5, 8577, 14630, 100, "
+        "80, 'Alta', 'v1', '2026-10-03T00:25:59+00:00')", (type_id,))
+    if buy is not None or sell is not None:
+        conn.execute(
+            "INSERT INTO market_snapshot (type_id, captured_at, best_buy, best_sell, buy_volume, sell_volume, "
+            "buy_order_count, sell_order_count) VALUES (?, datetime('now'), ?, ?, 10, 10, ?, ?)",
+            (type_id, buy, sell, 1 if buy else 0, 1 if sell else 0))
+    if with_history:
+        conn.execute("INSERT INTO market_history (type_id, date, avg_price, highest, lowest, volume, order_count) "
+                     "VALUES (?, date('now'), 9000, 9500, 8500, 40, 4)", (type_id,))
+    conn.commit()
+    conn.close()
+
+
+def test_an_item_that_loses_one_side_of_the_book_is_discarded_with_its_reason(
+    tmp_path, screening_db, mocked_screening, monkeypatch,
+):
+    monkeypatch.setattr("scheduler.run.is_price_sane", lambda *a, **k: True)
+    monkeypatch.setattr("scheduler.run.classify", lambda *a, **k: ("POTENCIAL", "buen spread"))
+    _stale_row(screening_db, 62515, "Compressed Shining Ytterbite", buy=8600.0, sell=None)
+    _stale_row(screening_db, 62516, "Sin compra", buy=None, sell=9000.0)
+    _stale_row(screening_db, 62517, "Sin libro", buy=None, sell=None)
+    _stale_row(screening_db, 62518, "Sin histórico", buy=8000.0, sell=9000.0, with_history=False)
+
+    screen_opportunities(screening_db, str(tmp_path / "registro.xlsx"))
+
+    conn = get_connection(screening_db)
+    rows = {r["type_id"]: r for r in conn.execute("SELECT * FROM item_status WHERE type_id > 62000")}
+    history = conn.execute("SELECT type_id, previous_status, new_status, reason FROM item_status_history "
+                           "WHERE type_id > 62000 ORDER BY type_id").fetchall()
+    fresh = conn.execute("SELECT last_evaluated_at FROM item_status WHERE type_id = 34").fetchone()[0]
+    conn.close()
+
+    assert {t: r["status"] for t, r in rows.items()} == dict.fromkeys(rows, "DESCARTADO")
+    assert rows[62515]["reason"] == run.UNEVALUATED_REASONS["no_sell"]
+    assert rows[62516]["reason"] == run.UNEVALUATED_REASONS["no_buy"]
+    assert rows[62517]["reason"] == run.UNEVALUATED_REASONS["no_book"]
+    assert rows[62518]["reason"] == run.UNEVALUATED_REASONS["no_history"]
+    lost_sell = rows[62515]
+    assert (lost_sell["best_buy"], lost_sell["best_sell"], lost_sell["roi"], lost_sell["spread_bruto"]) == (8600.0, 0, 0, 0)
+    assert (lost_sell["buy_order_count"], lost_sell["sell_order_count"]) == (1, 0)
+    assert lost_sell["evaluacion_spread"] == run.NO_PRICE_SPREAD and lost_sell["liquidez"] == run.NO_DATA_LIQUIDITY
+    assert lost_sell["score"] is None and lost_sell["score_version"] is None
+    assert lost_sell["avg_daily_volume_7d"] == 40 and lost_sell["avg_daily_order_count_7d"] == 4
+    assert rows[62518]["avg_daily_volume_7d"] == 0          # sin histórico no hay actividad que conservar
+    assert all(r["last_evaluated_at"][:10] == fresh[:10] and r["last_evaluated_at"] > "2026-11" for r in rows.values())
+    assert [(h["type_id"], h["previous_status"], h["new_status"]) for h in history] == [
+        (t, "POTENCIAL", "DESCARTADO") for t in (62515, 62516, 62517, 62518)]
+    assert all(e.result.item == "Tritanium" for e in mocked_screening[0] if isinstance(e, NewOpportunity))
+
+
+def test_a_discarded_item_is_evaluated_again_when_its_orders_come_back(
+    tmp_path, screening_db, mocked_screening, monkeypatch,
+):
+    monkeypatch.setattr("scheduler.run.is_price_sane", lambda *a, **k: True)
+    monkeypatch.setattr("scheduler.run.classify", lambda *a, **k: ("POTENCIAL", "buen spread"))
+    _stale_row(screening_db, 62515, "Compressed Shining Ytterbite", buy=8600.0, sell=None)
+    excel = str(tmp_path / "registro.xlsx")
+    screen_opportunities(screening_db, excel)
+    screen_opportunities(screening_db, excel)        # sigue sin venta: no se repite el cambio en el historial
+
+    conn = get_connection(screening_db)
+    conn.execute("INSERT INTO market_snapshot (type_id, captured_at, best_buy, best_sell, buy_volume, sell_volume, "
+                 "buy_order_count, sell_order_count) VALUES (62515, datetime('now', '+1 minute'), 8600, 14000, 10, 10, 2, 3)")
+    conn.commit()
+    conn.close()
+    screen_opportunities(screening_db, excel)
+
+    conn = get_connection(screening_db)
+    row = conn.execute("SELECT * FROM item_status WHERE type_id = 62515").fetchone()
+    changes = conn.execute("SELECT previous_status, new_status FROM item_status_history WHERE type_id = 62515 "
+                           "ORDER BY rowid").fetchall()
+    conn.close()
+    assert row["status"] == "POTENCIAL" and row["best_sell"] == 14000 and row["score_version"] is not None
+    assert [(c["previous_status"], c["new_status"]) for c in changes] == [
+        ("POTENCIAL", "DESCARTADO"), ("DESCARTADO", "POTENCIAL")]
+
+
+def test_the_unevaluated_reasons_have_a_translation_key():
+    es = (Path(__file__).resolve().parents[1] / "frontend" / "app" / "src" / "i18n" / "es.ts").read_text(encoding="utf-8")
+    for text in [*run.UNEVALUATED_REASONS.values(), run.NO_PRICE_SPREAD, run.NO_DATA_LIQUIDITY]:
+        assert json.dumps(text, ensure_ascii=False) in es
