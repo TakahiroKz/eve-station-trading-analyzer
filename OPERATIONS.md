@@ -200,10 +200,16 @@ un ping externo no ve: la API responde pero los motores dejaron de correr. Chequ
 - el ciclo de mercado no dura demasiado: avisa si hay uno corriendo hace más de 4 min o si el último
   tardó más de 4 min (un ciclo de precios normal tarda unos 35 s; ver `MARKET_MAX_RUN_MIN`);
 - el histórico diario (`history_*.log`) se tocó hace menos de 36 h (`HISTORY_MAX_AGE_HOURS`);
-- a partir de las 17:00 UTC (`HISTORY_DATA_CHECK_HOUR`), cada mercado activo tiene en `market_history` el día
+- a partir de las 13:00 UTC (`HISTORY_DATA_CHECK_HOUR`), cada mercado activo tiene en `market_history` el día
   de ayer (el log se toca aunque la corrida falle, así que solo mirar el log no detecta un día perdido). Si un
   mercado acumula 2 días o más de retraso, el aviso escala con otro texto («histórico de mercado con 2 días o
-  más de retraso en: …»), que llega como aviso nuevo; al recuperarse llega el ✅ de siempre.
+  más de retraso en: …»), que llega como aviso nuevo; al recuperarse llega el ✅ de siempre;
+- una vez al día, desde las 14:00 UTC (`CLASSIFICATION_AUDIT_HOUR`), la auditoría de clasificación
+  (`scripts/audit_classification.py`, solo lectura, dentro del contenedor de la API): avisa si hay filas de
+  `item_status` que el último ciclo no evaluó o estados que contradicen sus datos. El resultado del día queda
+  en `.classification_audit.state` y el informe en `logs/classification_audit.json`; el aviso sigue hasta la
+  auditoría siguiente. A mano: `docker exec -i evemarket-api python - --wallet <ISK del log> <
+  scripts/audit_classification.py` (`--strict-raw` compara también con el recálculo desde los datos crudos).
 
 **Histórico diario con reintentos y reparación.** El cron lo lanza **cada hora, todo el día** (minuto 35).
 `--history-only` omite los mercados cuyo último día publicado ya está completo (`history_is_current`: la ESI

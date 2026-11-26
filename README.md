@@ -6,14 +6,21 @@ región `10000002`). Ingresa datos de mercado directamente desde la **ESI**
 volatilidad y spread por ítem, aplica las fórmulas de **EveCalculator** para
 evaluar oportunidades de compra-venta en estación, y clasifica cada ítem en:
 
-- **POTENCIAL** — spread, liquidez y actividad real de mercado (7 días) cumplen. Se
+- **POTENCIAL** — spread, liquidez y actividad real de mercado (7 días naturales) cumplen. Se
   registra automáticamente en Excel y dispara una alerta de Telegram.
 - **POTENCIAL_SIN_ORDENES** — spread y liquidez cumplen, pero el histórico de
   transacciones ejecutadas es demasiado bajo (poco volumen o pocas operaciones/día):
   no hay evidencia de flujo real de compradores. No se registra como oportunidad.
 - **EN_OBSERVACIÓN** — borderline, se necesita más historial.
-- **DESCARTADO** — spread en pérdida, liquidez inviable, o precio de snapshot
-  contaminado por una orden basura.
+- **DESCARTADO** — spread en pérdida, liquidez inviable, precio de snapshot
+  contaminado por una orden basura, o ítem que no se puede evaluar: le falta un lado del
+  libro (sin órdenes de compra o de venta) o no tuvo operaciones en los últimos 30 días.
+
+La actividad (volumen y operaciones por día) se mide en **días naturales** hasta el último día
+publicado por la ESI, con 0 en los días sin operaciones (`analytics/activity_window.py`); un ítem
+más nuevo que la ventana se divide entre los días que lleva existiendo. Ningún ítem conserva un
+estado viejo: todos se reevalúan en cada ciclo. `scripts/audit_classification.py` lo comprueba
+(auditoría independiente, solo lectura) y el vigilante la corre a diario.
 
 Dos motores separados, cada uno con su propia tarea programada de Windows: el de
 **mercado** corre cada 5 minutos en producción (órdenes + screening; el histórico diario de ESI va en un proceso aparte, una vez al día) y cada 4 horas en el modo local de Windows; el de **posiciones** corre cada
