@@ -165,7 +165,7 @@ export const de: Messages = {
   "reason.noBook": "Keine Orders im Orderbuch: Es gibt keine offenen Kauf- oder Verkaufsorders, um es zu bewerten.",
   "reason.noBuy": "Keine Kauforders im Orderbuch: Es gibt keinen Kaufpreis, um es zu bewerten.",
   "reason.noSell": "Keine Verkaufsorders im Orderbuch: Es gibt keinen Verkaufspreis, um es zu bewerten.",
-  "reason.noHistory": "Keine Abschlüsse im Verlauf: Die tatsächliche Aktivität lässt sich nicht messen.",
+  "reason.noHistory": "Keine Abschlüsse in den letzten 30 Tagen: Die tatsächliche Aktivität lässt sich nicht messen.",
 
   "rec.noTrade": "Den Trade zu diesen Preisen nicht ausführen: Der Spread deckt die Kosten nicht zuverlässig.",
   "rec.scale":

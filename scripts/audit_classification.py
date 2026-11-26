@@ -7,15 +7,16 @@ estado POTENCIAL / POTENCIAL_SIN_ORDENES / EN_OBSERVACION / DESCARTADO y las com
 - coherencia: el estado guardado es el que dictan las reglas con los insumos guardados (spread, liquidez,
   actividad de 7 días y ajustes de `app_settings`), y la banda de spread corresponde a los precios guardados;
 - congelados: filas que el último ciclo del mercado no volvió a evaluar (se muestran con un estado viejo);
-- datos crudos: el estado recalculado desde el último snapshot y el histórico, con la ventana de filas que usa
-  el motor y con una ventana de días naturales (ítems poco líquidos: 7 filas pueden abarcar semanas).
+- datos crudos: el estado recalculado desde el último snapshot y el histórico con la ventana de días naturales que
+  usa el motor (desde 2026-11-26), y cuántos estados cambiarían con la ventana antigua de "últimas 7/30 filas".
 
 Uso (en la VM, el script no va en la imagen):
     docker exec -i evemarket-api python - --wallet 226046089.85 < scripts/audit_classification.py
 
 `--wallet` es el ISK con el que el motor calculó la liquidez (línea "Wallet ISK" del log del scheduler); sin él
-se usa `volumen_deseado_fallback`. Sale con código 1 si hay incoherencias o filas congeladas; con `--strict-window`,
-también si algún estado cambiaría al medir la actividad en días naturales.
+se usa `volumen_deseado_fallback`. Sale con código 1 si hay incoherencias o filas congeladas; con `--strict-raw`,
+también si el estado guardado no coincide con el recalculado desde los datos crudos (puede haber unas pocas
+diferencias si un ciclo escribe precios nuevos mientras se audita).
 """
 import argparse
 import json
@@ -69,16 +70,18 @@ def median(values: list[float]) -> float:
 
 def raw_status(snap, rows: list, anchor: date, wallet: float | None, settings: dict, calendar: bool) -> str:
     """Estado desde los datos crudos. `calendar`: actividad sobre 7/30 días naturales hasta `anchor` (los días sin
-    fila cuentan 0); si no, sobre las últimas 7/30 filas, como hace hoy el motor."""
+    fila cuentan 0, y un ítem más nuevo que la ventana se divide entre los días que lleva); si no, sobre las últimas 7/30
+    filas (la ventana antigua del motor)."""
     last30 = rows[-30:]
     ref = median([r["avg_price"] for r in last30])
     sane = ref > 0 and snap["best_buy"] >= ref * settings["sanity_min_ratio"] \
         and snap["best_sell"] <= ref * settings["sanity_max_ratio"]
     if calendar:
         cut7, cut30 = (anchor - timedelta(days=6)).isoformat(), (anchor - timedelta(days=29)).isoformat()
-        vol30 = sum(r["volume"] for r in rows if r["date"] >= cut30) / 30
-        vol7 = sum(r["volume"] for r in rows if r["date"] >= cut7) / 7
-        ops7 = sum(r["order_count"] for r in rows if r["date"] >= cut7) / 7
+        lived = (anchor - date.fromisoformat(rows[0]["date"])).days + 1    # ítem más nuevo que la ventana
+        vol30 = sum(r["volume"] for r in rows if r["date"] >= cut30) / min(30, lived)
+        vol7 = sum(r["volume"] for r in rows if r["date"] >= cut7) / min(7, lived)
+        ops7 = sum(r["order_count"] for r in rows if r["date"] >= cut7) / min(7, lived)
     else:
         last7 = rows[-7:]
         vol30 = sum(r["volume"] for r in last30) / len(last30)
@@ -136,16 +139,14 @@ def audit_market(conn, market: str, settings: dict, wallet: float | None) -> dic
             found["liquidity_vs_capital"].append({"type_id": type_id, "stored": row["liquidez"], "expected": liquidity})
         if snap is None or not rows or not snap["best_buy"] or not snap["best_sell"] or anchor is None:
             continue
-        by_rows = raw_status(snap, rows, anchor, wallet, settings, calendar=False)
-        if by_rows != status:
-            found["raw_rows"].append({"type_id": type_id, "stored": status, "raw": by_rows})
-        span = (anchor - date.fromisoformat(rows[-7:][0]["date"])).days + 1
-        if span > 7:
-            found["window_stretched"].append({"type_id": type_id, "status": status, "days": span})
         by_calendar = raw_status(snap, rows, anchor, wallet, settings, calendar=True)
         if by_calendar != status:
-            found["calendar_change"].append({"type_id": type_id, "stored": status, "calendar": by_calendar,
-                                             "days": span})
+            found["raw_status"].append({"type_id": type_id, "stored": status, "raw": by_calendar})
+        span = (anchor - date.fromisoformat(rows[-7:][0]["date"])).days + 1
+        by_rows = raw_status(snap, rows, anchor, wallet, settings, calendar=False)
+        if by_rows != status:
+            found["old_row_window_change"].append({"type_id": type_id, "stored": status, "rows": by_rows,
+                                                   "days": span})
 
     issues = {}
     for key, items in found.items():
@@ -154,8 +155,9 @@ def audit_market(conn, market: str, settings: dict, wallet: float | None) -> dic
             entry["by_status"] = dict(Counter(i["status"] for i in items))
             entry["why"] = dict(Counter(i["why"] for i in items))
             entry["older_than_7d"] = sum(i["age_h"] >= 168 for i in items)
-        if key == "calendar_change":
-            entry["transitions"] = dict(Counter(f"{i['stored']}->{i['calendar']}" for i in items).most_common())
+        if key in ("raw_status", "old_row_window_change"):
+            other = "raw" if key == "raw_status" else "rows"
+            entry["transitions"] = dict(Counter(f"{i['stored']}->{i[other]}" for i in items).most_common())
         issues[key] = entry
     return {"counts": dict(counts), "latest_eval": latest_eval, "history_until": hist_max, "issues": issues}
 
@@ -171,8 +173,8 @@ def audit(db_path: str, wallet: float | None = None) -> dict:
         conn.close()
 
 
-def failures(report: dict, strict_window: bool = False) -> int:
-    keys = ["status_vs_inputs", "spread_band", "stale"] + (["calendar_change"] if strict_window else [])
+def failures(report: dict, strict_raw: bool = False) -> int:
+    keys = ["status_vs_inputs", "spread_band", "stale"] + (["raw_status"] if strict_raw else [])
     return sum(m["issues"].get(k, {}).get("n", 0) for m in report["markets"].values() for k in keys)
 
 
@@ -180,10 +182,10 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--db", default="storage/market.db")
     p.add_argument("--wallet", type=float, default=None, help="ISK usado por el motor para la liquidez")
-    p.add_argument("--strict-window", action="store_true", help="falla también si la ventana natural cambia estados")
+    p.add_argument("--strict-raw", action="store_true", help="falla también si el recálculo crudo da otro estado")
     args = p.parse_args(argv)
     report = audit(args.db, args.wallet)
-    bad = failures(report, args.strict_window)
+    bad = failures(report, args.strict_raw)
     report["failures"] = bad
     print(json.dumps(report, ensure_ascii=False, indent=1))
     return 1 if bad else 0

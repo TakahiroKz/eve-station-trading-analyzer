@@ -165,7 +165,7 @@ export const en = {
   "reason.noBook": "No orders in the book: there are no open buy or sell orders to evaluate it.",
   "reason.noBuy": "No buy orders in the book: there is no buy price to evaluate it.",
   "reason.noSell": "No sell orders in the book: there is no sell price to evaluate it.",
-  "reason.noHistory": "No trades in the history: its real activity cannot be measured.",
+  "reason.noHistory": "No trades in the last 30 days: its real activity cannot be measured.",
 
   "rec.noTrade": "Do not execute the trade at these prices: the spread does not consistently cover costs.",
   "rec.scale":

@@ -67,7 +67,7 @@ UNEVALUATED_BLURB = {
     UNEVALUATED_REASONS["no_book"]: "there are no open buy or sell orders to evaluate it.",
     UNEVALUATED_REASONS["no_buy"]: "there are no buy orders, so there is no buy price to evaluate it.",
     UNEVALUATED_REASONS["no_sell"]: "there are no sell orders, so there is no sell price to evaluate it.",
-    UNEVALUATED_REASONS["no_history"]: "there are no trades in its history, so its real activity cannot be measured.",
+    UNEVALUATED_REASONS["no_history"]: "there were no trades in the last 30 days, so its real activity cannot be measured.",
 }
 # The engines store these labels in Spanish; they are shown here in English.
 SPREAD_EN = {

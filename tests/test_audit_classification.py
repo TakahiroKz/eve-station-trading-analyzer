@@ -79,15 +79,28 @@ def test_a_row_the_last_cycle_did_not_evaluate_is_frozen(db):
     assert audit_mod.failures(report) == 1
 
 
-def test_seven_rows_spread_over_weeks_are_a_stretched_window(db):
+def test_a_status_computed_with_the_old_row_window_is_flagged_by_the_raw_check(db):
     add_item(db, 1, "POTENCIAL")
-    # 7 días con operaciones repartidos en 31 días: por filas 50 ops/día, por calendario 8/7 ops y 200 u/día (30 d)
+    # 7 días con operaciones repartidos en 31 días: por filas 4 ops/día y 1000 u/día; por calendario 8/7 ops/día y
+    # 200 u/día (30 d), que deja la liquidez en "Cuidado" -> EN_OBSERVACION.
     add_item(db, 2, "POTENCIAL", history_days=[0, 5, 10, 15, 20, 25, 30], ops=4, volume=1000, ops7=4.0)
     report = audit_mod.audit(db)
     issues = jita(report)
-    assert issues["window_stretched"]["sample"][0] == {"type_id": 2, "status": "POTENCIAL", "days": 31}
-    assert issues["calendar_change"]["transitions"] == {"POTENCIAL->EN_OBSERVACION": 1}
-    assert audit_mod.failures(report) == 0 and audit_mod.failures(report, strict_window=True) == 1
+    assert issues["raw_status"]["transitions"] == {"POTENCIAL->EN_OBSERVACION": 1}
+    assert "old_row_window_change" not in issues
+    assert audit_mod.failures(report) == 0 and audit_mod.failures(report, strict_raw=True) == 1
+
+
+def test_a_status_computed_with_calendar_days_passes_and_reports_what_the_old_window_said(db):
+    add_item(db, 1, "POTENCIAL")
+    add_item(db, 2, "EN_OBSERVACION", history_days=[0, 5, 10, 15, 20, 25, 30], ops=4, volume=1000,
+             ops7=8 / 7, vol7=2000 / 7, vol30=200.0, liquidity="Cuidado")
+    report = audit_mod.audit(db)
+    issues = jita(report)
+    assert "raw_status" not in issues and "status_vs_inputs" not in issues
+    assert issues["old_row_window_change"]["sample"][0] == {"type_id": 2, "stored": "EN_OBSERVACION",
+                                                            "rows": "POTENCIAL", "days": 31}
+    assert audit_mod.failures(report, strict_raw=True) == 0
 
 
 def test_the_rewritten_rules_match_the_engine(db):
